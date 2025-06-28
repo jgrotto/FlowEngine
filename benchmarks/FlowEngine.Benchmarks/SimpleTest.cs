@@ -1,5 +1,6 @@
 using FlowEngine.Benchmarks.DataStructures;
 using FlowEngine.Benchmarks.Ports;
+using FlowEngine.Benchmarks.Pipeline;
 
 namespace FlowEngine.Benchmarks;
 
@@ -17,6 +18,7 @@ public static class SimpleTest
         TestRowImplementations();
         TestPortImplementations();
         TestMemoryComponents();
+        TestPipelineComponents();
         
         Console.WriteLine("✅ All verification tests passed!");
     }
@@ -171,6 +173,36 @@ public static class SimpleTest
         simulator.ReleaseMemory(50);
         var releasedInfo = simulator.GetMemoryInfo();
         Console.WriteLine($"  ✓ After release: {releasedInfo.MemoryLoadPercent:F1}% ({releasedInfo.Level})");
+        
+        Console.WriteLine();
+    }
+
+    private static void TestPipelineComponents()
+    {
+        Console.WriteLine("🔄 Testing Pipeline components...");
+        
+        // Test CSV data generation
+        var csvSource = new MockCsvSource();
+        var employeeData = csvSource.GenerateEmployeeData(10).ToList();
+        Console.WriteLine($"  ✓ Generated {employeeData.Count} employee records");
+        
+        // Test transformation step
+        var transformStep = new EmployeeTransformStep();
+        var testRow = new DictionaryRow(employeeData.First());
+        var transformedRow = transformStep.ProcessEmployee(testRow);
+        Console.WriteLine($"  ✓ Employee transformation: {transformedRow["full_name"]} -> {transformedRow["salary_grade"]}");
+        
+        // Test aggregation step
+        var aggregationStep = new DepartmentAggregationStep();
+        var allRows = employeeData.Select(data => new DictionaryRow(data)).Cast<IRow>().ToList();
+        var aggregated = aggregationStep.AggregateByDepartment(allRows);
+        Console.WriteLine($"  ✓ Department aggregation: {aggregated["total_employees"]} total employees");
+        
+        // Test cross-platform paths
+        var pathHandler = new CrossPlatformPathBenchmarks();
+        pathHandler.Setup();
+        var paths = pathHandler.CrossPlatformPathHandling();
+        Console.WriteLine($"  ✓ Cross-platform path handling: processed {paths.Length} paths");
         
         Console.WriteLine();
     }

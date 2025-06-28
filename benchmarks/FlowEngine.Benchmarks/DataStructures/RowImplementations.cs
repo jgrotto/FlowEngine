@@ -4,9 +4,30 @@ using Microsoft.Extensions.ObjectPool;
 namespace FlowEngine.Benchmarks.DataStructures;
 
 /// <summary>
+/// Common interface for all Row implementations
+/// </summary>
+public interface IRow
+{
+    /// <summary>
+    /// Get value by column name
+    /// </summary>
+    object? this[string columnName] { get; }
+    
+    /// <summary>
+    /// Create a new row with the specified column value changed
+    /// </summary>
+    IRow With(string columnName, object? value);
+    
+    /// <summary>
+    /// Get all column names
+    /// </summary>
+    IReadOnlyCollection<string> ColumnNames { get; }
+}
+
+/// <summary>
 /// Option 1: Current Design (Dictionary-based) - Baseline
 /// </summary>
-public sealed class DictionaryRow : IEquatable<DictionaryRow>
+public sealed class DictionaryRow : IRow, IEquatable<DictionaryRow>
 {
     private readonly Dictionary<string, object?> _data;
     private readonly int _hashCode;
@@ -33,6 +54,8 @@ public sealed class DictionaryRow : IEquatable<DictionaryRow>
         };
         return new DictionaryRow(newData);
     }
+
+    IRow IRow.With(string columnName, object? value) => With(columnName, value);
 
     public DictionaryRow Without(string key)
     {
@@ -72,7 +95,7 @@ public sealed class DictionaryRow : IEquatable<DictionaryRow>
 /// <summary>
 /// Option 2: Immutable Dictionary with Structural Sharing
 /// </summary>
-public sealed class ImmutableRow : IEquatable<ImmutableRow>
+public sealed class ImmutableRow : IRow, IEquatable<ImmutableRow>
 {
     private readonly ImmutableDictionary<string, object?> _data;
     private readonly int _hashCode;
@@ -95,6 +118,8 @@ public sealed class ImmutableRow : IEquatable<ImmutableRow>
     {
         return new ImmutableRow(_data.SetItem(key, value));
     }
+
+    IRow IRow.With(string columnName, object? value) => With(columnName, value);
 
     public ImmutableRow Without(string key)
     {
@@ -128,7 +153,7 @@ public sealed class ImmutableRow : IEquatable<ImmutableRow>
 /// <summary>
 /// Option 3: Array-based with Schema (Fastest but requires fixed schema)
 /// </summary>
-public sealed class ArrayRow : IEquatable<ArrayRow>
+public sealed class ArrayRow : IRow, IEquatable<ArrayRow>
 {
     private readonly object?[] _values;
     private readonly Schema _schema;
@@ -161,6 +186,8 @@ public sealed class ArrayRow : IEquatable<ArrayRow>
             newValues[index] = value;
         return new ArrayRow(_schema, newValues);
     }
+
+    IRow IRow.With(string columnName, object? value) => With(columnName, value);
 
     public ArrayRow Without(string key)
     {
@@ -204,7 +231,7 @@ public sealed class ArrayRow : IEquatable<ArrayRow>
 /// Option 4: Pooled Mutable Row with Immutable Interface
 /// Note: This breaks true immutability for performance testing
 /// </summary>
-public sealed class PooledRow : IDisposable
+public sealed class PooledRow : IRow, IDisposable
 {
     private static readonly ObjectPool<PooledRow> Pool = 
         new DefaultObjectPoolProvider().Create(new PooledRowPolicy());
@@ -239,6 +266,8 @@ public sealed class PooledRow : IDisposable
         clone._data[key] = value;
         return clone;
     }
+
+    IRow IRow.With(string columnName, object? value) => With(columnName, value);
 
     public IReadOnlyCollection<string> ColumnNames => 
         _disposed ? Array.Empty<string>() : _data.Keys.ToList();

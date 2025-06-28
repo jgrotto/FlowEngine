@@ -7,6 +7,7 @@ using BenchmarkDotNet.Loggers;
 using FlowEngine.Benchmarks.DataStructures;
 using FlowEngine.Benchmarks.Ports;
 using FlowEngine.Benchmarks.Memory;
+using FlowEngine.Benchmarks.Pipeline;
 
 namespace FlowEngine.Benchmarks;
 
@@ -39,6 +40,9 @@ public class Program
             Console.WriteLine("  ports     - Port communication performance");
             Console.WriteLine("  memory    - Memory management performance");
             Console.WriteLine("  pipeline  - End-to-end pipeline performance");
+            Console.WriteLine("  streaming - Streaming pipeline performance");
+            Console.WriteLine("  memory-eff - Memory efficiency comparisons");
+            Console.WriteLine("  cross-platform - Cross-platform path handling");
             Console.WriteLine("  all       - Run all benchmarks");
             Console.WriteLine();
             Console.WriteLine("Usage: dotnet run -- <suite>");
@@ -71,7 +75,19 @@ public class Program
                 break;
                 
             case "pipeline":
-                Console.WriteLine("Pipeline benchmarks not yet implemented");
+                BenchmarkRunner.Run<EndToEndPipelineBenchmarks>(config);
+                break;
+
+            case "streaming":
+                BenchmarkRunner.Run<StreamingPipelineBenchmarks>(config);
+                break;
+
+            case "memory-eff":
+                BenchmarkRunner.Run<MemoryEfficiencyBenchmarks>(config);
+                break;
+
+            case "cross-platform":
+                BenchmarkRunner.Run<CrossPlatformPathBenchmarks>(config);
                 break;
                 
             case "all":
@@ -79,7 +95,10 @@ public class Program
                 BenchmarkRunner.Run<StreamingBenchmarks>(config);
                 BenchmarkRunner.Run<MemoryPressureBenchmarks>(config);
                 BenchmarkRunner.Run<PoolingBenchmarks>(config);
-                // Add other benchmark runs here as they're implemented
+                BenchmarkRunner.Run<EndToEndPipelineBenchmarks>(config);
+                BenchmarkRunner.Run<StreamingPipelineBenchmarks>(config);
+                BenchmarkRunner.Run<MemoryEfficiencyBenchmarks>(config);
+                BenchmarkRunner.Run<CrossPlatformPathBenchmarks>(config);
                 break;
                 
             default:
