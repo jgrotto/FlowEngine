@@ -33,6 +33,8 @@ public class Program
             Console.WriteLine("================================");
             Console.WriteLine();
             Console.WriteLine("Available benchmark suites:");
+            Console.WriteLine("  simple    - Simple functionality verification (no benchmarking)");
+            Console.WriteLine("  quick     - Quick verification tests (fast)");
             Console.WriteLine("  row       - Row implementation performance");
             Console.WriteLine("  ports     - Port communication performance");
             Console.WriteLine("  memory    - Memory management performance");
@@ -47,6 +49,14 @@ public class Program
         var suite = args[0].ToLowerInvariant();
         switch (suite)
         {
+            case "simple":
+                SimpleTest.RunAll();
+                break;
+                
+            case "quick":
+                BenchmarkRunner.Run<QuickVerificationTests>(config);
+                break;
+                
             case "row":
                 BenchmarkRunner.Run<RowBenchmarks>(config);
                 break;
