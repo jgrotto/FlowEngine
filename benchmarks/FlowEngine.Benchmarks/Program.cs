@@ -1,2 +1,80 @@
-﻿// See https://aka.ms/new-console-template for more information
-Console.WriteLine("Hello, World!");
+using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Environments;
+using BenchmarkDotNet.Exporters;
+using BenchmarkDotNet.Loggers;
+using FlowEngine.Benchmarks.DataStructures;
+using FlowEngine.Benchmarks.Ports;
+using FlowEngine.Benchmarks.Memory;
+
+namespace FlowEngine.Benchmarks;
+
+/// <summary>
+/// FlowEngine Performance Prototype Benchmark Runner
+/// 
+/// This application validates core design assumptions through focused performance testing.
+/// Goal: Provide data-driven decisions for production implementation.
+/// </summary>
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        var config = ManualConfig.Create(DefaultConfig.Instance)
+            .WithOptions(ConfigOptions.DisableOptimizationsValidator)
+            .AddJob(Job.Default)
+            .AddExporter(MarkdownExporter.GitHub)
+            .AddExporter(HtmlExporter.Default)
+            .AddLogger(ConsoleLogger.Default);
+
+        if (args.Length == 0)
+        {
+            Console.WriteLine("FlowEngine Performance Prototype");
+            Console.WriteLine("================================");
+            Console.WriteLine();
+            Console.WriteLine("Available benchmark suites:");
+            Console.WriteLine("  row       - Row implementation performance");
+            Console.WriteLine("  ports     - Port communication performance");
+            Console.WriteLine("  memory    - Memory management performance");
+            Console.WriteLine("  pipeline  - End-to-end pipeline performance");
+            Console.WriteLine("  all       - Run all benchmarks");
+            Console.WriteLine();
+            Console.WriteLine("Usage: dotnet run -- <suite>");
+            Console.WriteLine("Example: dotnet run -- row");
+            return;
+        }
+
+        var suite = args[0].ToLowerInvariant();
+        switch (suite)
+        {
+            case "row":
+                BenchmarkRunner.Run<RowBenchmarks>(config);
+                break;
+                
+            case "ports":
+                BenchmarkRunner.Run<StreamingBenchmarks>(config);
+                break;
+                
+            case "memory":
+                BenchmarkRunner.Run<MemoryPressureBenchmarks>(config);
+                BenchmarkRunner.Run<PoolingBenchmarks>(config);
+                break;
+                
+            case "pipeline":
+                Console.WriteLine("Pipeline benchmarks not yet implemented");
+                break;
+                
+            case "all":
+                BenchmarkRunner.Run<RowBenchmarks>(config);
+                BenchmarkRunner.Run<StreamingBenchmarks>(config);
+                BenchmarkRunner.Run<MemoryPressureBenchmarks>(config);
+                BenchmarkRunner.Run<PoolingBenchmarks>(config);
+                // Add other benchmark runs here as they're implemented
+                break;
+                
+            default:
+                Console.WriteLine($"Unknown benchmark suite: {suite}");
+                break;
+        }
+    }
+}
