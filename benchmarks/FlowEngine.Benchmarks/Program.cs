@@ -43,6 +43,8 @@ public class Program
             Console.WriteLine("  streaming - Streaming pipeline performance");
             Console.WriteLine("  memory-eff - Memory efficiency comparisons");
             Console.WriteLine("  cross-platform - Cross-platform path handling");
+            Console.WriteLine("  scaling   - Staged scaling tests (10K → 100K → 1M)");
+            Console.WriteLine("  chunked   - Chunked processing benchmarks");
             Console.WriteLine("  all       - Run all benchmarks");
             Console.WriteLine();
             Console.WriteLine("Usage: dotnet run -- <suite>");
@@ -88,6 +90,17 @@ public class Program
 
             case "cross-platform":
                 BenchmarkRunner.Run<CrossPlatformPathBenchmarks>(config);
+                break;
+
+            case "scaling":
+                Console.WriteLine("=== FlowEngine Staged Scaling Analysis ===");
+                PerformanceAnalyzer.AnalyzeScalingResults();
+                PerformanceAnalyzer.PrintDecisionMatrix();
+                BenchmarkRunner.Run<StagedScalingBenchmarks>(config);
+                break;
+
+            case "chunked":
+                BenchmarkRunner.Run<ChunkedProcessingBenchmarks>(config);
                 break;
                 
             case "all":
