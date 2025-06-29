@@ -11,7 +11,10 @@
       "Bash(git add:*)",
       "Bash(git reset:*)",
       "Bash(git config:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(rg:*)",
+      "Bash(dotnet.exe test tests/FlowEngine.Integration.Tests/ --filter \"ExecutePipeline_WithExamplePlugins_ShouldCompleteSuccessfully\" --configuration Release --verbosity normal)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   }

@@ -1,0 +1,33 @@
+pipeline:
+  name: "Simple Test Pipeline"
+  version: "1.0.0"
+  description: "Simple source to sink pipeline without transform"
+  
+  plugins:
+    - name: "DataSource"
+      type: "FlowEngine.Core.Plugins.Examples.DataGeneratorPlugin"
+      assembly: "FlowEngine.Core.dll"
+      config:
+        rowCount: 5
+        batchSize: 5
+        delayMs: 50
+        
+    - name: "ConsoleOutput"
+      type: "FlowEngine.Core.Plugins.Examples.ConsoleOutputPlugin"
+      assembly: "FlowEngine.Core.dll"
+      config:
+        showHeaders: true
+        showRowNumbers: true
+        maxRows: 10
+        showSummary: true
+  
+  connections:
+    - from: "DataSource"
+      to: "ConsoleOutput"
+
+  settings:
+    defaultChannel:
+      bufferSize: 100
+      backpressureThreshold: 80
+      fullMode: "Wait"
+      timeoutSeconds: 10

@@ -19,7 +19,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
     private readonly IDagAnalyzer _dagAnalyzer;
     private readonly ConcurrentDictionary<string, IPlugin> _loadedPlugins = new();
     private readonly ConcurrentDictionary<string, IDataChannel<IChunk>> _channels = new();
-    private readonly ConcurrentDictionary<string, PluginExecutionMetrics> _pluginMetrics = new();
+    private readonly ConcurrentDictionary<string, MutablePluginMetrics> _pluginMetrics = new();
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly object _statusLock = new();
 
@@ -116,6 +116,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
             // Load and initialize plugins
             await LoadPluginsAsync(configuration, linkedToken);
 
+            // Set up schemas for all plugins
+            await SetupSchemasAsync(configuration, validation.ExecutionOrder, linkedToken);
+
             // Create channels
             await CreateChannelsAsync(configuration, linkedToken);
 
@@ -150,7 +153,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
                 TotalRowsProcessed = GetTotalRowsProcessed(),
                 TotalChunksProcessed = GetTotalChunksProcessed(),
                 FinalStatus = PipelineExecutionStatus.Cancelled,
-                PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+                PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToImmutable())
             };
         }
         catch (Exception ex)
@@ -337,7 +340,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
             _loadedPlugins[pluginConfig.Name] = plugin;
 
             // Initialize plugin metrics
-            _pluginMetrics[pluginConfig.Name] = new PluginExecutionMetrics
+            _pluginMetrics[pluginConfig.Name] = new MutablePluginMetrics
             {
                 PluginName = pluginConfig.Name
             };
@@ -364,6 +367,82 @@ public sealed class PipelineExecutor : IPipelineExecutor
         await Task.CompletedTask;
     }
 
+    private async Task SetupSchemasAsync(IPipelineConfiguration configuration, IReadOnlyList<string> executionOrder, CancellationToken cancellationToken)
+    {
+        var schemaMap = new Dictionary<string, ISchema>();
+        
+        // Process plugins in execution order to propagate schemas
+        foreach (var pluginName in executionOrder)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            if (!_loadedPlugins.TryGetValue(pluginName, out var plugin))
+                continue;
+                
+            switch (plugin)
+            {
+                case ISourcePlugin sourcePlugin:
+                    // Source plugins define their output schema
+                    if (sourcePlugin.OutputSchema != null)
+                    {
+                        schemaMap[pluginName] = sourcePlugin.OutputSchema;
+                    }
+                    break;
+                    
+                case ITransformPlugin transformPlugin:
+                    // Transform plugins need input schema and define output schema
+                    var inputSchema = GetInputSchemaForPlugin(pluginName, configuration, schemaMap);
+                    if (inputSchema != null)
+                    {
+                        // Validate input schema
+                        var validationResult = transformPlugin.ValidateInputSchema(inputSchema);
+                        if (!validationResult.IsValid)
+                        {
+                            throw new PipelineExecutionException($"Schema validation failed for transform plugin '{pluginName}': {string.Join(", ", validationResult.Errors)}");
+                        }
+                        
+                        // Set schema if plugin supports it
+                        if (transformPlugin is ISchemaAwarePlugin schemaAware)
+                        {
+                            await schemaAware.SetSchemaAsync(inputSchema);
+                        }
+                        
+                        // Record output schema
+                        if (transformPlugin.OutputSchema != null)
+                        {
+                            schemaMap[pluginName] = transformPlugin.OutputSchema;
+                        }
+                    }
+                    break;
+                    
+                case ISinkPlugin sinkPlugin:
+                    // Sink plugins need input schema
+                    var sinkInputSchema = GetInputSchemaForPlugin(pluginName, configuration, schemaMap);
+                    if (sinkInputSchema != null)
+                    {
+                        var validationResult = sinkPlugin.ValidateInputSchema(sinkInputSchema);
+                        if (!validationResult.IsValid)
+                        {
+                            throw new PipelineExecutionException($"Schema validation failed for sink plugin '{pluginName}': {string.Join(", ", validationResult.Errors)}");
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+    
+    private ISchema? GetInputSchemaForPlugin(string pluginName, IPipelineConfiguration configuration, Dictionary<string, ISchema> schemaMap)
+    {
+        // Find the connection that provides input to this plugin
+        var inputConnection = configuration.Connections.FirstOrDefault(c => c.To == pluginName);
+        if (inputConnection != null && schemaMap.TryGetValue(inputConnection.From, out var inputSchema))
+        {
+            return inputSchema;
+        }
+        
+        return null;
+    }
+
     private async Task<PipelineExecutionResult> ExecutePipelineAsync(IReadOnlyList<string> executionOrder, CancellationToken cancellationToken)
     {
         var errors = new List<PipelineError>();
@@ -372,13 +451,15 @@ public sealed class PipelineExecutor : IPipelineExecutor
 
         try
         {
-            // Start all plugins in execution order
-            var pluginTasks = new List<Task>();
+            // Execute plugins in dependency order
+            // Sources first, then transforms, then sinks
+            var sourcePlugins = new List<(string name, IPlugin plugin)>();
+            var transformPlugins = new List<(string name, IPlugin plugin)>();
+            var sinkPlugins = new List<(string name, IPlugin plugin)>();
 
+            // Categorize plugins
             foreach (var pluginName in executionOrder)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 if (!_loadedPlugins.TryGetValue(pluginName, out var plugin))
                 {
                     errors.Add(new PipelineError
@@ -390,12 +471,43 @@ public sealed class PipelineExecutor : IPipelineExecutor
                     continue;
                 }
 
-                var task = ExecutePluginAsync(plugin, pluginName, cancellationToken);
-                pluginTasks.Add(task);
+                switch (plugin)
+                {
+                    case ISourcePlugin:
+                        sourcePlugins.Add((pluginName, plugin));
+                        break;
+                    case ITransformPlugin:
+                        transformPlugins.Add((pluginName, plugin));
+                        break;
+                    case ISinkPlugin:
+                        sinkPlugins.Add((pluginName, plugin));
+                        break;
+                }
+            }
+
+            // Start all plugins concurrently but coordinate their execution
+            var allTasks = new List<Task>();
+            
+            // Start sink plugins first (they'll wait for data)
+            foreach (var (name, plugin) in sinkPlugins)
+            {
+                allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
+            }
+            
+            // Start transform plugins (they'll wait for input and provide output)
+            foreach (var (name, plugin) in transformPlugins)
+            {
+                allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
+            }
+            
+            // Start source plugins last (they'll produce data)
+            foreach (var (name, plugin) in sourcePlugins)
+            {
+                allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
             }
 
             // Wait for all plugins to complete
-            await Task.WhenAll(pluginTasks);
+            await Task.WhenAll(allTasks);
 
             // Calculate totals
             totalRowsProcessed = _pluginMetrics.Values.Sum(m => m.RowsProcessed);
@@ -408,7 +520,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
                 TotalRowsProcessed = totalRowsProcessed,
                 TotalChunksProcessed = totalChunksProcessed,
                 Errors = errors,
-                PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+                PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToImmutable()),
                 FinalStatus = errors.Count == 0 ? PipelineExecutionStatus.Completed : PipelineExecutionStatus.Failed
             };
         }
@@ -429,8 +541,6 @@ public sealed class PipelineExecutor : IPipelineExecutor
     private async Task ExecutePluginAsync(IPlugin plugin, string pluginName, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
-        var chunksProcessed = 0L;
-        var rowsProcessed = 0L;
         var errorCount = 0;
 
         try
@@ -483,34 +593,108 @@ public sealed class PipelineExecutor : IPipelineExecutor
         {
             stopwatch.Stop();
 
-            // Update plugin metrics
-            _pluginMetrics[pluginName] = new PluginExecutionMetrics
-            {
-                PluginName = pluginName,
-                ExecutionTime = stopwatch.Elapsed,
-                ChunksProcessed = chunksProcessed,
-                RowsProcessed = rowsProcessed,
-                ErrorCount = errorCount
-            };
+            // Update plugin metrics - metrics are already updated in the specific execution methods
+            // No need to overwrite here since we track metrics during execution
         }
     }
 
     private async Task ExecuteSourcePluginAsync(ISourcePlugin sourcePlugin, string pluginName, CancellationToken cancellationToken)
     {
-        // Placeholder implementation for source plugin execution
-        await Task.Delay(100, cancellationToken); // Simulate work
+        var metrics = _pluginMetrics[pluginName];
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Find output channels for this source plugin
+            var outputChannels = GetOutputChannelsForPlugin(pluginName);
+            
+            // Execute source plugin and send data to output channels
+            await foreach (var chunk in sourcePlugin.ProduceAsync(cancellationToken))
+            {
+                metrics.ChunksProcessed++;
+                metrics.RowsProcessed += chunk.RowCount;
+
+                // Send chunk to all output channels
+                foreach (var channel in outputChannels)
+                {
+                    await channel.WriteAsync(chunk, cancellationToken);
+                }
+            }
+
+            // Signal completion to output channels
+            foreach (var channel in outputChannels)
+            {
+                channel.Complete();
+            }
+        }
+        finally
+        {
+            stopwatch.Stop();
+            metrics.ExecutionTime = stopwatch.Elapsed;
+        }
     }
 
     private async Task ExecuteTransformPluginAsync(ITransformPlugin transformPlugin, string pluginName, CancellationToken cancellationToken)
     {
-        // Placeholder implementation for transform plugin execution
-        await Task.Delay(100, cancellationToken); // Simulate work
+        var metrics = _pluginMetrics[pluginName];
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Get input and output channels
+            var inputChannels = GetInputChannelsForPlugin(pluginName);
+            var outputChannels = GetOutputChannelsForPlugin(pluginName);
+
+            // Merge input from all input channels
+            var inputChunks = MergeInputChannels(inputChannels, cancellationToken);
+
+            // Transform data and send to output channels
+            await foreach (var outputChunk in transformPlugin.TransformAsync(inputChunks, cancellationToken))
+            {
+                metrics.ChunksProcessed++;
+                metrics.RowsProcessed += outputChunk.RowCount;
+
+                // Send to all output channels
+                foreach (var channel in outputChannels)
+                {
+                    await channel.WriteAsync(outputChunk, cancellationToken);
+                }
+            }
+
+            // Signal completion to output channels
+            foreach (var channel in outputChannels)
+            {
+                channel.Complete();
+            }
+        }
+        finally
+        {
+            stopwatch.Stop();
+            metrics.ExecutionTime = stopwatch.Elapsed;
+        }
     }
 
     private async Task ExecuteSinkPluginAsync(ISinkPlugin sinkPlugin, string pluginName, CancellationToken cancellationToken)
     {
-        // Placeholder implementation for sink plugin execution
-        await Task.Delay(100, cancellationToken); // Simulate work
+        var metrics = _pluginMetrics[pluginName];
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Get input channels
+            var inputChannels = GetInputChannelsForPlugin(pluginName);
+
+            // Create async enumerable that tracks metrics while consuming
+            var trackingInputChunks = TrackingAsyncEnumerable(MergeInputChannels(inputChannels, cancellationToken), metrics);
+
+            // Consume data
+            await sinkPlugin.ConsumeAsync(trackingInputChunks, cancellationToken);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            metrics.ExecutionTime = stopwatch.Elapsed;
+        }
     }
 
     private Task<IReadOnlyList<SchemaFlowStep>> AnalyzeSchemaFlowAsync(IPipelineConfiguration configuration, IReadOnlyList<string> executionOrder)
@@ -544,7 +728,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
             TotalRowsProcessed = GetTotalRowsProcessed(),
             TotalChunksProcessed = GetTotalChunksProcessed(),
             Errors = errors,
-            PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+            PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToImmutable()),
             FinalStatus = PipelineExecutionStatus.Failed
         };
     }
@@ -557,7 +741,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
             TotalRowsProcessed = GetTotalRowsProcessed(),
             TotalChunksProcessed = GetTotalChunksProcessed(),
             ErrorCount = _pluginMetrics.Values.Sum(m => m.ErrorCount),
-            PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+            PluginMetrics = _pluginMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToImmutable()),
             ChannelMetrics = new Dictionary<string, ChannelExecutionMetrics>() // Placeholder
         };
     }
@@ -642,6 +826,84 @@ public sealed class PipelineExecutor : IPipelineExecutor
         if (_disposed)
             throw new ObjectDisposedException(nameof(PipelineExecutor));
     }
+
+    private IList<IDataChannel<IChunk>> GetOutputChannelsForPlugin(string pluginName)
+    {
+        var outputChannels = new List<IDataChannel<IChunk>>();
+        
+        foreach (var kvp in _channels)
+        {
+            var channelId = kvp.Key;
+            var channel = kvp.Value;
+            
+            // Channel ID format is "FromPlugin→ToPlugin"
+            if (channelId.StartsWith($"{pluginName}→"))
+            {
+                outputChannels.Add(channel);
+            }
+        }
+        
+        return outputChannels;
+    }
+
+    private IList<IDataChannel<IChunk>> GetInputChannelsForPlugin(string pluginName)
+    {
+        var inputChannels = new List<IDataChannel<IChunk>>();
+        
+        foreach (var kvp in _channels)
+        {
+            var channelId = kvp.Key;
+            var channel = kvp.Value;
+            
+            // Channel ID format is "FromPlugin→ToPlugin"
+            if (channelId.EndsWith($"→{pluginName}"))
+            {
+                inputChannels.Add(channel);
+            }
+        }
+        
+        return inputChannels;
+    }
+
+    private async IAsyncEnumerable<IChunk> MergeInputChannels(IList<IDataChannel<IChunk>> inputChannels, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        if (inputChannels.Count == 0)
+        {
+            yield break;
+        }
+        
+        if (inputChannels.Count == 1)
+        {
+            // Single input channel - direct enumeration
+            await foreach (var chunk in inputChannels[0].ReadAllAsync(cancellationToken))
+            {
+                yield return chunk;
+            }
+        }
+        else
+        {
+            // Multiple input channels - merge them
+            // For simplicity, we'll read from channels sequentially
+            // A more advanced implementation could interleave chunks
+            foreach (var channel in inputChannels)
+            {
+                await foreach (var chunk in channel.ReadAllAsync(cancellationToken))
+                {
+                    yield return chunk;
+                }
+            }
+        }
+    }
+
+    private async IAsyncEnumerable<IChunk> TrackingAsyncEnumerable(IAsyncEnumerable<IChunk> source, MutablePluginMetrics metrics, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var chunk in source.WithCancellation(cancellationToken))
+        {
+            metrics.ChunksProcessed++;
+            metrics.RowsProcessed += chunk.RowCount;
+            yield return chunk;
+        }
+    }
 }
 
 /// <summary>
@@ -653,4 +915,30 @@ internal sealed class DefaultChannelConfiguration : IChannelConfiguration
     public int BackpressureThreshold => 80;
     public ChannelFullMode FullMode => ChannelFullMode.Wait;
     public TimeSpan Timeout => TimeSpan.FromSeconds(30);
+}
+
+/// <summary>
+/// Mutable metrics tracking for plugin execution.
+/// </summary>
+internal sealed class MutablePluginMetrics
+{
+    public string PluginName { get; set; } = string.Empty;
+    public TimeSpan ExecutionTime { get; set; }
+    public long ChunksProcessed { get; set; }
+    public long RowsProcessed { get; set; }
+    public long MemoryUsage { get; set; }
+    public int ErrorCount { get; set; }
+
+    public PluginExecutionMetrics ToImmutable()
+    {
+        return new PluginExecutionMetrics
+        {
+            PluginName = PluginName,
+            ExecutionTime = ExecutionTime,
+            ChunksProcessed = ChunksProcessed,
+            RowsProcessed = RowsProcessed,
+            MemoryUsage = MemoryUsage,
+            ErrorCount = ErrorCount
+        };
+    }
 }
