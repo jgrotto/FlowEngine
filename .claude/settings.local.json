@@ -4,7 +4,14 @@
       "Bash(mkdir:*)",
       "Bash(dotnet.exe new:*)",
       "Bash(dotnet.exe add package:*)",
-      "Bash(dotnet.exe add:*)"
+      "Bash(dotnet.exe add:*)",
+      "Bash(dotnet.exe build:*)",
+      "Bash(dotnet.exe run:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git config:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
