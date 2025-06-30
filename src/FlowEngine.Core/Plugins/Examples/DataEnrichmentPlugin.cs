@@ -185,7 +185,7 @@ public sealed class DataEnrichmentPlugin : ITransformPlugin, IConfigurablePlugin
     }
 
     /// <inheritdoc />
-    public async Task SetSchemaAsync(ISchema schema)
+    public async Task SetSchemaAsync(ISchema schema, CancellationToken cancellationToken = default)
     {
         _inputSchema = schema ?? throw new ArgumentNullException(nameof(schema));
 

@@ -404,7 +404,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
                         // Set schema if plugin supports it
                         if (transformPlugin is ISchemaAwarePlugin schemaAware)
                         {
-                            await schemaAware.SetSchemaAsync(inputSchema);
+                            await schemaAware.SetSchemaAsync(inputSchema, cancellationToken);
                         }
                         
                         // Record output schema

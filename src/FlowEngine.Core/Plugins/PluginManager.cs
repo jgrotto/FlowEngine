@@ -391,10 +391,18 @@ public sealed class PluginManager : IPluginManager
             return isolation;
         }
 
-        // Use isolated by default for external assemblies
-        return !string.IsNullOrWhiteSpace(configuration.Assembly) 
-            ? PluginIsolationLevel.Isolated 
-            : PluginIsolationLevel.Shared;
+        // Check if this is a built-in plugin (same assembly as engine)
+        if (!string.IsNullOrWhiteSpace(configuration.Assembly))
+        {
+            var assemblyName = Path.GetFileName(configuration.Assembly);
+            if (assemblyName.Equals("FlowEngine.Core.dll", StringComparison.OrdinalIgnoreCase))
+            {
+                return PluginIsolationLevel.Shared; // Built-in plugins use shared context
+            }
+            return PluginIsolationLevel.Isolated; // External assemblies use isolation
+        }
+        
+        return PluginIsolationLevel.Shared; // Default to shared
     }
 
     private async Task<IPlugin> LoadPluginByTypeAsync(string assemblyPath, string typeName, PluginIsolationLevel isolationLevel)
@@ -541,18 +549,6 @@ public interface IConfigurablePlugin
     Task ConfigureAsync(IReadOnlyDictionary<string, object> config);
 }
 
-/// <summary>
-/// Interface for plugins that are schema-aware.
-/// </summary>
-public interface ISchemaAwarePlugin
-{
-    /// <summary>
-    /// Sets the schema for this plugin.
-    /// </summary>
-    /// <param name="schema">Schema to apply</param>
-    /// <returns>Task that completes when schema is applied</returns>
-    Task SetSchemaAsync(ISchema schema);
-}
 
 /// <summary>
 /// Interface for plugins that support resource limits.
