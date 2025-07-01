@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions;
+using FlowEngine.Abstractions.Data;
 using FlowEngine.Core.Data;
 using Xunit;
 

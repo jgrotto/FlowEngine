@@ -1,4 +1,4 @@
-namespace FlowEngine.Abstractions;
+namespace FlowEngine.Abstractions.Data;
 
 /// <summary>
 /// Represents a memory-efficient batch of rows for high-throughput streaming processing.

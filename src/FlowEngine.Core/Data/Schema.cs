@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Text;
 using FlowEngine.Abstractions;
+using FlowEngine.Abstractions.Data;
 
 namespace FlowEngine.Core.Data;
 

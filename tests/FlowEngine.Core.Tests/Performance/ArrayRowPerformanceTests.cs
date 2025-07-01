@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using FlowEngine.Abstractions;
+using FlowEngine.Abstractions.Data;
 using FlowEngine.Core.Data;
 using Xunit;
 using Xunit.Abstractions;

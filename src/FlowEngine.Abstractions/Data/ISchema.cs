@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace FlowEngine.Abstractions;
+namespace FlowEngine.Abstractions.Data;
 
 /// <summary>
 /// Defines the structure and metadata for data rows with O(1) field access.

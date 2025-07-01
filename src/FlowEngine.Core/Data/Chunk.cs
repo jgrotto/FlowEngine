@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions;
+using FlowEngine.Abstractions.Data;
 
 namespace FlowEngine.Core.Data;
 

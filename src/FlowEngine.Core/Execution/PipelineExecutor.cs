@@ -1,6 +1,7 @@
 using FlowEngine.Abstractions;
 using FlowEngine.Abstractions.Channels;
 using FlowEngine.Abstractions.Configuration;
+using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Execution;
 using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Core.Channels;

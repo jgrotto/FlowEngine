@@ -1,4 +1,4 @@
-namespace FlowEngine.Abstractions;
+namespace FlowEngine.Abstractions.Data;
 
 /// <summary>
 /// Represents an immutable data row with schema-aware, high-performance field access.
