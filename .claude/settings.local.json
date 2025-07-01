@@ -16,7 +16,8 @@
       "Bash(dotnet.exe test tests/FlowEngine.Integration.Tests/ --filter \"ExecutePipeline_WithExamplePlugins_ShouldCompleteSuccessfully\" --configuration Release --verbosity normal)",
       "Bash(timeout:*)",
       "Bash(dotnet.exe test tests/FlowEngine.Core.Tests/ --filter \"Phase2IntegrationTests.SourceToSink_BasicPipeline_ShouldExecuteSuccessfully\" -v normal)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(dotnet build:*)"
     ],
     "deny": []
   }
