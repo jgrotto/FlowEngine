@@ -47,7 +47,7 @@ public sealed class DelimitedSourceConfiguration : IPluginConfiguration
     /// Gets the output data schema definition.
     /// Inferred from file headers or explicitly configured.
     /// </summary>
-    [ArrayRowSchema("Output schema definition inferred from file or explicitly configured", requiresSequentialIndexes: true)]
+    [ArrayRowSchema("Output schema definition inferred from file or explicitly configured")]
     public ISchema? OutputSchema { get; init; }
 
     /// <summary>
@@ -66,7 +66,7 @@ public sealed class DelimitedSourceConfiguration : IPluginConfiguration
     /// <summary>
     /// Gets the delimiter character used to separate fields.
     /// </summary>
-    [JsonSchema(Type = "string", Description = "Character used to separate fields", MinLength = 1, MaxLength = 5, Required = true)]
+    [JsonSchema(Type = "string", Description = "Character used to separate fields", Required = true)]
     public string Delimiter { get; init; } = ",";
 
     /// <summary>
@@ -93,15 +93,13 @@ public sealed class DelimitedSourceConfiguration : IPluginConfiguration
     /// Gets the batch size for reading chunks of data.
     /// Optimized for memory usage and performance.
     /// </summary>
-    [PerformanceSchema("Number of rows to read in each batch", recommendedMin: 1000, recommendedMax: 50000,
-        performanceNote: "Larger batches improve I/O efficiency but increase memory usage")]
+    [PerformanceSchema("Number of rows to read in each batch")]
     public int BatchSize { get; init; } = 10000;
 
     /// <summary>
     /// Gets the buffer size for file reading operations.
     /// </summary>
-    [PerformanceSchema("File reading buffer size in bytes", recommendedMin: 4096, recommendedMax: 65536,
-        performanceNote: "Larger buffers improve I/O performance for large files")]
+    [PerformanceSchema("File reading buffer size in bytes")]
     public int BufferSize { get; init; } = 8192;
 
     /// <summary>

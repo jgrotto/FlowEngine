@@ -349,7 +349,7 @@ public sealed class JavaScriptTransformPlugin : IPlugin
     /// Gets the plugin validator for configuration validation.
     /// </summary>
     /// <returns>Plugin validator instance</returns>
-    public IPluginValidator GetValidator()
+    public IPluginValidator<IPluginConfiguration> GetValidator()
     {
         return _validator ?? new JavaScriptTransformValidator(_serviceProvider.GetRequiredService<ILogger<JavaScriptTransformValidator>>());
     }
@@ -483,42 +483,4 @@ public sealed class JavaScriptTransformPlugin : IPlugin
     {
         DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
-}
-
-/// <summary>
-/// Factory for creating JavaScriptTransformPlugin instances.
-/// Used by the plugin loading system for dependency injection.
-/// </summary>
-public sealed class JavaScriptTransformPluginFactory : IPluginFactory
-{
-    private readonly IServiceProvider _serviceProvider;
-
-    /// <summary>
-    /// Initializes a new instance of the JavaScriptTransformPluginFactory class.
-    /// </summary>
-    /// <param name="serviceProvider">Service provider for dependency injection</param>
-    public JavaScriptTransformPluginFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-    }
-
-    /// <summary>
-    /// Creates a new plugin instance.
-    /// </summary>
-    /// <returns>Plugin instance</returns>
-    public IPlugin CreatePlugin()
-    {
-        var logger = _serviceProvider.GetRequiredService<ILogger<JavaScriptTransformPlugin>>();
-        return new JavaScriptTransformPlugin(_serviceProvider, logger);
-    }
-
-    /// <summary>
-    /// Gets the plugin type supported by this factory.
-    /// </summary>
-    public Type PluginType => typeof(JavaScriptTransformPlugin);
-
-    /// <summary>
-    /// Gets the plugin identifier.
-    /// </summary>
-    public string PluginId => "javascript-transform";
 }

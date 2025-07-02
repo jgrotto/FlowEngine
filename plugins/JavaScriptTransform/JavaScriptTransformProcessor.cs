@@ -15,10 +15,14 @@ public sealed class JavaScriptTransformProcessor : IPluginProcessor
     private readonly JavaScriptTransformConfiguration _configuration;
     private readonly ILogger<JavaScriptTransformProcessor> _logger;
 
-    // Performance tracking
+    // State and performance tracking
+    private ProcessorState _state = ProcessorState.Created;
     private long _totalProcessedRows;
     private long _totalProcessingTimeMs;
+    private long _totalChunksProcessed;
+    private long _errorCount;
     private readonly object _metricsLock = new();
+    private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the JavaScriptTransformProcessor class.
@@ -34,6 +38,84 @@ public sealed class JavaScriptTransformProcessor : IPluginProcessor
         _service = service ?? throw new ArgumentNullException(nameof(service));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <summary>
+    /// Gets the current processor state.
+    /// </summary>
+    public ProcessorState State => _state;
+
+    /// <summary>
+    /// Gets whether this processor is compatible with the specified service.
+    /// </summary>
+    public bool IsServiceCompatible(IPluginService service)
+    {
+        return service is JavaScriptTransformService;
+    }
+
+    /// <summary>
+    /// Initializes the processor with channel setup and validation.
+    /// </summary>
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Initializing JavaScriptTransformProcessor");
+        _state = ProcessorState.Initializing;
+        
+        // Initialize the service
+        await _service.InitializeAsync(cancellationToken);
+        
+        _state = ProcessorState.Initialized;
+        _logger.LogDebug("JavaScriptTransformProcessor initialized successfully");
+    }
+
+    /// <summary>
+    /// Starts the processor and begins data processing operations.
+    /// </summary>
+    public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        if (_state != ProcessorState.Initialized)
+            throw new InvalidOperationException($"Processor must be initialized before starting. Current state: {_state}");
+
+        _logger.LogDebug("Starting JavaScriptTransformProcessor");
+        _state = ProcessorState.Starting;
+        
+        await _service.StartAsync(cancellationToken);
+        
+        _state = ProcessorState.Running;
+        _logger.LogDebug("JavaScriptTransformProcessor started successfully");
+    }
+
+    /// <summary>
+    /// Stops the processor and suspends processing operations.
+    /// </summary>
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        if (_state != ProcessorState.Running)
+            return;
+
+        _logger.LogDebug("Stopping JavaScriptTransformProcessor");
+        _state = ProcessorState.Stopping;
+        
+        await _service.StopAsync(cancellationToken);
+        
+        _state = ProcessorState.Stopped;
+        _logger.LogDebug("JavaScriptTransformProcessor stopped successfully");
+    }
+
+    /// <summary>
+    /// Updates the processor configuration with hot-swapping support.
+    /// </summary>
+    public async Task UpdateConfigurationAsync(IPluginConfiguration newConfiguration, CancellationToken cancellationToken = default)
+    {
+        if (newConfiguration is not JavaScriptTransformConfiguration jsConfig)
+            throw new ArgumentException("Invalid configuration type for JavaScriptTransformProcessor");
+
+        _logger.LogDebug("Updating JavaScriptTransformProcessor configuration");
+        
+        // Delegate to service for actual configuration update
+        await _service.UpdateConfigurationAsync(jsConfig, cancellationToken);
+        
+        _logger.LogDebug("JavaScriptTransformProcessor configuration updated successfully");
     }
 
     /// <summary>
@@ -70,6 +152,7 @@ public sealed class JavaScriptTransformProcessor : IPluginProcessor
             {
                 _totalProcessedRows += chunk.RowCount;
                 _totalProcessingTimeMs += stopwatch.ElapsedMilliseconds;
+                _totalChunksProcessed++;
             }
 
             _logger.LogDebug(
@@ -157,10 +240,10 @@ public sealed class JavaScriptTransformProcessor : IPluginProcessor
     }
 
     /// <summary>
-    /// Gets current processing metrics.
+    /// Gets current processor performance metrics and statistics.
     /// </summary>
-    /// <returns>Processing performance metrics</returns>
-    public ProcessingMetrics GetMetrics()
+    /// <returns>Current processor performance metrics</returns>
+    public ProcessorMetrics GetMetrics()
     {
         lock (_metricsLock)
         {
@@ -168,15 +251,67 @@ public sealed class JavaScriptTransformProcessor : IPluginProcessor
                 ? (double)_totalProcessingTimeMs / _totalProcessedRows 
                 : 0;
 
-            return new ProcessingMetrics
+            var throughput = _totalProcessingTimeMs > 0 
+                ? _totalProcessedRows / (_totalProcessingTimeMs / 1000.0) 
+                : 0;
+
+            var averageChunkSize = _totalChunksProcessed > 0
+                ? (double)_totalProcessedRows / _totalChunksProcessed
+                : 0;
+
+            return new ProcessorMetrics
             {
-                TotalProcessedRows = _totalProcessedRows,
-                TotalProcessingTime = TimeSpan.FromMilliseconds(_totalProcessingTimeMs),
-                AverageTimePerRow = TimeSpan.FromMilliseconds(averageTimePerRow),
-                ProcessingRate = _totalProcessingTimeMs > 0 
-                    ? _totalProcessedRows / (_totalProcessingTimeMs / 1000.0) 
-                    : 0,
-                LastUpdated = DateTimeOffset.UtcNow
+                TotalChunksProcessed = _totalChunksProcessed,
+                TotalRowsProcessed = _totalProcessedRows,
+                ErrorCount = _errorCount,
+                AverageProcessingTimeMs = averageTimePerRow,
+                MemoryUsageBytes = GC.GetTotalMemory(false),
+                ThroughputPerSecond = throughput,
+                LastProcessedAt = DateTimeOffset.UtcNow,
+                BackpressureLevel = 0, // Not implemented in this example
+                AverageChunkSize = averageChunkSize
+            };
+        }
+    }
+
+    /// <summary>
+    /// Performs a health check on the processor and its data flow.
+    /// </summary>
+    public async Task<ProcessorHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var serviceHealth = await _service.CheckHealthAsync(cancellationToken);
+            var isHealthy = _state == ProcessorState.Running && serviceHealth.Status == HealthStatus.Healthy;
+
+            return new ProcessorHealth
+            {
+                IsHealthy = isHealthy,
+                State = _state,
+                FlowStatus = isHealthy ? DataFlowStatus.Normal : DataFlowStatus.Failed,
+                Checks = new List<HealthCheck>
+                {
+                    new HealthCheck("ProcessorState", _state == ProcessorState.Running, $"State: {_state}"),
+                    new HealthCheck("ServiceHealth", serviceHealth.Status == HealthStatus.Healthy, serviceHealth.Message)
+                },
+                LastChecked = DateTimeOffset.UtcNow,
+                PerformanceScore = isHealthy ? 100 : 0
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Health check failed for JavaScriptTransformProcessor");
+            return new ProcessorHealth
+            {
+                IsHealthy = false,
+                State = _state,
+                FlowStatus = DataFlowStatus.Failed,
+                Checks = new List<HealthCheck>
+                {
+                    new HealthCheck("HealthCheck", false, $"Health check failed: {ex.Message}")
+                },
+                LastChecked = DateTimeOffset.UtcNow,
+                PerformanceScore = 0
             };
         }
     }
@@ -190,9 +325,36 @@ public sealed class JavaScriptTransformProcessor : IPluginProcessor
         {
             _totalProcessedRows = 0;
             _totalProcessingTimeMs = 0;
+            _totalChunksProcessed = 0;
+            _errorCount = 0;
         }
 
         _logger.LogDebug("JavaScript transform processor metrics reset");
+    }
+
+    /// <summary>
+    /// Disposes the processor and releases resources asynchronously.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        try
+        {
+            if (_state == ProcessorState.Running)
+                await StopAsync();
+
+            _service?.Dispose();
+            _disposed = true;
+            _state = ProcessorState.Disposed;
+            
+            _logger.LogInformation("JavaScript transform processor disposed");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during JavaScriptTransformProcessor disposal");
+        }
     }
 
     /// <summary>
@@ -200,7 +362,7 @@ public sealed class JavaScriptTransformProcessor : IPluginProcessor
     /// </summary>
     public void Dispose()
     {
-        _logger.LogInformation("JavaScript transform processor disposed");
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }
 

@@ -54,7 +54,7 @@ public sealed class JavaScriptTransformConfiguration : IPluginConfiguration
     /// Gets the JavaScript code to execute for each row transformation.
     /// This takes precedence over ScriptFilePath if both are provided.
     /// </summary>
-    [JsonSchema(Type = "string", Description = "JavaScript code for row transformation", MinLength = 10, MaxLength = 100000)]
+    [JsonSchema(Type = "string", Description = "JavaScript code for row transformation")]
     public string? ScriptCode { get; init; }
 
     /// <summary>

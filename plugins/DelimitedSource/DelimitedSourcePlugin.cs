@@ -439,7 +439,7 @@ public sealed class DelimitedSourcePlugin : IPlugin
     /// Gets the plugin validator for configuration validation.
     /// </summary>
     /// <returns>Plugin validator instance</returns>
-    public IPluginValidator GetValidator()
+    public IPluginValidator<IPluginConfiguration> GetValidator()
     {
         return _validator ?? new DelimitedSourceValidator(_logger as ILogger<DelimitedSourceValidator> ?? 
             throw new InvalidOperationException("Logger not available for validator"));

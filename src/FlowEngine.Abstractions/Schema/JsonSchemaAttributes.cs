@@ -148,20 +148,20 @@ public sealed class PerformanceSchemaAttribute : JsonSchemaAttribute
     /// <param name="performanceNote">Additional performance guidance</param>
     public PerformanceSchemaAttribute(
         string? description = null, 
-        double? recommendedMin = null, 
-        double? recommendedMax = null,
+        double recommendedMin = 0, 
+        double recommendedMax = 0,
         string? performanceNote = null)
     {
         Type = "number";
         Description = description;
-        RecommendedMin = recommendedMin;
-        RecommendedMax = recommendedMax;
+        RecommendedMin = recommendedMin > 0 ? recommendedMin : null;
+        RecommendedMax = recommendedMax > 0 ? recommendedMax : null;
         PerformanceNote = performanceNote;
         
-        if (recommendedMin.HasValue)
-            Minimum = recommendedMin.Value;
-        if (recommendedMax.HasValue)
-            Maximum = recommendedMax.Value;
+        if (recommendedMin > 0)
+            Minimum = recommendedMin;
+        if (recommendedMax > 0)
+            Maximum = recommendedMax;
     }
 
     /// <summary>
@@ -239,12 +239,12 @@ public sealed class ArrayRowSchemaAttribute : JsonSchemaAttribute
     public ArrayRowSchemaAttribute(
         string? description = null, 
         bool requiresSequentialIndexes = true,
-        int? maxFields = null)
+        int maxFields = 0)
     {
         Type = "object";
         Description = description ?? "Schema definition with ArrayRow optimization";
         RequiresSequentialIndexes = requiresSequentialIndexes;
-        MaxFields = maxFields;
+        MaxFields = maxFields > 0 ? maxFields : null;
     }
 
     /// <summary>

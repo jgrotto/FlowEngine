@@ -348,10 +348,32 @@ public sealed class DelimitedSourceService : IPluginService, IDisposable
         }
 
         public ISchema Schema => throw new NotImplementedException("Schema not implemented in simple chunk");
-        public long RowCount => _lines.Count;
-        public IAsyncEnumerable<IArrayRow> Rows => throw new NotImplementedException("Rows not implemented in simple chunk");
+        public int RowCount => _lines.Count;  // Fixed: changed from long to int
+        public ReadOnlySpan<IArrayRow> Rows => throw new NotImplementedException("Rows not implemented in simple chunk");
         public IReadOnlyDictionary<string, object>? Metadata => null;
         public long ApproximateMemorySize => _lines.Sum(l => l.Length * sizeof(char));
+        public bool IsDisposed => _disposed;
+
+        // Indexer for direct row access
+        public IArrayRow this[int index] => throw new NotImplementedException("Direct row access not implemented in simple chunk");
+
+        // WithRows method for creating modified chunks
+        public IChunk WithRows(IEnumerable<IArrayRow> newRows)
+        {
+            throw new NotImplementedException("WithRows not implemented in simple chunk");
+        }
+
+        // WithMetadata method for creating chunks with different metadata
+        public IChunk WithMetadata(IReadOnlyDictionary<string, object>? metadata)
+        {
+            throw new NotImplementedException("WithMetadata not implemented in simple chunk");
+        }
+
+        // GetRows method for retrieving rows synchronously
+        public IEnumerable<IArrayRow> GetRows()
+        {
+            throw new NotImplementedException("GetRows not implemented in simple chunk");
+        }
 
         public async ValueTask DisposeAsync()
         {

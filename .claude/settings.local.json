@@ -17,7 +17,9 @@
       "Bash(timeout:*)",
       "Bash(dotnet.exe test tests/FlowEngine.Core.Tests/ --filter \"Phase2IntegrationTests.SourceToSink_BasicPipeline_ShouldExecuteSuccessfully\" -v normal)",
       "Bash(mv:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

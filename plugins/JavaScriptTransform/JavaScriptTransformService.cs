@@ -569,14 +569,3 @@ public sealed class JavaScriptTransformService : IPluginService
     }
 }
 
-
-/// <summary>
-/// Extension method for async enumerable cancellation support.
-/// </summary>
-public static class AsyncEnumerableExtensions
-{
-    public static IAsyncEnumerable<T> WithCancellation<T>(this IAsyncEnumerable<T> source, CancellationToken cancellationToken)
-    {
-        return source; // Simplified implementation
-    }
-}
