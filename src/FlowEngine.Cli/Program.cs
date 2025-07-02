@@ -82,12 +82,21 @@ internal class Program
 
         // Plugin create command
         var createCommand = new Command("create", "Create a new plugin from template");
-        createCommand.AddOption(new Option<string>("--name", "Plugin name") { IsRequired = true });
-        createCommand.AddOption(new Option<string>("--type", "Plugin type (Source, Transform, Sink)") { IsRequired = true });
-        createCommand.AddOption(new Option<string?>("--output", "Output directory (default: current directory)"));
-        createCommand.AddOption(new Option<bool>("--five-component", () => true, "Use five-component architecture pattern"));
-        createCommand.AddOption(new Option<bool>("--minimal", "Create minimal plugin with Abstractions-only dependencies"));
-        createCommand.SetHandler(PluginCommands.CreateAsync);
+        var nameOption = new Option<string>("--name", "Plugin name") { IsRequired = true };
+        var typeOption = new Option<string>("--type", "Plugin type (Source, Transform, Sink)") { IsRequired = true };
+        var outputOption = new Option<string?>("--output", "Output directory (default: current directory)");
+        var fiveComponentOption = new Option<bool>("--five-component", () => true, "Use five-component architecture pattern");
+        var minimalOption = new Option<bool>("--minimal", "Create minimal plugin with Abstractions-only dependencies");
+        
+        createCommand.AddOption(nameOption);
+        createCommand.AddOption(typeOption);
+        createCommand.AddOption(outputOption);
+        createCommand.AddOption(fiveComponentOption);
+        createCommand.AddOption(minimalOption);
+        createCommand.SetHandler(async (string name, string type, string? output, bool fiveComponent, bool minimal) =>
+        {
+            await PluginCommands.CreateAsync(name, type, output, fiveComponent, minimal);
+        }, nameOption, typeOption, outputOption, fiveComponentOption, minimalOption);
 
         // Plugin validate command
         var validateCommand = new Command("validate", "Validate plugin configuration and implementation");

@@ -22,19 +22,18 @@ namespace FlowEngine.Abstractions.Plugins;
 /// Plugins should maintain high availability and performance while providing
 /// comprehensive monitoring and management capabilities.
 /// </remarks>
-public interface IPlugin : IAsyncDisposable
+public interface IPlugin : IAsyncDisposable, IDisposable
 {
+    /// <summary>
+    /// Gets the unique plugin identifier.
+    /// </summary>
+    string Id { get; }
+
     /// <summary>
     /// Gets the unique name of this plugin instance.
     /// Must match the name specified in the pipeline configuration.
     /// </summary>
     string Name { get; }
-
-    /// <summary>
-    /// Gets the output schema produced by this plugin.
-    /// For sink plugins, this may be null as they don't produce output.
-    /// </summary>
-    ISchema? OutputSchema { get; }
 
     /// <summary>
     /// Gets the plugin version for compatibility checking.
@@ -43,32 +42,19 @@ public interface IPlugin : IAsyncDisposable
     string Version { get; }
 
     /// <summary>
-    /// Gets optional metadata about this plugin for diagnostics and monitoring.
+    /// Gets the plugin type (Source, Transform, Sink).
     /// </summary>
-    IReadOnlyDictionary<string, object>? Metadata { get; }
+    string Type { get; }
 
     /// <summary>
-    /// Initializes the plugin with configuration and validates settings.
-    /// Called once during pipeline startup before any data processing.
+    /// Gets the plugin description.
     /// </summary>
-    /// <param name="config">Plugin-specific configuration from YAML</param>
-    /// <param name="cancellationToken">Cancellation token for initialization timeout</param>
-    /// <returns>Task representing the initialization operation</returns>
-    /// <exception cref="PluginInitializationException">Thrown when initialization fails</exception>
-    Task InitializeAsync(IConfiguration config, CancellationToken cancellationToken = default);
+    string Description { get; }
 
     /// <summary>
-    /// Validates that this plugin can process the given input schema.
-    /// Called during pipeline validation before execution starts.
+    /// Gets the plugin author.
     /// </summary>
-    /// <param name="inputSchema">The schema of data this plugin will receive</param>
-    /// <returns>Validation result indicating compatibility</returns>
-    PluginValidationResult ValidateInputSchema(ISchema? inputSchema);
-
-    /// <summary>
-    /// Gets the current plugin state.
-    /// </summary>
-    PluginState State { get; }
+    string Author { get; }
 
     /// <summary>
     /// Gets whether this plugin supports hot-swapping configuration updates.
@@ -76,105 +62,75 @@ public interface IPlugin : IAsyncDisposable
     bool SupportsHotSwapping { get; }
 
     /// <summary>
-    /// Gets the current plugin health status.
+    /// Gets the current plugin status.
     /// </summary>
-    PluginHealth Health { get; }
+    PluginState Status { get; }
 
     /// <summary>
-    /// Starts the plugin and begins processing operations.
+    /// Gets the plugin configuration.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token for start operation</param>
+    IPluginConfiguration Configuration { get; }
+
+    /// <summary>
+    /// Initializes the plugin with the specified configuration.
+    /// </summary>
+    /// <param name="configuration">Plugin configuration</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Initialization result</returns>
+    Task<PluginInitializationResult> InitializeAsync(IPluginConfiguration configuration, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts the plugin asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task representing the start operation</returns>
-    /// <exception cref="InvalidOperationException">Plugin not in correct state for starting</exception>
-    /// <remarks>
-    /// Start process:
-    /// 1. Verify initialized state
-    /// 2. Start all components in dependency order
-    /// 3. Begin monitoring and health checks
-    /// 4. Enable processing capabilities
-    /// 5. Transition to Running state
-    /// 
-    /// After starting, the plugin should be ready to process data and respond to requests.
-    /// </remarks>
     Task StartAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Stops the plugin and suspends processing operations.
+    /// Stops the plugin asynchronously.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token for stop operation</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Task representing the stop operation</returns>
-    /// <remarks>
-    /// Stop process:
-    /// 1. Suspend new operations
-    /// 2. Complete pending operations gracefully
-    /// 3. Stop all components in reverse dependency order
-    /// 4. Preserve state for potential restart
-    /// 5. Transition to Stopped state
-    /// 
-    /// After stopping, the plugin can be restarted or disposed.
-    /// </remarks>
     Task StopAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks the health of the plugin asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Current plugin health status</returns>
+    Task<ServiceHealth> CheckHealthAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets current plugin metrics.
+    /// </summary>
+    /// <returns>Plugin performance metrics</returns>
+    ServiceMetrics GetMetrics();
 
     /// <summary>
     /// Updates the plugin configuration with hot-swapping support.
     /// </summary>
     /// <param name="newConfiguration">New configuration to apply</param>
-    /// <param name="cancellationToken">Cancellation token for update operation</param>
-    /// <returns>Task representing the configuration update operation</returns>
-    /// <exception cref="NotSupportedException">Plugin does not support hot-swapping</exception>
-    /// <exception cref="InvalidOperationException">Configuration update not allowed in current state</exception>
-    /// <remarks>
-    /// Configuration update process:
-    /// 1. Validate new configuration
-    /// 2. Check compatibility with current state
-    /// 3. Apply configuration to all components atomically
-    /// 4. Verify successful update
-    /// 5. Update monitoring and metrics
-    /// 
-    /// Hot-swapping allows configuration changes without stopping the plugin,
-    /// enabling zero-downtime updates in production environments.
-    /// </remarks>
-    Task UpdateConfigurationAsync(IPluginConfiguration newConfiguration, CancellationToken cancellationToken = default);
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Hot-swap result</returns>
+    Task<HotSwapResult> HotSwapAsync(IPluginConfiguration newConfiguration, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Validates compatibility with another plugin for pipeline connections.
+    /// Gets the plugin processor for data processing operations.
     /// </summary>
-    /// <param name="sourcePlugin">Source plugin to check compatibility</param>
-    /// <returns>Schema compatibility result</returns>
-    /// <remarks>
-    /// Compatibility checking ensures that data can flow correctly between plugins
-    /// without type errors, schema mismatches, or performance degradation.
-    /// </remarks>
-    Task<SchemaCompatibilityResult> ValidateCompatibilityAsync(IPlugin sourcePlugin);
+    /// <returns>Plugin processor instance</returns>
+    IPluginProcessor GetProcessor();
 
     /// <summary>
-    /// Gets current plugin performance metrics and statistics.
+    /// Gets the plugin service for business logic operations.
     /// </summary>
-    /// <returns>Current plugin performance metrics</returns>
-    /// <remarks>
-    /// Metrics include:
-    /// - Processing throughput and latency
-    /// - Error rates and types
-    /// - Resource usage (memory, CPU)
-    /// - Component-specific performance indicators
-    /// - Health and availability metrics
-    /// </remarks>
-    PluginMetrics GetMetrics();
+    /// <returns>Plugin service instance</returns>
+    IPluginService GetService();
 
     /// <summary>
-    /// Performs a health check on the plugin and all its components.
+    /// Gets the plugin validator for configuration validation.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token for health check timeout</param>
-    /// <returns>Comprehensive health check result</returns>
-    /// <remarks>
-    /// Health checking verifies:
-    /// - Plugin state and component status
-    /// - Resource availability and limits
-    /// - Performance within acceptable ranges
-    /// - Error rates below thresholds
-    /// - Component integration integrity
-    /// </remarks>
-    Task<PluginHealth> CheckHealthAsync(CancellationToken cancellationToken = default);
+    /// <returns>Plugin validator instance</returns>
+    IPluginValidator<IPluginConfiguration> GetValidator();
 }
 
 /// <summary>
@@ -229,4 +185,3 @@ public sealed record PluginValidationResult
     public static PluginValidationResult Failure(params string[] errors) => 
         new() { IsValid = false, Errors = errors };
 }
-

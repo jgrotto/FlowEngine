@@ -371,6 +371,190 @@ flowengine plugin validate --path ./MyPlugin --comprehensive
 flowengine plugin benchmark --path ./MyPlugin --rows 1000000
 ```
 
+## 🐧 WSL Development Environment
+
+### **Environment Context**
+Claude Code is running in **WSL (Windows Subsystem for Linux)** with a mixed Windows/Linux development setup:
+
+- **Execution Environment**: WSL Ubuntu/Linux (use Linux paths for tools)
+- **File System**: Windows NTFS accessed via WSL (use Windows paths in configs)
+- **Development Tools**: .NET CLI, editors run in WSL
+- **Project Files**: Solution/project files reference Windows paths
+
+### **Path Handling Strategy**
+
+#### **For Tool Execution (WSL Context):**
+```bash
+# Use .exe suffix for Windows tools executed from WSL
+dotnet.exe build /mnt/c/source/FlowEngine/FlowEngine.sln
+dotnet.exe test /mnt/c/source/FlowEngine/tests/FlowEngine.Core.Tests/
+dotnet.exe run --project /mnt/c/source/FlowEngine/src/FlowEngine.Cli/
+
+# MSBuild for advanced scenarios
+msbuild.exe /mnt/c/source/FlowEngine/FlowEngine.sln /p:Configuration=Release
+
+# File operations in code generation (Linux tools)
+touch /mnt/c/source/FlowEngine/src/FlowEngine.Core/NewClass.cs
+mkdir -p /mnt/c/source/FlowEngine/src/FlowEngine.Plugins/NewPlugin/
+```
+
+#### **For Project Files (Windows Context):**
+```xml
+<!-- .csproj files should use Windows-style paths -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\FlowEngine.Abstractions\FlowEngine.Abstractions.csproj" />
+    <Content Include="templates\*.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>
+```
+
+#### **For YAML Configuration Files (Windows Context):**
+```yaml
+# Configuration files should reference Windows paths
+job:
+  steps:
+    - id: read-data
+      type: DelimitedSource
+      config:
+        path: "C:\\Data\\input\\customers.csv"  # Windows path
+        
+    - id: write-output
+      type: DelimitedSink
+      config:
+        path: "${OUTPUT_PATH}\\processed\\customers.csv"  # Windows path with variables
+```
+
+### **Code Implementation Guidelines for Dual Environment:**
+
+#### **Always Use .NET Path APIs:**
+```csharp
+// CORRECT: Cross-platform path handling
+string configPath = Path.Combine(basePath, "config", "job.yaml");
+string outputDir = Path.GetDirectoryName(outputPath);
+
+// CORRECT: Platform-agnostic directory separators
+string[] pathParts = filePath.Split(Path.DirectorySeparatorChar);
+
+// AVOID: Hard-coded path separators
+string badPath = basePath + "\\config\\job.yaml";  // ❌ Windows-only
+string alsoBad = basePath + "/config/job.yaml";    // ❌ Linux-only
+```
+
+#### **Environment Variable Handling:**
+```csharp
+// Handle both Windows and WSL environment variables
+public static string ResolvePath(string path)
+{
+    // Expand environment variables first
+    path = Environment.ExpandEnvironmentVariables(path);
+    
+    // Handle WSL path translation if needed
+    if (path.StartsWith("/mnt/c/", StringComparison.OrdinalIgnoreCase))
+    {
+        // Running in WSL, but config might have Windows paths
+        return path.Replace("/mnt/c/", "C:\\").Replace('/', '\\');
+    }
+    
+    return Path.GetFullPath(path);
+}
+```
+
+#### **File Existence Checks:**
+```csharp
+// Robust file checking for WSL/Windows
+public static bool FileExistsAnyCase(string filePath)
+{
+    if (File.Exists(filePath)) return true;
+    
+    // Try case variations for Linux file systems
+    var directory = Path.GetDirectoryName(filePath);
+    var fileName = Path.GetFileName(filePath);
+    
+    if (Directory.Exists(directory))
+    {
+        return Directory.GetFiles(directory, fileName, SearchOption.TopDirectoryOnly)
+                       .Any(f => string.Equals(Path.GetFileName(f), fileName, 
+                                              StringComparison.OrdinalIgnoreCase));
+    }
+    
+    return false;
+}
+```
+
+### **Development Workflow Commands:**
+
+#### **Solution/Project Management:**
+```bash
+# Create new projects (use .exe suffix for Windows tools in WSL)
+dotnet.exe new classlib -n FlowEngine.Plugins.NewPlugin -o /mnt/c/source/FlowEngine/src/FlowEngine.Plugins/NewPlugin/
+dotnet.exe sln /mnt/c/source/FlowEngine/FlowEngine.sln add /mnt/c/source/FlowEngine/src/FlowEngine.Plugins/NewPlugin/
+
+# Build and test
+dotnet.exe build /mnt/c/source/FlowEngine/FlowEngine.sln
+dotnet.exe test /mnt/c/source/FlowEngine/tests/ --logger "console;verbosity=detailed"
+
+# Package and publish
+dotnet.exe pack /mnt/c/source/FlowEngine/src/FlowEngine.Core/ --configuration Release
+dotnet.exe publish /mnt/c/source/FlowEngine/src/FlowEngine.Cli/ --configuration Release --runtime win-x64
+```
+
+#### **File Operations:**
+```bash
+# Create directory structures
+mkdir -p /mnt/c/source/FlowEngine/src/FlowEngine.Plugins/NewPlugin/{Models,Services,Validators}
+
+# Generate files
+cat > /mnt/c/source/FlowEngine/src/FlowEngine.Core/NewInterface.cs << 'EOF'
+namespace FlowEngine.Core;
+
+public interface INewInterface
+{
+    // Interface definition
+}
+EOF
+```
+
+### **Testing Path Scenarios:**
+When implementing file handling code, always test these scenarios:
+1. **Windows absolute paths**: `C:\Data\file.csv`
+2. **Linux absolute paths**: `/home/user/data/file.csv`
+3. **Relative paths**: `../data/file.csv`
+4. **UNC paths**: `\\server\share\file.csv`
+5. **Environment variables**: `${HOME}/data/file.csv`
+6. **Mixed separators**: `C:\Data/subfolder\file.csv`
+
+### **WSL-Specific Debugging:**
+```bash
+# Check if running in WSL
+if grep -qi microsoft /proc/version; then
+    echo "Running in WSL"
+    # Use .exe suffix for Windows tools
+    DOTNET_CMD="dotnet.exe"
+    MSBUILD_CMD="msbuild.exe"
+else
+    echo "Running in native Linux"
+    # Use native tools
+    DOTNET_CMD="dotnet"
+    MSBUILD_CMD="msbuild"
+fi
+
+# Convert between Windows and WSL paths
+wslpath -w /mnt/c/source/FlowEngine/  # → C:\source\FlowEngine\
+wslpath -u "C:\\source\\FlowEngine\\" # → /mnt/c/source/FlowEngine/
+
+# Verify tool availability
+which dotnet.exe || echo "dotnet.exe not found in PATH"
+which msbuild.exe || echo "msbuild.exe not found in PATH"
+```
+---
+
 ### Common Issues
 - **Performance degradation**: Check for string-based field access
 - **Memory leaks**: Ensure proper disposal patterns

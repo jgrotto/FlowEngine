@@ -35,14 +35,21 @@ public interface IPluginConfiguration
     string Version { get; }
 
     /// <summary>
-    /// Gets the input data schema definition.
+    /// Gets the plugin type (Source, Transform, Sink).
     /// </summary>
-    ISchema InputSchema { get; }
+    string PluginType { get; }
+
+    /// <summary>
+    /// Gets the input data schema definition.
+    /// Null for source plugins that don't consume input data.
+    /// </summary>
+    ISchema? InputSchema { get; }
 
     /// <summary>
     /// Gets the output data schema definition.
+    /// Null for sink plugins that don't produce output data.
     /// </summary>
-    ISchema OutputSchema { get; }
+    ISchema? OutputSchema { get; }
 
     /// <summary>
     /// Gets whether this plugin supports hot-swapping configuration updates.
