@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AssemblyTitle>JavaScriptTransform Plugin</AssemblyTitle>
-    <AssemblyDescription>High-performance JavaScript transformation plugin for FlowEngine</AssemblyDescription>
+    <AssemblyDescription>High-performance JavaScript transformation plugin for FlowEngine using framework base classes</AssemblyDescription>
     <AssemblyVersion>3.0.0.0</AssemblyVersion>
     <FileVersion>3.0.0.0</FileVersion>
     <Product>FlowEngine</Product>
@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowEngine.Abstractions\FlowEngine.Abstractions.csproj" />
+    <!-- FlowEngine.Core excluded due to compilation errors -->
   </ItemGroup>
 
   <ItemGroup>
