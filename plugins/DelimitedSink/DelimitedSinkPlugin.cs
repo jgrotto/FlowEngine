@@ -3,6 +3,7 @@ using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Abstractions.Schema;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
+using System.Diagnostics;
 
 namespace DelimitedSink;
 
@@ -18,13 +19,19 @@ public sealed class DelimitedSinkPlugin : IPlugin
     private readonly DelimitedSinkService _service;
 
     private DelimitedSinkConfiguration? _configuration;
+    private PluginState _state = PluginState.Created;
     private bool _isInitialized;
     private bool _disposed;
 
     /// <summary>
     /// Gets the unique plugin identifier.
     /// </summary>
-    public string PluginId => "delimited-sink";
+    public string Id => "delimited-sink";
+    
+    /// <summary>
+    /// Gets the unique plugin identifier (legacy property).
+    /// </summary>
+    public string PluginId => Id;
 
     /// <summary>
     /// Gets the plugin name.
@@ -39,7 +46,12 @@ public sealed class DelimitedSinkPlugin : IPlugin
     /// <summary>
     /// Gets the plugin type.
     /// </summary>
-    public string PluginType => "Sink";
+    public string Type => "Sink";
+    
+    /// <summary>
+    /// Gets the plugin type (legacy property).
+    /// </summary>
+    public string PluginType => Type;
 
     /// <summary>
     /// Gets the plugin description.
@@ -50,6 +62,21 @@ public sealed class DelimitedSinkPlugin : IPlugin
     /// Gets the plugin author.
     /// </summary>
     public string Author => "FlowEngine";
+
+    /// <summary>
+    /// Gets whether the plugin supports hot-swapping.
+    /// </summary>
+    public bool SupportsHotSwapping => true;
+
+    /// <summary>
+    /// Gets the current plugin status.
+    /// </summary>
+    public PluginState Status => _state;
+
+    /// <summary>
+    /// Gets the plugin configuration.
+    /// </summary>
+    public IPluginConfiguration? Configuration => _configuration;
 
     /// <summary>
     /// Gets supported plugin capabilities.
@@ -69,11 +96,6 @@ public sealed class DelimitedSinkPlugin : IPlugin
     /// Gets plugin dependencies.
     /// </summary>
     public ImmutableArray<string> Dependencies => ImmutableArray<string>.Empty;
-
-    /// <summary>
-    /// Gets whether this plugin supports hot-swapping.
-    /// </summary>
-    public bool SupportsHotSwapping => true;
 
     /// <summary>
     /// Initializes a new instance of the DelimitedSinkPlugin class.
@@ -171,6 +193,81 @@ public sealed class DelimitedSinkPlugin : IPlugin
                 "INITIALIZATION_EXCEPTION",
                 $"Plugin initialization failed: {ex.Message}",
                 TimeSpan.Zero);
+        }
+    }
+
+    /// <summary>
+    /// Starts the plugin asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the start operation</returns>
+    public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Starting DelimitedSink plugin");
+
+        if (_state != PluginState.Initialized)
+        {
+            throw new InvalidOperationException($"Plugin must be initialized before starting. Current status: {_state}");
+        }
+
+        try
+        {
+            _state = PluginState.Starting;
+            
+            if (_service != null)
+            {
+                await _service.StartAsync(cancellationToken);
+            }
+            
+            if (_processor != null)
+            {
+                await _processor.StartAsync(cancellationToken);
+            }
+            
+            _state = PluginState.Running;
+            
+            _logger.LogInformation("DelimitedSink plugin started successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start DelimitedSink plugin");
+            _state = PluginState.Failed;
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Stops the plugin asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the stop operation</returns>
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Stopping DelimitedSink plugin");
+
+        try
+        {
+            _state = PluginState.Stopping;
+            
+            if (_processor != null)
+            {
+                await _processor.StopAsync(cancellationToken);
+            }
+            
+            if (_service != null)
+            {
+                await _service.StopAsync(cancellationToken);
+            }
+            
+            _state = PluginState.Stopped;
+            
+            _logger.LogInformation("DelimitedSink plugin stopped successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop DelimitedSink plugin");
+            _state = PluginState.Failed;
+            throw;
         }
     }
 
@@ -362,7 +459,7 @@ public sealed class DelimitedSinkPlugin : IPlugin
     /// Gets the plugin validator.
     /// </summary>
     /// <returns>Plugin validator</returns>
-    public IPluginValidator GetValidator()
+    public IPluginValidator<IPluginConfiguration> GetValidator()
     {
         return _validator;
     }

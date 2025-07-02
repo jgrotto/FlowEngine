@@ -50,6 +50,67 @@ public sealed class DelimitedSinkService : IPluginService
     }
 
     /// <summary>
+    /// Initializes the service asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the initialization operation</returns>
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Initializing DelimitedSinkService");
+        
+        // Service initialization without configuration
+        // Configuration will be provided later through specific methods
+        
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Starts the service asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the start operation</returns>
+    public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Starting DelimitedSinkService");
+        
+        // Service is ready to process data
+        
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Stops the service asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Task representing the stop operation</returns>
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Stopping DelimitedSinkService");
+        
+        // Ensure any pending writes are completed
+        await FlushAndCloseAsync();
+        
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Processes a single row asynchronously.
+    /// </summary>
+    /// <param name="row">Input row data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Processed row (for sink plugins, typically the same row)</returns>
+    public async Task<IArrayRow> ProcessRowAsync(IArrayRow row, CancellationToken cancellationToken = default)
+    {
+        if (_configuration == null)
+            throw new InvalidOperationException("Service must be initialized with configuration before processing rows");
+
+        await WriteRowAsync(row, cancellationToken);
+        
+        // For sink plugins, we typically return the same row as it's the end of the pipeline
+        return row;
+    }
+
+    /// <summary>
     /// Initializes the service with the specified configuration.
     /// </summary>
     /// <param name="configuration">Sink configuration</param>

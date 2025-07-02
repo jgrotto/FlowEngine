@@ -59,7 +59,7 @@ public sealed class DelimitedSinkConfiguration : IPluginConfiguration
     /// <summary>
     /// Gets the delimiter character used to separate fields.
     /// </summary>
-    [JsonSchema(Type = "string", Description = "Character used to separate fields", MinLength = 1, MaxLength = 5, Required = true)]
+    [JsonSchema(Type = "string", Description = "Character used to separate fields", Required = true)]
     public string Delimiter { get; init; } = ",";
 
     /// <summary>

@@ -402,26 +402,60 @@ public sealed record ProcessingMetrics
 /// </summary>
 internal sealed class MemoryChunk : IChunk
 {
-    public ISchema Schema { get; }
-    public IAsyncEnumerable<IArrayRow> Rows { get; }
-    public long RowCount { get; }
+    private readonly IArrayRow[] _rowArray;
+    private bool _disposed;
 
-    public MemoryChunk(ISchema schema, IEnumerable<IArrayRow> rows)
+    public ISchema Schema { get; }
+    public int RowCount { get; }  // Fixed: changed from long to int
+    public ReadOnlySpan<IArrayRow> Rows => _rowArray.AsSpan();  // Fixed: changed return type
+    public IReadOnlyDictionary<string, object>? Metadata { get; private set; }
+    public long ApproximateMemorySize { get; }
+    public bool IsDisposed => _disposed;
+
+    // Indexer for direct row access
+    public IArrayRow this[int index] => _rowArray[index];
+
+    public MemoryChunk(ISchema schema, IEnumerable<IArrayRow> rows, IReadOnlyDictionary<string, object>? metadata = null)
     {
         Schema = schema ?? throw new ArgumentNullException(nameof(schema));
-        var rowArray = rows?.ToArray() ?? throw new ArgumentNullException(nameof(rows));
-        RowCount = rowArray.Length;
-        Rows = rowArray.ToAsyncEnumerable();
+        _rowArray = rows?.ToArray() ?? throw new ArgumentNullException(nameof(rows));
+        RowCount = _rowArray.Length;
+        Metadata = metadata;
+        
+        // Approximate memory calculation
+        ApproximateMemorySize = _rowArray.Length * 1024; // Rough estimate
+    }
+
+    // WithRows method for creating modified chunks
+    public IChunk WithRows(IEnumerable<IArrayRow> newRows)
+    {
+        return new MemoryChunk(Schema, newRows, Metadata);
+    }
+
+    // WithMetadata method for creating chunks with different metadata
+    public IChunk WithMetadata(IReadOnlyDictionary<string, object>? metadata)
+    {
+        return new MemoryChunk(Schema, _rowArray, metadata);
+    }
+
+    // GetRows method for retrieving rows synchronously
+    public IEnumerable<IArrayRow> GetRows()
+    {
+        return _rowArray;
     }
 
     public async ValueTask DisposeAsync()
     {
+        if (!_disposed)
+        {
+            _disposed = true;
+        }
         await Task.CompletedTask;
     }
 
     public void Dispose()
     {
-        // No resources to dispose for memory-based chunk
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }
 
@@ -430,16 +464,21 @@ internal sealed class MemoryChunk : IChunk
 /// </summary>
 internal sealed class MemoryDataset : IDataset
 {
+    private readonly IList<IChunk> _chunks;
+    private bool _disposed;
+
     public ISchema Schema { get; }
     public long? RowCount { get; }
+    public int? ChunkCount => _chunks.Count;
+    public bool IsDisposed => _disposed;
+    public IReadOnlyDictionary<string, object>? Metadata { get; private set; }
 
-    private readonly IList<IChunk> _chunks;
-
-    public MemoryDataset(ISchema schema, IEnumerable<IChunk> chunks)
+    public MemoryDataset(ISchema schema, IEnumerable<IChunk> chunks, IReadOnlyDictionary<string, object>? metadata = null)
     {
         Schema = schema ?? throw new ArgumentNullException(nameof(schema));
         _chunks = chunks?.ToList() ?? throw new ArgumentNullException(nameof(chunks));
         RowCount = _chunks.Sum(c => c.RowCount);
+        Metadata = metadata;
     }
 
     public async IAsyncEnumerable<IChunk> GetChunksAsync(
@@ -454,29 +493,97 @@ internal sealed class MemoryDataset : IDataset
         }
     }
 
+    // TransformSchemaAsync method for schema transformations
+    public async Task<IDataset> TransformSchemaAsync(ISchema newSchema, Func<IArrayRow, IArrayRow> transform, CancellationToken cancellationToken = default)
+    {
+        var transformedChunks = new List<IChunk>();
+        
+        await foreach (var chunk in GetChunksAsync(null, cancellationToken))
+        {
+            var transformedRows = chunk.GetRows().Select(transform);
+            var transformedChunk = new MemoryChunk(newSchema, transformedRows, chunk.Metadata);
+            transformedChunks.Add(transformedChunk);
+        }
+        
+        return new MemoryDataset(newSchema, transformedChunks, Metadata);
+    }
+
+    // FilterAsync method for row filtering
+    public async Task<IDataset> FilterAsync(Func<IArrayRow, bool> predicate, CancellationToken cancellationToken = default)
+    {
+        var filteredChunks = new List<IChunk>();
+        
+        await foreach (var chunk in GetChunksAsync(null, cancellationToken))
+        {
+            var filteredRows = chunk.GetRows().Where(predicate);
+            var filteredChunk = new MemoryChunk(Schema, filteredRows, chunk.Metadata);
+            filteredChunks.Add(filteredChunk);
+        }
+        
+        return new MemoryDataset(Schema, filteredChunks, Metadata);
+    }
+
+    // MaterializeAsync method for materializing data
+    public async Task<IList<IArrayRow>> MaterializeAsync(long maxRows = long.MaxValue, CancellationToken cancellationToken = default)
+    {
+        var materializedRows = new List<IArrayRow>();
+        long totalRows = 0;
+        
+        await foreach (var chunk in GetChunksAsync(null, cancellationToken))
+        {
+            foreach (var row in chunk.GetRows())
+            {
+                if (totalRows >= maxRows)
+                    break;
+                    
+                materializedRows.Add(row);
+                totalRows++;
+            }
+            
+            if (totalRows >= maxRows)
+                break;
+        }
+        
+        return materializedRows;
+    }
+
+    // WithMetadata method for creating dataset with different metadata
+    public IDataset WithMetadata(IReadOnlyDictionary<string, object>? metadata)
+    {
+        return new MemoryDataset(Schema, _chunks, metadata);
+    }
+
     public async ValueTask DisposeAsync()
     {
-        foreach (var chunk in _chunks)
+        if (!_disposed)
         {
-            if (chunk is IAsyncDisposable asyncDisposable)
+            foreach (var chunk in _chunks)
             {
-                await asyncDisposable.DisposeAsync();
+                if (chunk is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (chunk is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
-            else if (chunk is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
+            _disposed = true;
         }
     }
 
     public void Dispose()
     {
-        foreach (var chunk in _chunks)
+        if (!_disposed)
         {
-            if (chunk is IDisposable disposable)
+            foreach (var chunk in _chunks)
             {
-                disposable.Dispose();
+                if (chunk is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
+            _disposed = true;
         }
     }
 }

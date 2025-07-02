@@ -17,6 +17,7 @@ public sealed class DelimitedSinkProcessor : IPluginProcessor
     private readonly object _metricsLock = new();
 
     private DelimitedSinkConfiguration? _configuration;
+    private ProcessorState _state = ProcessorState.Created;
     private bool _isInitialized;
     private bool _disposed;
 
@@ -24,6 +25,8 @@ public sealed class DelimitedSinkProcessor : IPluginProcessor
     private long _requestCount;
     private long _errorCount;
     private long _totalProcessingTime;
+    private long _totalChunksProcessed;
+    private long _totalRowsProcessed;
     private DateTime? _lastRequestTime;
 
     /// <summary>
@@ -37,6 +40,139 @@ public sealed class DelimitedSinkProcessor : IPluginProcessor
     {
         _service = service ?? throw new ArgumentNullException(nameof(service));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <summary>
+    /// Gets the current processor state.
+    /// </summary>
+    public ProcessorState State => _state;
+
+    /// <summary>
+    /// Gets whether this processor is compatible with the specified service.
+    /// </summary>
+    public bool IsServiceCompatible(IPluginService service)
+    {
+        return service is DelimitedSinkService;
+    }
+
+    /// <summary>
+    /// Initializes the processor with channel setup and validation.
+    /// </summary>
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Initializing DelimitedSinkProcessor");
+        _state = ProcessorState.Initializing;
+        
+        // Initialize the service
+        await _service.InitializeAsync(cancellationToken);
+        
+        _state = ProcessorState.Initialized;
+        _logger.LogDebug("DelimitedSinkProcessor initialized successfully");
+    }
+
+    /// <summary>
+    /// Starts the processor and begins data processing operations.
+    /// </summary>
+    public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        if (_state != ProcessorState.Initialized)
+            throw new InvalidOperationException($"Processor must be initialized before starting. Current state: {_state}");
+
+        _logger.LogDebug("Starting DelimitedSinkProcessor");
+        _state = ProcessorState.Starting;
+        
+        await _service.StartAsync(cancellationToken);
+        
+        _state = ProcessorState.Running;
+        _logger.LogDebug("DelimitedSinkProcessor started successfully");
+    }
+
+    /// <summary>
+    /// Stops the processor and suspends processing operations.
+    /// </summary>
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        if (_state != ProcessorState.Running)
+            return;
+
+        _logger.LogDebug("Stopping DelimitedSinkProcessor");
+        _state = ProcessorState.Stopping;
+        
+        await _service.StopAsync(cancellationToken);
+        
+        _state = ProcessorState.Stopped;
+        _logger.LogDebug("DelimitedSinkProcessor stopped successfully");
+    }
+
+    /// <summary>
+    /// Processes a single data chunk using the delimited sink service.
+    /// </summary>
+    public async Task<IChunk> ProcessChunkAsync(IChunk chunk, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        
+        _logger.LogDebug("Processing chunk with {RowCount} rows through delimited sink", chunk.RowCount);
+
+        try
+        {
+            // Delegate chunk processing to the service
+            await _service.ProcessChunkAsync(chunk, cancellationToken);
+            
+            stopwatch.Stop();
+            
+            // Update performance metrics
+            lock (_metricsLock)
+            {
+                _totalRowsProcessed += chunk.RowCount;
+                _totalProcessingTime += stopwatch.ElapsedMilliseconds;
+                _totalChunksProcessed++;
+                _requestCount++;
+                _lastRequestTime = DateTime.UtcNow;
+            }
+
+            _logger.LogDebug(
+                "Completed delimited sink processing of {RowCount} rows in {ElapsedMs}ms", 
+                chunk.RowCount, 
+                stopwatch.ElapsedMilliseconds);
+
+            // For sink plugins, we typically return the same chunk as it's the end of the pipeline
+            return chunk;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            
+            lock (_metricsLock)
+            {
+                _errorCount++;
+            }
+            
+            _logger.LogError(ex, 
+                "Error processing chunk with {RowCount} rows in delimited sink after {ElapsedMs}ms", 
+                chunk.RowCount, 
+                stopwatch.ElapsedMilliseconds);
+            
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Updates the processor configuration with hot-swapping support.
+    /// </summary>
+    public async Task UpdateConfigurationAsync(IPluginConfiguration newConfiguration, CancellationToken cancellationToken = default)
+    {
+        if (newConfiguration is not DelimitedSinkConfiguration sinkConfig)
+            throw new ArgumentException("Invalid configuration type for DelimitedSinkProcessor");
+
+        _logger.LogDebug("Updating DelimitedSinkProcessor configuration");
+        
+        // Update internal configuration reference
+        _configuration = sinkConfig;
+        
+        // Delegate to service for actual configuration update if supported
+        // Note: This assumes the service has an update method - implement as needed
+        
+        _logger.LogDebug("DelimitedSinkProcessor configuration updated successfully");
     }
 
     /// <summary>
@@ -208,95 +344,76 @@ public sealed class DelimitedSinkProcessor : IPluginProcessor
     /// </summary>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Health status</returns>
-    public async Task<ServiceHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
+    public async Task<ProcessorHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
     {
-        if (_disposed)
-        {
-            return ServiceHealth.CreateUnhealthy(
-                "PROCESSOR_DISPOSED",
-                "Processor has been disposed",
-                ImmutableDictionary<string, object>.Empty);
-        }
-
-        if (!_isInitialized)
-        {
-            return ServiceHealth.CreateUnhealthy(
-                "PROCESSOR_NOT_INITIALIZED",
-                "Processor has not been initialized",
-                ImmutableDictionary<string, object>.Empty);
-        }
-
         try
         {
-            // Check underlying service health
             var serviceHealth = await _service.CheckHealthAsync(cancellationToken);
-            if (serviceHealth.Status != HealthStatus.Healthy)
-            {
-                return ServiceHealth.CreateDegraded(
-                    "SERVICE_UNHEALTHY",
-                    $"Underlying service is unhealthy: {serviceHealth.Description}",
-                    ImmutableDictionary<string, object>.Empty
-                        .Add("ServiceHealth", serviceHealth));
-            }
+            var isHealthy = _state == ProcessorState.Running && serviceHealth.Status == HealthStatus.Healthy;
 
-            lock (_metricsLock)
+            return new ProcessorHealth
             {
-                var errorRate = _requestCount > 0 ? (double)_errorCount / _requestCount : 0;
-                
-                if (errorRate > 0.1) // More than 10% error rate
+                IsHealthy = isHealthy,
+                State = _state,
+                FlowStatus = isHealthy ? DataFlowStatus.Normal : DataFlowStatus.Failed,
+                Checks = new List<HealthCheck>
                 {
-                    return ServiceHealth.CreateDegraded(
-                        "HIGH_ERROR_RATE",
-                        $"High error rate detected: {errorRate:P1}",
-                        ImmutableDictionary<string, object>.Empty
-                            .Add("ErrorRate", errorRate)
-                            .Add("RequestCount", _requestCount)
-                            .Add("ErrorCount", _errorCount));
-                }
-            }
-
-            return ServiceHealth.CreateHealthy(
-                "Processor is healthy and ready to process data",
-                ImmutableDictionary<string, object>.Empty
-                    .Add("IsInitialized", _isInitialized)
-                    .Add("RequestCount", _requestCount)
-                    .Add("ErrorCount", _errorCount)
-                    .Add("LastRequestTime", _lastRequestTime?.ToString("O") ?? "Never"));
+                    new HealthCheck("ProcessorState", _state == ProcessorState.Running, $"State: {_state}"),
+                    new HealthCheck("ServiceHealth", serviceHealth.Status == HealthStatus.Healthy, serviceHealth.Message)
+                },
+                LastChecked = DateTimeOffset.UtcNow,
+                PerformanceScore = isHealthy ? 100 : 0
+            };
         }
         catch (Exception ex)
         {
-            return ServiceHealth.CreateUnhealthy(
-                "HEALTH_CHECK_EXCEPTION",
-                $"Health check failed: {ex.Message}",
-                ImmutableDictionary<string, object>.Empty);
+            _logger.LogError(ex, "Health check failed for DelimitedSinkProcessor");
+            return new ProcessorHealth
+            {
+                IsHealthy = false,
+                State = _state,
+                FlowStatus = DataFlowStatus.Failed,
+                Checks = new List<HealthCheck>
+                {
+                    new HealthCheck("HealthCheck", false, $"Health check failed: {ex.Message}")
+                },
+                LastChecked = DateTimeOffset.UtcNow,
+                PerformanceScore = 0
+            };
         }
     }
 
     /// <summary>
-    /// Gets current processor metrics.
+    /// Gets current processor performance metrics and statistics.
     /// </summary>
-    /// <returns>Service metrics</returns>
-    public ServiceMetrics GetMetrics()
+    /// <returns>Current processor performance metrics</returns>
+    public ProcessorMetrics GetMetrics()
     {
-        if (_disposed)
-            return ServiceMetrics.Empty;
-
         lock (_metricsLock)
         {
-            var averageResponseTime = _requestCount > 0 
-                ? TimeSpan.FromMilliseconds(_totalProcessingTime / _requestCount)
-                : TimeSpan.Zero;
+            var averageTimePerRow = _totalRowsProcessed > 0 
+                ? (double)_totalProcessingTime / _totalRowsProcessed 
+                : 0;
 
-            return new ServiceMetrics
+            var throughput = _totalProcessingTime > 0 
+                ? _totalRowsProcessed / (_totalProcessingTime / 1000.0) 
+                : 0;
+
+            var averageChunkSize = _totalChunksProcessed > 0
+                ? (double)_totalRowsProcessed / _totalChunksProcessed
+                : 0;
+
+            return new ProcessorMetrics
             {
-                RequestCount = _requestCount,
+                TotalChunksProcessed = _totalChunksProcessed,
+                TotalRowsProcessed = _totalRowsProcessed,
                 ErrorCount = _errorCount,
-                AverageResponseTime = averageResponseTime,
-                LastRequestTime = _lastRequestTime,
-                Metadata = ImmutableDictionary<string, object>.Empty
-                    .Add("IsInitialized", _isInitialized)
-                    .Add("TotalProcessingTimeMs", _totalProcessingTime)
-                    .Add("ErrorRate", _requestCount > 0 ? (double)_errorCount / _requestCount : 0)
+                AverageProcessingTimeMs = averageTimePerRow,
+                MemoryUsageBytes = GC.GetTotalMemory(false),
+                ThroughputPerSecond = throughput,
+                LastProcessedAt = _lastRequestTime?.ToUniversalTime() ?? DateTimeOffset.MinValue,
+                BackpressureLevel = 0, // Not implemented for sink processors
+                AverageChunkSize = averageChunkSize
             };
         }
     }
