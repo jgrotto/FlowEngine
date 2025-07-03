@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace FlowEngine.Abstractions;
+namespace FlowEngine.Abstractions.Data;
 
 /// <summary>
 /// Defines the structure and metadata for data rows with O(1) field access.
@@ -100,6 +100,12 @@ public sealed record ColumnDefinition
     /// Gets or sets the optional description of the column.
     /// </summary>
     public string? Description { get; init; }
+
+    /// <summary>
+    /// Gets or sets the zero-based index of this column for ArrayRow optimization.
+    /// Must be sequential (0, 1, 2, ...) for optimal performance.
+    /// </summary>
+    public int Index { get; init; }
 
     /// <summary>
     /// Gets or sets optional metadata associated with the column.

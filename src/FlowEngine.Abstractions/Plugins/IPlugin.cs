@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using FlowEngine.Abstractions.Data;
 
 namespace FlowEngine.Abstractions.Plugins;
 

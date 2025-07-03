@@ -1,4 +1,4 @@
-namespace FlowEngine.Abstractions;
+namespace FlowEngine.Abstractions.Data;
 
 /// <summary>
 /// Represents a memory-efficient batch of rows for high-throughput streaming processing.
@@ -46,7 +46,7 @@ public interface IChunk : IDisposable
     /// </summary>
     /// <param name="metadata">The metadata to add or update</param>
     /// <returns>A new chunk with the updated metadata</returns>
-    IChunk WithMetadata(IReadOnlyDictionary<string, object> metadata);
+    IChunk WithMetadata(IReadOnlyDictionary<string, object>? metadata);
 
     /// <summary>
     /// Enumerates all rows in this chunk.
@@ -66,33 +66,6 @@ public interface IChunk : IDisposable
     long ApproximateMemorySize { get; }
 }
 
-/// <summary>
-/// Options for controlling chunk creation and processing behavior.
-/// </summary>
-public sealed record ChunkingOptions
-{
-    /// <summary>
-    /// Gets or sets the target size for each chunk in number of rows.
-    /// Default is 5000 rows for optimal memory usage and processing efficiency.
-    /// </summary>
-    public int TargetChunkSize { get; init; } = 5000;
-
-    /// <summary>
-    /// Gets or sets the maximum size for each chunk in number of rows.
-    /// Chunks will never exceed this size, even if more data is available.
-    /// </summary>
-    public int MaxChunkSize { get; init; } = 10000;
-
-    /// <summary>
-    /// Gets or sets the strategy for handling memory pressure.
-    /// </summary>
-    public MemoryPressureStrategy PressureStrategy { get; init; } = MemoryPressureStrategy.ReduceChunkSize;
-
-    /// <summary>
-    /// Gets or sets the timeout for chunk processing operations.
-    /// </summary>
-    public TimeSpan ProcessingTimeout { get; init; } = TimeSpan.FromMinutes(5);
-}
 
 /// <summary>
 /// Defines strategies for handling memory pressure during chunk processing.
