@@ -7,69 +7,53 @@ namespace Phase3TemplatePlugin;
 /// <summary>
 /// COMPONENT 3: Plugin
 /// 
-/// Demonstrates proper Phase 3 plugin lifecycle management with:
+/// Demonstrates proper Phase 3 plugin lifecycle management using PluginBase:
 /// - Plugin metadata and versioning
 /// - Lifecycle state management (Created → Initialized → Running → Stopped → Disposed)
 /// - Hot-swapping configuration support
 /// - Health monitoring and metrics
-/// - Component factory methods
+/// - Simplified implementation using base class
 /// </summary>
-public sealed class TemplatePlugin : IPlugin
+public sealed class TemplatePlugin : PluginBase
 {
-    private readonly ILogger<TemplatePlugin> _logger;
     private TemplatePluginConfiguration? _configuration;
-    private PluginState _state = PluginState.Created;
-    private bool _disposed;
-    private readonly object _stateLock = new();
 
     /// <summary>
-    /// Constructor demonstrating proper dependency injection
+    /// Constructor demonstrating proper dependency injection with PluginBase
     /// </summary>
     /// <param name="logger">Logger injected from Core framework</param>
-    public TemplatePlugin(ILogger<TemplatePlugin> logger)
+    public TemplatePlugin(ILogger<TemplatePlugin> logger) : base(logger)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    // === IPlugin Core Properties ===
+    // === Plugin Metadata (PluginBase Overrides) ===
 
     /// <inheritdoc />
-    public string Id => "phase3-template-plugin";
+    public override string Name => "Phase 3 Template Plugin";
 
     /// <inheritdoc />
-    public string Name => "Phase 3 Template Plugin";
+    public override string Version => "3.0.0";
 
     /// <inheritdoc />
-    public string Version => "3.0.0";
+    public override string Description => "Reference implementation demonstrating correct Phase 3 five-component plugin architecture";
 
     /// <inheritdoc />
-    public string Type => "Source";
+    public override string Author => "FlowEngine Team";
 
     /// <inheritdoc />
-    public string Description => "Reference implementation demonstrating correct Phase 3 five-component plugin architecture";
+    public override string PluginType => "Source";
 
     /// <inheritdoc />
-    public string Author => "FlowEngine Team";
+    public override bool SupportsHotSwapping => true;
 
     /// <inheritdoc />
-    public bool SupportsHotSwapping => true;
-
-    /// <inheritdoc />
-    public PluginState Status 
+    public override IPluginConfiguration Configuration 
     { 
-        get 
-        { 
-            lock (_stateLock) 
-            { 
-                return _state; 
-            } 
-        } 
+        get => _configuration ?? throw new InvalidOperationException("Plugin not initialized");
+        protected set => _configuration = (TemplatePluginConfiguration)value;
     }
 
-    /// <inheritdoc />
-    public IPluginConfiguration? Configuration => _configuration;
-
-    /// <inheritdoc />
+    // Additional plugin capabilities metadata
     public ImmutableArray<string> SupportedCapabilities => ImmutableArray.Create(
         "DataGeneration",
         "ConfigurableOutput",
@@ -78,32 +62,14 @@ public sealed class TemplatePlugin : IPlugin
         "PerformanceMonitoring"
     );
 
-    /// <inheritdoc />
-    public ImmutableArray<string> Dependencies => ImmutableArray<string>.Empty;
-
-    // === Lifecycle Management ===
+    // === Base Class Overrides ===
 
     /// <inheritdoc />
-    public async Task<PluginInitializationResult> InitializeAsync(
+    protected override async Task<PluginInitializationResult> InitializeInternalAsync(
         IPluginConfiguration configuration,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        var startTime = DateTimeOffset.UtcNow;
-        _logger.LogInformation("Initializing Template Plugin v{Version}", Version);
-
-        lock (_stateLock)
-        {
-            if (_state != PluginState.Created)
-            {
-                return new PluginInitializationResult
-                {
-                    Success = false,
-                    Message = $"Plugin cannot be initialized from state {_state}",
-                    InitializationTime = TimeSpan.Zero,
-                    Errors = ImmutableArray.Create($"Invalid state transition from {_state} to Initialized")
-                };
-            }
-        }
+        Logger.LogInformation("Initializing Template Plugin v{Version}", Version);
 
         if (configuration is not TemplatePluginConfiguration templateConfig)
         {
@@ -120,7 +86,7 @@ public sealed class TemplatePlugin : IPlugin
         {
             // Validate configuration using validator
             var validator = new TemplatePluginValidator();
-            var validationResult = await validator.ValidateAsync(templateConfig, cancellationToken);
+            var validationResult = validator.ValidateConfiguration(templateConfig);
 
             if (!validationResult.IsValid)
             {
@@ -129,20 +95,15 @@ public sealed class TemplatePlugin : IPlugin
                 {
                     Success = false,
                     Message = "Configuration validation failed",
-                    InitializationTime = DateTimeOffset.UtcNow - startTime,
+                    InitializationTime = TimeSpan.Zero,
                     Errors = ImmutableArray.Create(errors)
                 };
             }
 
-            // Store configuration and update state
+            // Store configuration
             _configuration = templateConfig;
-            
-            lock (_stateLock)
-            {
-                _state = PluginState.Initialized;
-            }
 
-            _logger.LogInformation(
+            Logger.LogInformation(
                 "Template Plugin initialized successfully. RowCount: {RowCount}, BatchSize: {BatchSize}, DataType: {DataType}",
                 templateConfig.RowCount,
                 templateConfig.BatchSize,
@@ -152,107 +113,49 @@ public sealed class TemplatePlugin : IPlugin
             {
                 Success = true,
                 Message = "Plugin initialized successfully",
-                InitializationTime = DateTimeOffset.UtcNow - startTime
+                InitializationTime = TimeSpan.Zero
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to initialize Template Plugin");
-            
-            lock (_stateLock)
-            {
-                _state = PluginState.Failed;
-            }
+            Logger.LogError(ex, "Failed to initialize Template Plugin");
 
             return new PluginInitializationResult
             {
                 Success = false,
                 Message = $"Initialization failed: {ex.Message}",
-                InitializationTime = DateTimeOffset.UtcNow - startTime,
+                InitializationTime = TimeSpan.Zero,
                 Errors = ImmutableArray.Create(ex.Message)
             };
         }
     }
 
     /// <inheritdoc />
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    protected override async Task StartInternalAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting Template Plugin");
-
-        lock (_stateLock)
-        {
-            if (_state != PluginState.Initialized)
-                throw new InvalidOperationException($"Plugin must be initialized before starting. Current state: {_state}");
-
-            _state = PluginState.Running;
-        }
-
-        _logger.LogInformation("Template Plugin started successfully");
+        Logger.LogInformation("Starting Template Plugin");
+        // Plugin-specific start logic here
+        Logger.LogInformation("Template Plugin started successfully");
         await Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    protected override async Task StopInternalAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Stopping Template Plugin");
-
-        lock (_stateLock)
-        {
-            if (_state == PluginState.Running)
-                _state = PluginState.Stopped;
-        }
-
-        _logger.LogInformation("Template Plugin stopped successfully");
+        Logger.LogInformation("Stopping Template Plugin");
+        // Plugin-specific stop logic here
+        Logger.LogInformation("Template Plugin stopped successfully");
         await Task.CompletedTask;
     }
 
-    /// <inheritdoc />
-    public async Task<ServiceHealth> CheckHealthAsync(CancellationToken cancellationToken = default)
-    {
-        if (_disposed)
-        {
-            return new ServiceHealth
-            {
-                IsHealthy = false,
-                Status = HealthStatus.Unhealthy,
-                Message = "Plugin has been disposed",
-                CheckedAt = DateTimeOffset.UtcNow
-            };
-        }
-
-        var currentState = Status;
-        var isHealthy = currentState == PluginState.Running || currentState == PluginState.Initialized;
-        
-        return new ServiceHealth
-        {
-            IsHealthy = isHealthy,
-            Status = isHealthy ? HealthStatus.Healthy : HealthStatus.Degraded,
-            Message = $"Plugin is in {currentState} state",
-            CheckedAt = DateTimeOffset.UtcNow
-        };
-    }
+    // Health checks and metrics handled by base class
 
     /// <inheritdoc />
-    public ServiceMetrics GetMetrics()
-    {
-        return new ServiceMetrics
-        {
-            ProcessedRows = 0, // Would be tracked by service during actual processing
-            ErrorCount = 0,
-            ProcessingRate = 0.0,
-            AverageProcessingTime = TimeSpan.Zero,
-            MemoryUsage = GC.GetTotalMemory(false),
-            LastUpdated = DateTimeOffset.UtcNow
-        };
-    }
-
-    /// <inheritdoc />
-    public async Task<HotSwapResult> HotSwapAsync(
+    protected override async Task<HotSwapResult> HotSwapInternalAsync(
         IPluginConfiguration newConfiguration,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        var startTime = DateTimeOffset.UtcNow;
-        _logger.LogInformation("Performing hot-swap for Template Plugin");
+        Logger.LogInformation("Performing hot-swap for Template Plugin");
 
         if (newConfiguration is not TemplatePluginConfiguration newTemplateConfig)
         {
@@ -268,7 +171,7 @@ public sealed class TemplatePlugin : IPlugin
         {
             // Validate new configuration
             var validator = new TemplatePluginValidator();
-            var validationResult = await validator.ValidateAsync(newTemplateConfig, cancellationToken);
+            var validationResult = validator.ValidateConfiguration(newTemplateConfig);
 
             if (!validationResult.IsValid)
             {
@@ -276,7 +179,8 @@ public sealed class TemplatePlugin : IPlugin
                 {
                     Success = false,
                     Message = "Hot-swap validation failed",
-                    SwapTime = DateTimeOffset.UtcNow - startTime
+                    SwapTime = TimeSpan.Zero,
+                    Errors = validationResult.Errors.Select(e => e.Message).ToImmutableArray()
                 };
             }
 
@@ -284,7 +188,7 @@ public sealed class TemplatePlugin : IPlugin
             var oldConfig = _configuration;
             _configuration = newTemplateConfig;
 
-            _logger.LogInformation(
+            Logger.LogInformation(
                 "Hot-swap completed successfully. RowCount: {OldRowCount} → {NewRowCount}, BatchSize: {OldBatchSize} → {NewBatchSize}",
                 oldConfig?.RowCount ?? 0,
                 newTemplateConfig.RowCount,
@@ -295,68 +199,48 @@ public sealed class TemplatePlugin : IPlugin
             {
                 Success = true,
                 Message = "Configuration updated successfully",
-                SwapTime = DateTimeOffset.UtcNow - startTime
+                SwapTime = TimeSpan.Zero
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Hot-swap failed for Template Plugin");
+            Logger.LogError(ex, "Hot-swap failed for Template Plugin");
             
             return new HotSwapResult
             {
                 Success = false,
                 Message = $"Hot-swap failed: {ex.Message}",
-                SwapTime = DateTimeOffset.UtcNow - startTime
+                SwapTime = TimeSpan.Zero,
+                Errors = ImmutableArray.Create(ex.Message)
             };
         }
     }
 
-    // === Component Factory Methods ===
+    // === Component Factory Methods (for framework integration) ===
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Creates the processor component for this plugin
+    /// </summary>
     public IPluginProcessor GetProcessor()
     {
-        return new TemplatePluginProcessor(this, _logger);
+        return new TemplatePluginProcessor();
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Creates the service component for this plugin
+    /// </summary>
     public IPluginService GetService()
     {
-        return new TemplatePluginService(this, _logger);
+        return new TemplatePluginService();
     }
 
-    /// <inheritdoc />
-    public IPluginValidator<IPluginConfiguration> GetValidator()
+    /// <summary>
+    /// Creates the validator component for this plugin
+    /// </summary>
+    public IPluginValidator GetValidator()
     {
         return new TemplatePluginValidator();
     }
 
-    // === IDisposable Implementation ===
-
-    /// <inheritdoc />
-    public async ValueTask DisposeAsync()
-    {
-        if (_disposed)
-            return;
-
-        _logger.LogInformation("Disposing Template Plugin");
-
-        // Stop plugin if running
-        if (Status == PluginState.Running)
-            await StopAsync();
-
-        lock (_stateLock)
-        {
-            _disposed = true;
-            _state = PluginState.Disposed;
-        }
-
-        _logger.LogInformation("Template Plugin disposed successfully");
-    }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
+    // Disposal handled by PluginBase
 }
