@@ -1,5 +1,7 @@
 using FlowEngine.Abstractions.Factories;
+using FlowEngine.Abstractions.Services;
 using FlowEngine.Core.Factories;
+using FlowEngine.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -25,6 +27,11 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IChunkFactory, ChunkFactory>();
         services.TryAddSingleton<IDatasetFactory, DatasetFactory>();
 
+        // Register monitoring and performance services
+        services.TryAddSingleton<IMemoryManager, MemoryManager>();
+        services.TryAddSingleton<IPerformanceMonitor, PerformanceMonitor>();
+        services.TryAddSingleton<IChannelTelemetry, ChannelTelemetry>();
+
         // Register Core infrastructure services
         services.TryAddSingleton<Abstractions.Execution.IDagAnalyzer, Execution.DagAnalyzer>();
         services.TryAddSingleton<FlowEngineCoordinator>();
@@ -46,6 +53,22 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IArrayRowFactory, ArrayRowFactory>();
         services.TryAddSingleton<IChunkFactory, ChunkFactory>();
         services.TryAddSingleton<IDatasetFactory, DatasetFactory>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds FlowEngine monitoring services to the service collection.
+    /// Includes performance monitoring, memory management, and telemetry services.
+    /// </summary>
+    /// <param name="services">The service collection to add services to</param>
+    /// <returns>The service collection for chaining</returns>
+    public static IServiceCollection AddFlowEngineMonitoring(this IServiceCollection services)
+    {
+        // Register monitoring and telemetry services
+        services.TryAddSingleton<IMemoryManager, MemoryManager>();
+        services.TryAddSingleton<IPerformanceMonitor, PerformanceMonitor>();
+        services.TryAddSingleton<IChannelTelemetry, ChannelTelemetry>();
 
         return services;
     }

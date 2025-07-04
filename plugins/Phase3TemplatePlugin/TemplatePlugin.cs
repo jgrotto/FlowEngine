@@ -1,6 +1,7 @@
 using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Abstractions.Factories;
+using FlowEngine.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
 
@@ -24,15 +25,21 @@ public sealed class TemplatePlugin : PluginBase
     private readonly IChunkFactory? _chunkFactory;
     private readonly IDatasetFactory? _datasetFactory;
     private readonly IDataTypeService? _dataTypeService;
+    private readonly IMemoryManager? _memoryManager;
+    private readonly IPerformanceMonitor? _performanceMonitor;
+    private readonly IChannelTelemetry? _channelTelemetry;
 
     /// <summary>
-    /// Constructor demonstrating factory injection for real data processing
+    /// Constructor demonstrating comprehensive service injection for advanced data processing
     /// </summary>
     /// <param name="schemaFactory">Factory for creating schemas</param>
     /// <param name="arrayRowFactory">Factory for creating array rows</param>
     /// <param name="chunkFactory">Factory for creating chunks</param>
     /// <param name="datasetFactory">Factory for creating datasets</param>
     /// <param name="dataTypeService">Service for data type operations</param>
+    /// <param name="memoryManager">Service for memory management and pooling</param>
+    /// <param name="performanceMonitor">Service for performance monitoring</param>
+    /// <param name="channelTelemetry">Service for channel telemetry</param>
     /// <param name="logger">Logger injected from Core framework</param>
     public TemplatePlugin(
         ISchemaFactory schemaFactory,
@@ -40,6 +47,9 @@ public sealed class TemplatePlugin : PluginBase
         IChunkFactory chunkFactory,
         IDatasetFactory datasetFactory,
         IDataTypeService dataTypeService,
+        IMemoryManager memoryManager,
+        IPerformanceMonitor performanceMonitor,
+        IChannelTelemetry channelTelemetry,
         ILogger<TemplatePlugin> logger) : base(logger)
     {
         _schemaFactory = schemaFactory ?? throw new ArgumentNullException(nameof(schemaFactory));
@@ -47,6 +57,9 @@ public sealed class TemplatePlugin : PluginBase
         _chunkFactory = chunkFactory ?? throw new ArgumentNullException(nameof(chunkFactory));
         _datasetFactory = datasetFactory ?? throw new ArgumentNullException(nameof(datasetFactory));
         _dataTypeService = dataTypeService ?? throw new ArgumentNullException(nameof(dataTypeService));
+        _memoryManager = memoryManager ?? throw new ArgumentNullException(nameof(memoryManager));
+        _performanceMonitor = performanceMonitor ?? throw new ArgumentNullException(nameof(performanceMonitor));
+        _channelTelemetry = channelTelemetry ?? throw new ArgumentNullException(nameof(channelTelemetry));
     }
 
     /// <summary>
@@ -56,7 +69,7 @@ public sealed class TemplatePlugin : PluginBase
     public TemplatePlugin(ILogger<TemplatePlugin> logger) : base(logger)
     {
         // This constructor is kept for backward compatibility but will log a warning
-        Logger.LogWarning("TemplatePlugin created without factory services - real data processing capabilities disabled");
+        Logger.LogWarning("TemplatePlugin created without Core services - advanced capabilities disabled");
     }
 
     // === Plugin Metadata (PluginBase Overrides) ===
@@ -181,20 +194,22 @@ public sealed class TemplatePlugin : PluginBase
         // If we have factory services, demonstrate real data processing
         if (_schemaFactory != null && _arrayRowFactory != null && _chunkFactory != null && _datasetFactory != null)
         {
-            Logger.LogInformation("🎯 Factory services available - running real data processing demonstration");
+            var hasMonitoringServices = _memoryManager != null && _performanceMonitor != null && _channelTelemetry != null;
+            Logger.LogInformation("🎯 Core services available - running data processing demonstration (monitoring: {HasMonitoring})", hasMonitoringServices);
+            
             try
             {
                 var dataset = await DemonstrateRealDataProcessingAsync();
-                Logger.LogInformation("✅ Real data processing demonstration completed - dataset created with {RowCount} rows", dataset.RowCount);
+                Logger.LogInformation("✅ Data processing demonstration completed - dataset created with {RowCount} rows", dataset.RowCount);
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "❌ Real data processing demonstration failed");
+                Logger.LogError(ex, "❌ Data processing demonstration failed");
             }
         }
         else
         {
-            Logger.LogWarning("⚠️ Factory services not available - skipping real data processing demonstration");
+            Logger.LogWarning("⚠️ Core services not available - skipping data processing demonstration");
         }
         
         Logger.LogInformation("Template Plugin started successfully");
@@ -221,7 +236,11 @@ public sealed class TemplatePlugin : PluginBase
             throw new InvalidOperationException("Plugin not initialized with factory services - real data processing not available");
         }
 
-        Logger.LogInformation("🚀 Starting REAL DATA PROCESSING demonstration using Core factories");
+        Logger.LogInformation("🚀 Starting REAL DATA PROCESSING demonstration using Core services");
+
+        // Start performance monitoring
+        using var operation = _performanceMonitor?.StartOperation("TemplatePlugin.DataProcessing", 
+            new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
         try
         {
@@ -236,9 +255,21 @@ public sealed class TemplatePlugin : PluginBase
 
             var schema = _schemaFactory.CreateSchema(columnDefinitions);
             Logger.LogInformation("✅ Created schema with {ColumnCount} columns: {Schema}", schema.ColumnCount, schema.Signature);
+            
+            // Record schema creation performance
+            _performanceMonitor?.RecordCounter("TemplatePlugin.SchemasCreated", 1, 
+                new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
-            // === STEP 2: Create ArrayRows using ArrayRowFactory ===
+            // === STEP 2: Create ArrayRows using ArrayRowFactory with Memory Management ===
             var rows = new List<IArrayRow>();
+            
+            // Check memory pressure before creating large datasets
+            if (_memoryManager?.IsUnderMemoryPressure() == true)
+            {
+                Logger.LogWarning("⚠️ System under memory pressure (level: {PressureLevel}), proceeding with caution", 
+                    _memoryManager.PressureLevel);
+            }
+            
             var sampleData = new object[][]
             {
                 new object[] { 1, "Alice Johnson", 95.5, DateTime.UtcNow.AddDays(-10) },
@@ -257,11 +288,18 @@ public sealed class TemplatePlugin : PluginBase
             }
 
             Logger.LogInformation("✅ Created {RowCount} ArrayRows with real data", rows.Count);
+            _performanceMonitor?.RecordCounter("TemplatePlugin.RowsCreated", rows.Count, 
+                new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
             // === STEP 3: Create a Chunk using ChunkFactory ===
             var chunk = _chunkFactory.CreateChunk(rows.ToArray());
             Logger.LogInformation("✅ Created chunk with {RowCount} rows, memory size ~{MemorySize} bytes", 
                 chunk.RowCount, chunk.ApproximateMemorySize);
+            
+            // Record chunk creation and memory usage
+            _performanceMonitor?.RecordCounter("TemplatePlugin.ChunksCreated", 1, 
+                new Dictionary<string, string> { { "component", "TemplatePlugin" } });
+            _performanceMonitor?.RecordMemoryUsage("TemplatePlugin", chunk.ApproximateMemorySize);
 
             // === STEP 4: Demonstrate data processing (filtering and transformation) ===
             var filteredRows = new List<IArrayRow>();
@@ -280,6 +318,10 @@ public sealed class TemplatePlugin : PluginBase
 
             Logger.LogInformation("✅ Processed data: filtered {FilteredCount} rows from {TotalCount}, added bonus points", 
                 filteredRows.Count, chunk.RowCount);
+            
+            // Record data processing metrics
+            _performanceMonitor?.RecordCounter("TemplatePlugin.RowsProcessed", filteredRows.Count, 
+                new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
             // === STEP 5: Create processed Chunk and Dataset ===
             var processedChunk = _chunkFactory.CreateChunk(filteredRows.ToArray());
@@ -303,6 +345,17 @@ public sealed class TemplatePlugin : PluginBase
             Logger.LogInformation("🎉 REAL DATA PROCESSING demonstration completed successfully!");
             Logger.LogInformation("📊 Summary: Created schema → {RowCount} rows → chunk → filtered/transformed → final dataset", 
                 dataset.RowCount);
+
+            // === STEP 7: Display performance statistics if monitoring is available ===
+            if (_performanceMonitor != null)
+            {
+                var stats = _performanceMonitor.GetStatistics("TemplatePlugin");
+                if (stats != null)
+                {
+                    Logger.LogInformation("📈 Performance Statistics: {Operations} operations, {AvgTime}ms avg, {TotalRows} rows processed", 
+                        stats.TotalOperations, stats.AverageProcessingTime.TotalMilliseconds, stats.TotalRowsProcessed);
+                }
+            }
 
             return dataset;
         }

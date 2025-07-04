@@ -1,5 +1,6 @@
 using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Abstractions.Factories;
+using FlowEngine.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
@@ -21,17 +22,23 @@ public sealed class PluginLoader : IPluginLoader
     private readonly IChunkFactory _chunkFactory;
     private readonly IDatasetFactory _datasetFactory;
     private readonly IDataTypeService _dataTypeService;
+    private readonly IMemoryManager _memoryManager;
+    private readonly IPerformanceMonitor _performanceMonitor;
+    private readonly IChannelTelemetry _channelTelemetry;
     private readonly ILogger<PluginLoader> _logger;
     private bool _disposed;
 
     /// <summary>
-    /// Initializes a new instance of the PluginLoader with factory dependencies.
+    /// Initializes a new instance of the PluginLoader with comprehensive service dependencies.
     /// </summary>
     /// <param name="schemaFactory">Factory for creating schemas</param>
     /// <param name="arrayRowFactory">Factory for creating array rows</param>
     /// <param name="chunkFactory">Factory for creating chunks</param>
     /// <param name="datasetFactory">Factory for creating datasets</param>
     /// <param name="dataTypeService">Service for data type operations</param>
+    /// <param name="memoryManager">Service for memory management and pooling</param>
+    /// <param name="performanceMonitor">Service for performance monitoring</param>
+    /// <param name="channelTelemetry">Service for channel telemetry</param>
     /// <param name="logger">Logger for plugin loading operations</param>
     public PluginLoader(
         ISchemaFactory schemaFactory,
@@ -39,6 +46,9 @@ public sealed class PluginLoader : IPluginLoader
         IChunkFactory chunkFactory,
         IDatasetFactory datasetFactory,
         IDataTypeService dataTypeService,
+        IMemoryManager memoryManager,
+        IPerformanceMonitor performanceMonitor,
+        IChannelTelemetry channelTelemetry,
         ILogger<PluginLoader> logger)
     {
         _schemaFactory = schemaFactory ?? throw new ArgumentNullException(nameof(schemaFactory));
@@ -46,6 +56,9 @@ public sealed class PluginLoader : IPluginLoader
         _chunkFactory = chunkFactory ?? throw new ArgumentNullException(nameof(chunkFactory));
         _datasetFactory = datasetFactory ?? throw new ArgumentNullException(nameof(datasetFactory));
         _dataTypeService = dataTypeService ?? throw new ArgumentNullException(nameof(dataTypeService));
+        _memoryManager = memoryManager ?? throw new ArgumentNullException(nameof(memoryManager));
+        _performanceMonitor = performanceMonitor ?? throw new ArgumentNullException(nameof(performanceMonitor));
+        _channelTelemetry = channelTelemetry ?? throw new ArgumentNullException(nameof(channelTelemetry));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -446,7 +459,8 @@ public sealed class PluginLoader : IPluginLoader
                 $"No suitable constructor found for plugin type {pluginType.Name}. " +
                 $"Available constructors: {constructorInfo}. " +
                 $"Plugin constructors should use supported dependency types: " +
-                $"ISchemaFactory, IArrayRowFactory, IChunkFactory, IDatasetFactory, IDataTypeService, ILogger, ILogger<T>");
+                $"ISchemaFactory, IArrayRowFactory, IChunkFactory, IDatasetFactory, IDataTypeService, " +
+                $"IMemoryManager, IPerformanceMonitor, IChannelTelemetry, ILogger, ILogger<T>");
         }
         catch (Exception ex) when (!(ex is PluginLoadException))
         {
@@ -474,6 +488,16 @@ public sealed class PluginLoader : IPluginLoader
         
         if (parameterType == typeof(IDataTypeService))
             return _dataTypeService;
+
+        // Monitoring and telemetry services
+        if (parameterType == typeof(IMemoryManager))
+            return _memoryManager;
+        
+        if (parameterType == typeof(IPerformanceMonitor))
+            return _performanceMonitor;
+        
+        if (parameterType == typeof(IChannelTelemetry))
+            return _channelTelemetry;
 
         // Logger services
         if (parameterType == typeof(ILogger))
