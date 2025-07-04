@@ -120,3 +120,4 @@ public sealed class PluginErrorEventArgs : EventArgs
     /// </summary>
     public DateTimeOffset Timestamp { get; }
 }
+

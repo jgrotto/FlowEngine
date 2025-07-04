@@ -1,5 +1,6 @@
 using FlowEngine.Abstractions;
 using FlowEngine.Abstractions.Configuration;
+using FlowEngine.Abstractions.Data;
 using FlowEngine.Core.Data;
 using System.Collections.Immutable;
 

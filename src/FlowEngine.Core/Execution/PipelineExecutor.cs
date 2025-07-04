@@ -1,6 +1,7 @@
 using FlowEngine.Abstractions;
 using FlowEngine.Abstractions.Channels;
 using FlowEngine.Abstractions.Configuration;
+using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Execution;
 using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Core.Channels;
@@ -336,7 +337,8 @@ public sealed class PipelineExecutor : IPipelineExecutor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var plugin = await _pluginManager.LoadPluginAsync(pluginConfig);
+            // TODO: Fix interface mismatch in Sprint 1 - proper plugin configuration needed
+            var plugin = await _pluginManager.LoadPluginAsync((FlowEngine.Abstractions.Plugins.IPluginConfiguration)pluginConfig);
             _loadedPlugins[pluginConfig.Name] = plugin;
 
             // Initialize plugin metrics

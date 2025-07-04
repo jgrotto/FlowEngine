@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions;
+using FlowEngine.Abstractions.Data;
 
 namespace FlowEngine.Core.Data;
 
@@ -145,7 +146,7 @@ public sealed class Chunk : IChunk
     }
 
     /// <inheritdoc />
-    public IChunk WithMetadata(IReadOnlyDictionary<string, object> metadata)
+    public IChunk WithMetadata(IReadOnlyDictionary<string, object>? metadata)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(metadata);
