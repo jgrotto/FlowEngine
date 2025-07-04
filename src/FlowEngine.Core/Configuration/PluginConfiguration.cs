@@ -1,15 +1,17 @@
 using FlowEngine.Abstractions;
 using FlowEngine.Abstractions.Configuration;
 using FlowEngine.Abstractions.Data;
+using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Core.Data;
 using System.Collections.Immutable;
 
 namespace FlowEngine.Core.Configuration;
 
 /// <summary>
-/// Implementation of plugin configuration from YAML data.
+/// Implementation of plugin definition from YAML data.
+/// Represents the parsed plugin definition before conversion to runtime configuration.
 /// </summary>
-internal sealed class PluginConfiguration : IPluginConfiguration
+internal sealed class PluginConfiguration : IPluginDefinition
 {
     private readonly PluginData _data;
 
@@ -25,16 +27,28 @@ internal sealed class PluginConfiguration : IPluginConfiguration
     public string Type => _data.Type ?? throw new InvalidOperationException("Plugin type is required");
 
     /// <inheritdoc />
-    public string? Assembly => _data.Assembly;
+    public string? AssemblyPath => _data.Assembly;
 
     /// <inheritdoc />
-    public ISchemaConfiguration? Schema => _data.Schema != null ? new SchemaConfiguration(_data.Schema) : null;
+    public ISchemaDefinition? InputSchema => null; // TODO: Implement schema parsing
 
     /// <inheritdoc />
-    public IReadOnlyDictionary<string, object> Config => 
+    public ISchemaDefinition? OutputSchema => null; // TODO: Implement schema parsing
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<string, object> Configuration => 
         _data.Config ?? (IReadOnlyDictionary<string, object>)new Dictionary<string, object>();
 
     /// <inheritdoc />
+    public bool SupportsHotSwapping => false; // TODO: Parse from YAML
+
+    /// <inheritdoc />
+    public IReadOnlyDictionary<string, object>? Metadata => null; // TODO: Parse from YAML
+
+    // Legacy properties for backward compatibility
+    public string? Assembly => _data.Assembly;
+    public ISchemaConfiguration? Schema => _data.Schema != null ? new SchemaConfiguration(_data.Schema) : null;
+    public IReadOnlyDictionary<string, object> Config => Configuration;
     public IResourceLimits? ResourceLimits => 
         _data.ResourceLimits != null ? new ResourceLimits(_data.ResourceLimits) : null;
 }

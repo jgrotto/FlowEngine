@@ -34,8 +34,8 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     public string? Description => _data.Pipeline?.Description;
 
     /// <inheritdoc />
-    public IReadOnlyList<IPluginConfiguration> Plugins =>
-        _data.Pipeline?.Plugins?.Select(p => new PluginConfiguration(p)).ToArray() ?? Array.Empty<IPluginConfiguration>();
+    public IReadOnlyList<IPluginDefinition> Plugins =>
+        _data.Pipeline?.Plugins?.Select(p => new PluginConfiguration(p)).ToArray() ?? Array.Empty<IPluginDefinition>();
 
     /// <inheritdoc />
     public IReadOnlyList<IConnectionConfiguration> Connections =>

@@ -27,7 +27,7 @@ public interface IPipelineConfiguration
     /// <summary>
     /// Gets the plugin configurations defined in this pipeline.
     /// </summary>
-    IReadOnlyList<IPluginConfiguration> Plugins { get; }
+    IReadOnlyList<IPluginDefinition> Plugins { get; }
 
     /// <summary>
     /// Gets the connection configurations that define data flow between plugins.

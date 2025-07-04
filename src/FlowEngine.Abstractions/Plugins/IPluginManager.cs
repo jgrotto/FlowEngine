@@ -9,12 +9,12 @@ namespace FlowEngine.Abstractions.Plugins;
 public interface IPluginManager : IDisposable
 {
     /// <summary>
-    /// Loads and configures a plugin based on its configuration.
+    /// Loads and configures a plugin based on its definition.
     /// </summary>
-    /// <param name="configuration">Plugin configuration from YAML</param>
+    /// <param name="definition">Plugin definition from YAML</param>
     /// <returns>Loaded and configured plugin instance</returns>
     /// <exception cref="PluginLoadException">Thrown when plugin loading or configuration fails</exception>
-    Task<IPlugin> LoadPluginAsync(IPluginConfiguration configuration);
+    Task<IPlugin> LoadPluginAsync(IPluginDefinition definition);
 
     /// <summary>
     /// Unloads a plugin and releases its resources.
@@ -50,19 +50,19 @@ public interface IPluginManager : IDisposable
     IReadOnlyCollection<PluginInfo> GetPluginInfo();
 
     /// <summary>
-    /// Validates that a plugin configuration can be loaded.
+    /// Validates that a plugin definition can be loaded.
     /// </summary>
-    /// <param name="configuration">Plugin configuration to validate</param>
+    /// <param name="definition">Plugin definition to validate</param>
     /// <returns>Validation result</returns>
-    Task<PluginValidationResult> ValidatePluginAsync(IPluginConfiguration configuration);
+    Task<PluginValidationResult> ValidatePluginAsync(IPluginDefinition definition);
 
     /// <summary>
-    /// Reloads a plugin with new configuration.
+    /// Reloads a plugin with new definition.
     /// </summary>
     /// <param name="name">Name of plugin to reload</param>
-    /// <param name="configuration">New plugin configuration</param>
+    /// <param name="definition">New plugin definition</param>
     /// <returns>Reloaded plugin instance</returns>
-    Task<IPlugin> ReloadPluginAsync(string name, IPluginConfiguration configuration);
+    Task<IPlugin> ReloadPluginAsync(string name, IPluginDefinition definition);
 
     /// <summary>
     /// Event raised when a plugin is loaded.

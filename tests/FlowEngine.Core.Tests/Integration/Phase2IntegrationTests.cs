@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions;
+using FlowEngine.Abstractions.Data;
 using FlowEngine.Core;
 using FlowEngine.Core.Data;
 using FlowEngine.Core.Monitoring;

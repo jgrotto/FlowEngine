@@ -5,6 +5,7 @@ using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Execution;
 using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Core.Channels;
+using FlowEngine.Core.Configuration;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
@@ -337,8 +338,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // TODO: Fix interface mismatch in Sprint 1 - proper plugin configuration needed
-            var plugin = await _pluginManager.LoadPluginAsync((FlowEngine.Abstractions.Plugins.IPluginConfiguration)pluginConfig);
+            var plugin = await _pluginManager.LoadPluginAsync(pluginConfig);
             _loadedPlugins[pluginConfig.Name] = plugin;
 
             // Initialize plugin metrics
@@ -707,7 +707,8 @@ public sealed class PipelineExecutor : IPipelineExecutor
         foreach (var pluginName in executionOrder)
         {
             var pluginConfig = configuration.Plugins.First(p => p.Name == pluginName);
-            var inputSchema = pluginConfig.Schema?.ToSchema();
+            // TODO: Convert ISchemaDefinition to ISchema once bridge layer is implemented
+            var inputSchema = (pluginConfig as PluginConfiguration)?.Schema?.ToSchema();
 
             schemaFlow.Add(new SchemaFlowStep
             {

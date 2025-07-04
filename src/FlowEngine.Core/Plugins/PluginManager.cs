@@ -1,3 +1,4 @@
+using FlowEngine.Abstractions.Configuration;
 using FlowEngine.Abstractions.Plugins;
 
 namespace FlowEngine.Core.Plugins;
@@ -9,7 +10,7 @@ namespace FlowEngine.Core.Plugins;
 public sealed class PluginManager : IPluginManager
 {
     /// <inheritdoc />
-    public Task<IPlugin> LoadPluginAsync(IPluginConfiguration configuration)
+    public Task<IPlugin> LoadPluginAsync(IPluginDefinition definition)
     {
         // TODO: Implement plugin loading for Sprint 1
         throw new NotImplementedException("Plugin loading not yet implemented - Sprint 1 MVP");
@@ -68,14 +69,14 @@ public sealed class PluginManager : IPluginManager
     }
 
     /// <inheritdoc />
-    public Task<PluginValidationResult> ValidatePluginAsync(IPluginConfiguration configuration)
+    public Task<PluginValidationResult> ValidatePluginAsync(IPluginDefinition definition)
     {
         // TODO: Implement plugin validation for Sprint 1
         throw new NotImplementedException("Plugin validation not yet implemented - Sprint 1 MVP");
     }
 
     /// <inheritdoc />
-    public Task<IPlugin> ReloadPluginAsync(string name, IPluginConfiguration configuration)
+    public Task<IPlugin> ReloadPluginAsync(string name, IPluginDefinition definition)
     {
         // TODO: Implement plugin reloading for Sprint 1
         throw new NotImplementedException("Plugin reloading not yet implemented - Sprint 1 MVP");
