@@ -115,3 +115,55 @@ public sealed class ChunkProcessingException : Exception
     /// </summary>
     public string? ColumnName { get; init; }
 }
+
+/// <summary>
+/// Represents the result of a validation operation.
+/// </summary>
+public sealed class ValidationResult
+{
+    /// <summary>
+    /// Gets a value indicating whether the validation was successful.
+    /// </summary>
+    public bool IsValid { get; init; }
+
+    /// <summary>
+    /// Gets the validation errors, if any.
+    /// </summary>
+    public string[] Errors { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Gets the validation warnings, if any.
+    /// </summary>
+    public string[] Warnings { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Creates a successful validation result.
+    /// </summary>
+    /// <returns>A successful validation result</returns>
+    public static ValidationResult Success() => new() { IsValid = true };
+
+    /// <summary>
+    /// Creates a successful validation result with warnings.
+    /// </summary>
+    /// <param name="warnings">The validation warnings</param>
+    /// <returns>A successful validation result with warnings</returns>
+    public static ValidationResult SuccessWithWarnings(params string[] warnings) =>
+        new() { IsValid = true, Warnings = warnings };
+
+    /// <summary>
+    /// Creates a failed validation result with errors.
+    /// </summary>
+    /// <param name="errors">The validation errors</param>
+    /// <returns>A failed validation result</returns>
+    public static ValidationResult Failure(params string[] errors) =>
+        new() { IsValid = false, Errors = errors };
+
+    /// <summary>
+    /// Creates a failed validation result with errors and warnings.
+    /// </summary>
+    /// <param name="errors">The validation errors</param>
+    /// <param name="warnings">The validation warnings</param>
+    /// <returns>A failed validation result</returns>
+    public static ValidationResult Failure(string[] errors, string[] warnings) =>
+        new() { IsValid = false, Errors = errors, Warnings = warnings };
+}

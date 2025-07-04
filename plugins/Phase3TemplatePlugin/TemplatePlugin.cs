@@ -1,5 +1,6 @@
 using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Plugins;
+using FlowEngine.Abstractions.Factories;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
 
@@ -18,13 +19,44 @@ namespace Phase3TemplatePlugin;
 public sealed class TemplatePlugin : PluginBase
 {
     private TemplatePluginConfiguration? _configuration;
+    private readonly ISchemaFactory? _schemaFactory;
+    private readonly IArrayRowFactory? _arrayRowFactory;
+    private readonly IChunkFactory? _chunkFactory;
+    private readonly IDatasetFactory? _datasetFactory;
+    private readonly IDataTypeService? _dataTypeService;
 
     /// <summary>
-    /// Constructor demonstrating proper dependency injection with PluginBase
+    /// Constructor demonstrating factory injection for real data processing
+    /// </summary>
+    /// <param name="schemaFactory">Factory for creating schemas</param>
+    /// <param name="arrayRowFactory">Factory for creating array rows</param>
+    /// <param name="chunkFactory">Factory for creating chunks</param>
+    /// <param name="datasetFactory">Factory for creating datasets</param>
+    /// <param name="dataTypeService">Service for data type operations</param>
+    /// <param name="logger">Logger injected from Core framework</param>
+    public TemplatePlugin(
+        ISchemaFactory schemaFactory,
+        IArrayRowFactory arrayRowFactory,
+        IChunkFactory chunkFactory,
+        IDatasetFactory datasetFactory,
+        IDataTypeService dataTypeService,
+        ILogger<TemplatePlugin> logger) : base(logger)
+    {
+        _schemaFactory = schemaFactory ?? throw new ArgumentNullException(nameof(schemaFactory));
+        _arrayRowFactory = arrayRowFactory ?? throw new ArgumentNullException(nameof(arrayRowFactory));
+        _chunkFactory = chunkFactory ?? throw new ArgumentNullException(nameof(chunkFactory));
+        _datasetFactory = datasetFactory ?? throw new ArgumentNullException(nameof(datasetFactory));
+        _dataTypeService = dataTypeService ?? throw new ArgumentNullException(nameof(dataTypeService));
+    }
+
+    /// <summary>
+    /// Fallback constructor for backward compatibility (uses logger only)
     /// </summary>
     /// <param name="logger">Logger injected from Core framework</param>
     public TemplatePlugin(ILogger<TemplatePlugin> logger) : base(logger)
     {
+        // This constructor is kept for backward compatibility but will log a warning
+        Logger.LogWarning("TemplatePlugin created without factory services - real data processing capabilities disabled");
     }
 
     // === Plugin Metadata (PluginBase Overrides) ===
@@ -145,9 +177,27 @@ public sealed class TemplatePlugin : PluginBase
     protected override async Task StartInternalAsync(CancellationToken cancellationToken)
     {
         Logger.LogInformation("Starting Template Plugin");
-        // Plugin-specific start logic here
+        
+        // If we have factory services, demonstrate real data processing
+        if (_schemaFactory != null && _arrayRowFactory != null && _chunkFactory != null && _datasetFactory != null)
+        {
+            Logger.LogInformation("🎯 Factory services available - running real data processing demonstration");
+            try
+            {
+                var dataset = await DemonstrateRealDataProcessingAsync();
+                Logger.LogInformation("✅ Real data processing demonstration completed - dataset created with {RowCount} rows", dataset.RowCount);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "❌ Real data processing demonstration failed");
+            }
+        }
+        else
+        {
+            Logger.LogWarning("⚠️ Factory services not available - skipping real data processing demonstration");
+        }
+        
         Logger.LogInformation("Template Plugin started successfully");
-        await Task.CompletedTask;
     }
 
     /// <inheritdoc />
@@ -157,6 +207,110 @@ public sealed class TemplatePlugin : PluginBase
         // Plugin-specific stop logic here
         Logger.LogInformation("Template Plugin stopped successfully");
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Demonstrates real data processing using Core factory services.
+    /// This method showcases how external plugins can create and process Core data types.
+    /// </summary>
+    /// <returns>A dataset with processed sample data</returns>
+    public async Task<IDataset> DemonstrateRealDataProcessingAsync()
+    {
+        if (_schemaFactory == null || _arrayRowFactory == null || _chunkFactory == null || _datasetFactory == null)
+        {
+            throw new InvalidOperationException("Plugin not initialized with factory services - real data processing not available");
+        }
+
+        Logger.LogInformation("🚀 Starting REAL DATA PROCESSING demonstration using Core factories");
+
+        try
+        {
+            // === STEP 1: Create a Schema using SchemaFactory ===
+            var columnDefinitions = new[]
+            {
+                new ColumnDefinition { Name = "Id", DataType = typeof(int), IsNullable = false, Index = 0 },
+                new ColumnDefinition { Name = "Name", DataType = typeof(string), IsNullable = false, Index = 1 },
+                new ColumnDefinition { Name = "Score", DataType = typeof(double), IsNullable = true, Index = 2 },
+                new ColumnDefinition { Name = "CreatedAt", DataType = typeof(DateTime), IsNullable = false, Index = 3 }
+            };
+
+            var schema = _schemaFactory.CreateSchema(columnDefinitions);
+            Logger.LogInformation("✅ Created schema with {ColumnCount} columns: {Schema}", schema.ColumnCount, schema.Signature);
+
+            // === STEP 2: Create ArrayRows using ArrayRowFactory ===
+            var rows = new List<IArrayRow>();
+            var sampleData = new object[][]
+            {
+                new object[] { 1, "Alice Johnson", 95.5, DateTime.UtcNow.AddDays(-10) },
+                new object[] { 2, "Bob Smith", 87.2, DateTime.UtcNow.AddDays(-9) },
+                new object[] { 3, "Carol Williams", null, DateTime.UtcNow.AddDays(-8) }, // Null score
+                new object[] { 4, "David Brown", 92.1, DateTime.UtcNow.AddDays(-7) },
+                new object[] { 5, "Eve Davis", 89.7, DateTime.UtcNow.AddDays(-6) }
+            };
+
+            foreach (var rowData in sampleData)
+            {
+                var row = _arrayRowFactory.CreateRow(schema, rowData);
+                rows.Add(row);
+                Logger.LogDebug("Created row: Id={Id}, Name={Name}, Score={Score}", 
+                    row[0], row[1], row[2]?.ToString() ?? "NULL");
+            }
+
+            Logger.LogInformation("✅ Created {RowCount} ArrayRows with real data", rows.Count);
+
+            // === STEP 3: Create a Chunk using ChunkFactory ===
+            var chunk = _chunkFactory.CreateChunk(rows.ToArray());
+            Logger.LogInformation("✅ Created chunk with {RowCount} rows, memory size ~{MemorySize} bytes", 
+                chunk.RowCount, chunk.ApproximateMemorySize);
+
+            // === STEP 4: Demonstrate data processing (filtering and transformation) ===
+            var filteredRows = new List<IArrayRow>();
+            foreach (var row in chunk.GetRows())
+            {
+                // Filter: Only include rows with non-null scores
+                if (row[2] != null)
+                {
+                    // Transform: Add bonus points to score
+                    var originalScore = (double)row[2];
+                    var bonusScore = originalScore + 5.0;
+                    var transformedRow = row.With("Score", bonusScore);
+                    filteredRows.Add(transformedRow);
+                }
+            }
+
+            Logger.LogInformation("✅ Processed data: filtered {FilteredCount} rows from {TotalCount}, added bonus points", 
+                filteredRows.Count, chunk.RowCount);
+
+            // === STEP 5: Create processed Chunk and Dataset ===
+            var processedChunk = _chunkFactory.CreateChunk(filteredRows.ToArray());
+            var dataset = _datasetFactory.CreateDataset(new[] { processedChunk });
+
+            Logger.LogInformation("✅ Created final dataset with {ChunkCount} chunk(s), {RowCount} rows", 
+                dataset.ChunkCount, dataset.RowCount);
+
+            // === STEP 6: Demonstrate streaming processing ===
+            Logger.LogInformation("🔄 Demonstrating streaming data access:");
+            await foreach (var streamChunk in dataset.GetChunksAsync())
+            {
+                Logger.LogInformation("Processing chunk with {RowCount} rows", streamChunk.RowCount);
+                foreach (var row in streamChunk.GetRows())
+                {
+                    Logger.LogDebug("  Row: {Id} | {Name} | {Score} | {Date}", 
+                        row[0], row[1], row[2], row[3]);
+                }
+            }
+
+            Logger.LogInformation("🎉 REAL DATA PROCESSING demonstration completed successfully!");
+            Logger.LogInformation("📊 Summary: Created schema → {RowCount} rows → chunk → filtered/transformed → final dataset", 
+                dataset.RowCount);
+
+            return dataset;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ Real data processing demonstration failed");
+            throw;
+        }
     }
 
     // Health checks and metrics handled by base class

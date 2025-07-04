@@ -38,16 +38,6 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         _pluginRegistry = pluginRegistry ?? throw new ArgumentNullException(nameof(pluginRegistry));
     }
 
-    /// <summary>
-    /// Initializes a new FlowEngine coordinator with default components.
-    /// </summary>
-    public FlowEngineCoordinator() : this(
-        CreateDefaultPluginManager(),
-        new DagAnalyzer(),
-        new PipelineExecutor(),
-        new PluginRegistry())
-    {
-    }
 
     /// <summary>
     /// Gets the plugin manager for managing plugin lifecycle.
@@ -329,16 +319,4 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
             throw new ObjectDisposedException(nameof(FlowEngineCoordinator));
     }
     
-    /// <summary>
-    /// Creates a default plugin manager for testing and simple scenarios.
-    /// </summary>
-    /// <returns>Configured plugin manager</returns>
-    private static PluginManager CreateDefaultPluginManager()
-    {
-        var pluginLoader = new PluginLoader();
-        var pluginRegistry = new PluginRegistry();
-        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<PluginManager>.Instance;
-        
-        return new PluginManager(pluginLoader, pluginRegistry, logger);
-    }
 }

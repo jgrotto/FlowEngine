@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions.Plugins;
+using FlowEngine.Abstractions.Factories;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
@@ -15,7 +16,38 @@ public sealed class PluginLoader : IPluginLoader
 {
     private readonly ConcurrentDictionary<string, LoadedPluginContext> _loadedPlugins = new();
     private readonly object _loadLock = new();
+    private readonly ISchemaFactory _schemaFactory;
+    private readonly IArrayRowFactory _arrayRowFactory;
+    private readonly IChunkFactory _chunkFactory;
+    private readonly IDatasetFactory _datasetFactory;
+    private readonly IDataTypeService _dataTypeService;
+    private readonly ILogger<PluginLoader> _logger;
     private bool _disposed;
+
+    /// <summary>
+    /// Initializes a new instance of the PluginLoader with factory dependencies.
+    /// </summary>
+    /// <param name="schemaFactory">Factory for creating schemas</param>
+    /// <param name="arrayRowFactory">Factory for creating array rows</param>
+    /// <param name="chunkFactory">Factory for creating chunks</param>
+    /// <param name="datasetFactory">Factory for creating datasets</param>
+    /// <param name="dataTypeService">Service for data type operations</param>
+    /// <param name="logger">Logger for plugin loading operations</param>
+    public PluginLoader(
+        ISchemaFactory schemaFactory,
+        IArrayRowFactory arrayRowFactory,
+        IChunkFactory chunkFactory,
+        IDatasetFactory datasetFactory,
+        IDataTypeService dataTypeService,
+        ILogger<PluginLoader> logger)
+    {
+        _schemaFactory = schemaFactory ?? throw new ArgumentNullException(nameof(schemaFactory));
+        _arrayRowFactory = arrayRowFactory ?? throw new ArgumentNullException(nameof(arrayRowFactory));
+        _chunkFactory = chunkFactory ?? throw new ArgumentNullException(nameof(chunkFactory));
+        _datasetFactory = datasetFactory ?? throw new ArgumentNullException(nameof(datasetFactory));
+        _dataTypeService = dataTypeService ?? throw new ArgumentNullException(nameof(dataTypeService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
     /// <inheritdoc />
     public event EventHandler<PluginLoadedEventArgs>? PluginLoaded;
@@ -364,45 +396,113 @@ public sealed class PluginLoader : IPluginLoader
     }
 
     /// <summary>
-    /// Creates a plugin instance with dependency injection support.
+    /// Creates a plugin instance with comprehensive dependency injection support.
+    /// Supports injection of factory services, loggers, and other dependencies.
     /// </summary>
     private T CreatePluginInstance<T>(Type pluginType) where T : class, IPlugin
     {
         try
         {
-            // First try parameterless constructor
-            var parameterlessConstructor = pluginType.GetConstructor(Type.EmptyTypes);
-            if (parameterlessConstructor != null)
+            // Get all constructors ordered by parameter count (most specific first)
+            var constructors = pluginType.GetConstructors()
+                .OrderByDescending(c => c.GetParameters().Length)
+                .ToArray();
+
+            foreach (var constructor in constructors)
             {
-                return (T)(Activator.CreateInstance(pluginType) ?? throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
+                var parameters = constructor.GetParameters();
+                var args = new object?[parameters.Length];
+                bool canInstantiate = true;
+
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    var paramType = parameters[i].ParameterType;
+                    var arg = ResolveConstructorParameter(paramType, pluginType);
+                    
+                    if (arg == null && !IsNullableParameter(parameters[i]))
+                    {
+                        canInstantiate = false;
+                        break;
+                    }
+                    
+                    args[i] = arg;
+                }
+
+                if (canInstantiate)
+                {
+                    _logger.LogDebug("Creating plugin {PluginType} with {ParameterCount} dependencies", 
+                        pluginType.Name, parameters.Length);
+                    
+                    return (T)(Activator.CreateInstance(pluginType, args) ?? 
+                        throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
+                }
             }
 
-            // Look for constructor with ILogger parameter
-            var loggerConstructor = pluginType.GetConstructor(new[] { typeof(ILogger<>).MakeGenericType(pluginType) });
-            if (loggerConstructor != null)
-            {
-                // Create a typed null logger - in a real implementation this would come from DI
-                var nullLoggerType = typeof(NullLogger<>).MakeGenericType(pluginType);
-                var logger = Activator.CreateInstance(nullLoggerType) ?? throw new PluginLoadException($"Failed to create logger for {pluginType.Name}");
-                return (T)(Activator.CreateInstance(pluginType, logger) ?? throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
-            }
-
-            // Look for constructor with ILogger parameter (non-generic)
-            var nonGenericLoggerConstructor = pluginType.GetConstructor(new[] { typeof(ILogger) });
-            if (nonGenericLoggerConstructor != null)
-            {
-                // Create a null logger for now - in a real implementation this would come from DI
-                var logger = NullLogger.Instance;
-                return (T)(Activator.CreateInstance(pluginType, logger) ?? throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
-            }
-
-            // If no suitable constructor found, throw exception
-            throw new PluginLoadException($"No suitable constructor found for plugin type {pluginType.Name}. Plugin must have either a parameterless constructor or a constructor with ILogger parameter.");
+            // If no constructor could be satisfied, provide detailed error
+            var constructorInfo = string.Join("; ", constructors.Select(c => 
+                $"({string.Join(", ", c.GetParameters().Select(p => p.ParameterType.Name))})"));
+            
+            throw new PluginLoadException(
+                $"No suitable constructor found for plugin type {pluginType.Name}. " +
+                $"Available constructors: {constructorInfo}. " +
+                $"Plugin constructors should use supported dependency types: " +
+                $"ISchemaFactory, IArrayRowFactory, IChunkFactory, IDatasetFactory, IDataTypeService, ILogger, ILogger<T>");
         }
         catch (Exception ex) when (!(ex is PluginLoadException))
         {
             throw new PluginLoadException($"Failed to create instance of {pluginType.Name}: {ex.Message}", ex);
         }
+    }
+
+    /// <summary>
+    /// Resolves a constructor parameter by type, providing appropriate dependencies.
+    /// </summary>
+    private object? ResolveConstructorParameter(Type parameterType, Type pluginType)
+    {
+        // Factory services
+        if (parameterType == typeof(ISchemaFactory))
+            return _schemaFactory;
+        
+        if (parameterType == typeof(IArrayRowFactory))
+            return _arrayRowFactory;
+        
+        if (parameterType == typeof(IChunkFactory))
+            return _chunkFactory;
+        
+        if (parameterType == typeof(IDatasetFactory))
+            return _datasetFactory;
+        
+        if (parameterType == typeof(IDataTypeService))
+            return _dataTypeService;
+
+        // Logger services
+        if (parameterType == typeof(ILogger))
+            return _logger;
+        
+        if (parameterType.IsGenericType && 
+            parameterType.GetGenericTypeDefinition() == typeof(ILogger<>))
+        {
+            var loggerType = parameterType.GetGenericArguments()[0];
+            if (loggerType == pluginType)
+            {
+                // Create typed logger for the plugin
+                var nullLoggerType = typeof(NullLogger<>).MakeGenericType(pluginType);
+                return Activator.CreateInstance(nullLoggerType);
+            }
+        }
+
+        // Return null for unsupported types - caller will check if parameter is optional
+        return null;
+    }
+
+    /// <summary>
+    /// Determines if a parameter is nullable (either reference type or Nullable&lt;T&gt;).
+    /// </summary>
+    private static bool IsNullableParameter(ParameterInfo parameter)
+    {
+        return !parameter.ParameterType.IsValueType || 
+               Nullable.GetUnderlyingType(parameter.ParameterType) != null ||
+               parameter.HasDefaultValue;
     }
 
     private void ThrowIfDisposed()

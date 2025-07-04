@@ -1,6 +1,9 @@
 using FlowEngine.Abstractions.Configuration;
 using FlowEngine.Core;
 using FlowEngine.Core.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace FlowEngine.Cli;
 
@@ -101,9 +104,29 @@ internal class Program
                 Console.WriteLine($"Connections: {pipelineConfig.Connections.Count()}");
             }
 
-            // Step 3: Create FlowEngine coordinator
+            // Step 3: Create service provider with FlowEngine services
             Console.WriteLine("Initializing FlowEngine...");
-            await using var coordinator = new FlowEngineCoordinator();
+            var services = new ServiceCollection();
+            
+            // Add logging
+            services.AddLogging(builder =>
+            {
+                builder.AddConsole();
+                if (verbose)
+                {
+                    builder.SetMinimumLevel(LogLevel.Debug);
+                }
+                else
+                {
+                    builder.SetMinimumLevel(LogLevel.Information);
+                }
+            });
+            
+            // Add FlowEngine services
+            services.AddFlowEngine();
+            
+            await using var serviceProvider = services.BuildServiceProvider();
+            var coordinator = serviceProvider.GetRequiredService<FlowEngineCoordinator>();
             
             // Step 3a: Scan for plugins
             Console.WriteLine("Scanning for plugins...");
