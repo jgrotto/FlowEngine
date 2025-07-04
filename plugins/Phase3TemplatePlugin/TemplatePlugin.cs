@@ -1,3 +1,4 @@
+using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Plugins;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
@@ -51,6 +52,16 @@ public sealed class TemplatePlugin : PluginBase
     { 
         get => _configuration ?? throw new InvalidOperationException("Plugin not initialized");
         protected set => _configuration = (TemplatePluginConfiguration)value;
+    }
+
+    /// <inheritdoc />
+    public override ISchema? OutputSchema
+    {
+        get
+        {
+            // Return the output schema defined in configuration, or null if not initialized
+            return _configuration?.OutputSchema;
+        }
     }
 
     // Additional plugin capabilities metadata

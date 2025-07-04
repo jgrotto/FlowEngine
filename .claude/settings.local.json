@@ -16,7 +16,9 @@
       "Bash(dotnet.exe test tests/FlowEngine.Integration.Tests/ --filter \"ExecutePipeline_WithExamplePlugins_ShouldCompleteSuccessfully\" --configuration Release --verbosity normal)",
       "Bash(timeout:*)",
       "Bash(dotnet.exe test tests/FlowEngine.Core.Tests/ --filter \"Phase2IntegrationTests.SourceToSink_BasicPipeline_ShouldExecuteSuccessfully\" -v normal)",
-      "Bash(/usr/bin/dotnet build:*)"
+      "Bash(/usr/bin/dotnet build:*)",
+      "Bash(mv:*)",
+      "Bash(git.exe show HEAD:src/FlowEngine.Abstractions/Plugins/IPlugin.cs)"
     ],
     "deny": []
   }

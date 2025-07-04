@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions.Plugins;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Reflection;
 
@@ -185,10 +186,25 @@ public sealed class PluginRegistry : IPluginRegistry
 
     private static bool IsPluginType(Type type)
     {
-        return type.IsClass &&
-               !type.IsAbstract &&
-               typeof(IPlugin).IsAssignableFrom(type) &&
-               type.GetConstructor(Type.EmptyTypes) != null;
+        if (!type.IsClass || type.IsAbstract || !typeof(IPlugin).IsAssignableFrom(type))
+            return false;
+
+        // Check for acceptable constructors:
+        // 1. Parameterless constructor
+        if (type.GetConstructor(Type.EmptyTypes) != null)
+            return true;
+
+        // 2. Constructor with ILogger<> parameter
+        var loggerGenericConstructor = type.GetConstructor(new[] { typeof(ILogger<>).MakeGenericType(type) });
+        if (loggerGenericConstructor != null)
+            return true;
+
+        // 3. Constructor with ILogger parameter
+        var loggerConstructor = type.GetConstructor(new[] { typeof(ILogger) });
+        if (loggerConstructor != null)
+            return true;
+
+        return false;
     }
 
     private static PluginTypeInfo CreatePluginTypeInfo(Type pluginType)
@@ -270,7 +286,9 @@ public sealed class PluginRegistry : IPluginRegistry
 
     private static bool RequiresConfiguration(Type pluginType)
     {
-        return typeof(IConfigurablePlugin).IsAssignableFrom(pluginType);
+        // TODO: Determine configuration requirements for Phase 3 plugins
+        // All IPlugin instances support configuration through IPluginConfiguration
+        return typeof(IPlugin).IsAssignableFrom(pluginType);
     }
 
     private static IReadOnlyList<string> ExtractSupportedSchemas(Type pluginType)

@@ -38,41 +38,6 @@ public enum PluginState
     Disposed
 }
 
-/// <summary>
-/// Represents the current state of a plugin processor.
-/// </summary>
-public enum ProcessorState
-{
-    /// <summary>
-    /// Processor has been created but not initialized.
-    /// </summary>
-    Created,
-
-    /// <summary>
-    /// Processor has been initialized and is ready to start.
-    /// </summary>
-    Initialized,
-
-    /// <summary>
-    /// Processor is running and processing data.
-    /// </summary>
-    Running,
-
-    /// <summary>
-    /// Processor has been stopped but can be restarted.
-    /// </summary>
-    Stopped,
-
-    /// <summary>
-    /// Processor encountered an error and cannot process data.
-    /// </summary>
-    Failed,
-
-    /// <summary>
-    /// Processor has been disposed and cannot be used.
-    /// </summary>
-    Disposed
-}
 
 /// <summary>
 /// Severity levels for validation messages.

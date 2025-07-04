@@ -1,19 +1,63 @@
-using Microsoft.Extensions.Configuration;
 using FlowEngine.Abstractions.Data;
+using System.Collections.Immutable;
 
 namespace FlowEngine.Abstractions.Plugins;
 
 /// <summary>
-/// Base interface for all FlowEngine plugins providing lifecycle management and schema definition.
-/// Plugins are isolated in separate AssemblyLoadContext instances for security and versioning.
+/// Phase 3 plugin interface implementing the five-component architecture.
+/// Provides lifecycle management, configuration, and metadata for plugin components.
 /// </summary>
-public interface IPlugin : IAsyncDisposable
+public interface IPlugin : IDisposable
 {
     /// <summary>
-    /// Gets the unique name of this plugin instance.
-    /// Must match the name specified in the pipeline configuration.
+    /// Gets the unique identifier for this plugin.
+    /// </summary>
+    string Id { get; }
+
+    /// <summary>
+    /// Gets the display name of this plugin.
     /// </summary>
     string Name { get; }
+
+    /// <summary>
+    /// Gets the version of this plugin.
+    /// </summary>
+    string Version { get; }
+
+    /// <summary>
+    /// Gets the description of this plugin.
+    /// </summary>
+    string Description { get; }
+
+    /// <summary>
+    /// Gets the author of this plugin.
+    /// </summary>
+    string Author { get; }
+
+    /// <summary>
+    /// Gets the type of this plugin (Source, Transform, Sink).
+    /// </summary>
+    string PluginType { get; }
+
+    /// <summary>
+    /// Gets the current state of this plugin.
+    /// </summary>
+    PluginState State { get; }
+
+    /// <summary>
+    /// Gets the configuration for this plugin.
+    /// </summary>
+    IPluginConfiguration Configuration { get; }
+
+    /// <summary>
+    /// Gets additional metadata about this plugin.
+    /// </summary>
+    ImmutableDictionary<string, object>? Metadata { get; }
+
+    /// <summary>
+    /// Gets whether this plugin supports hot-swapping.
+    /// </summary>
+    bool SupportsHotSwapping { get; }
 
     /// <summary>
     /// Gets the output schema produced by this plugin.
@@ -22,25 +66,41 @@ public interface IPlugin : IAsyncDisposable
     ISchema? OutputSchema { get; }
 
     /// <summary>
-    /// Gets the plugin version for compatibility checking.
-    /// Should follow semantic versioning (e.g., "1.0.0").
+    /// Initializes the plugin with the specified configuration.
     /// </summary>
-    string Version { get; }
+    /// <param name="configuration">The configuration to use for initialization</param>
+    /// <param name="cancellationToken">Token for cancelling the operation</param>
+    /// <returns>Result of the initialization operation</returns>
+    Task<PluginInitializationResult> InitializeAsync(IPluginConfiguration configuration, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets optional metadata about this plugin for diagnostics and monitoring.
+    /// Starts the plugin.
     /// </summary>
-    IReadOnlyDictionary<string, object>? Metadata { get; }
+    /// <param name="cancellationToken">Token for cancelling the operation</param>
+    /// <returns>Task representing the start operation</returns>
+    Task StartAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Initializes the plugin with configuration and validates settings.
-    /// Called once during pipeline startup before any data processing.
+    /// Stops the plugin.
     /// </summary>
-    /// <param name="config">Plugin-specific configuration from YAML</param>
-    /// <param name="cancellationToken">Cancellation token for initialization timeout</param>
-    /// <returns>Task representing the initialization operation</returns>
-    /// <exception cref="PluginInitializationException">Thrown when initialization fails</exception>
-    Task InitializeAsync(IConfiguration config, CancellationToken cancellationToken = default);
+    /// <param name="cancellationToken">Token for cancelling the operation</param>
+    /// <returns>Task representing the stop operation</returns>
+    Task StopAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Performs a hot-swap of the plugin configuration.
+    /// </summary>
+    /// <param name="newConfiguration">The new configuration to apply</param>
+    /// <param name="cancellationToken">Token for cancelling the operation</param>
+    /// <returns>Result of the hot-swap operation</returns>
+    Task<HotSwapResult> HotSwapAsync(IPluginConfiguration newConfiguration, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Performs a health check on the plugin.
+    /// </summary>
+    /// <param name="cancellationToken">Token for cancelling the operation</param>
+    /// <returns>Collection of health check results</returns>
+    Task<IEnumerable<HealthCheck>> HealthCheckAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Validates that this plugin can process the given input schema.
@@ -48,123 +108,10 @@ public interface IPlugin : IAsyncDisposable
     /// </summary>
     /// <param name="inputSchema">The schema of data this plugin will receive</param>
     /// <returns>Validation result indicating compatibility</returns>
-    PluginValidationResult ValidateInputSchema(ISchema? inputSchema);
+    ValidationResult ValidateInputSchema(ISchema? inputSchema);
 
     /// <summary>
-    /// Gets performance metrics and status information for monitoring.
-    /// Called periodically during pipeline execution for observability.
+    /// Event raised when the plugin state changes.
     /// </summary>
-    /// <returns>Current plugin performance metrics</returns>
-    PluginMetrics GetMetrics();
-}
-
-/// <summary>
-/// Result of plugin input schema validation.
-/// </summary>
-public sealed record PluginValidationResult
-{
-    /// <summary>
-    /// Gets whether the validation passed.
-    /// </summary>
-    public bool IsValid { get; init; }
-
-    /// <summary>
-    /// Gets validation error messages if validation failed.
-    /// </summary>
-    public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
-
-    /// <summary>
-    /// Gets optional warnings that don't prevent execution but may affect performance.
-    /// </summary>
-    public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
-
-    /// <summary>
-    /// Gets the plugin type that was validated (for plugin manager use).
-    /// </summary>
-    public Type? PluginType { get; init; }
-
-    /// <summary>
-    /// Creates a successful validation result.
-    /// </summary>
-    public static PluginValidationResult Success() => new() { IsValid = true };
-
-    /// <summary>
-    /// Creates a successful validation result with plugin type.
-    /// </summary>
-    /// <param name="pluginType">The validated plugin type</param>
-    /// <param name="warnings">Optional warning messages</param>
-    public static PluginValidationResult Success(Type? pluginType, params string[] warnings) =>
-        new() { IsValid = true, PluginType = pluginType, Warnings = warnings };
-
-    /// <summary>
-    /// Creates a successful validation result with warnings.
-    /// </summary>
-    /// <param name="warnings">Warning messages</param>
-    public static PluginValidationResult SuccessWithWarnings(params string[] warnings) => 
-        new() { IsValid = true, Warnings = warnings };
-
-    /// <summary>
-    /// Creates a failed validation result.
-    /// </summary>
-    /// <param name="errors">Error messages</param>
-    public static PluginValidationResult Failure(params string[] errors) => 
-        new() { IsValid = false, Errors = errors };
-}
-
-/// <summary>
-/// Performance metrics for plugin monitoring and optimization.
-/// </summary>
-public sealed record PluginMetrics
-{
-    /// <summary>
-    /// Gets the total number of chunks processed by this plugin.
-    /// </summary>
-    public long TotalChunksProcessed { get; init; }
-
-    /// <summary>
-    /// Gets the total number of rows processed by this plugin.
-    /// </summary>
-    public long TotalRowsProcessed { get; init; }
-
-    /// <summary>
-    /// Gets the total processing time for all operations.
-    /// </summary>
-    public TimeSpan TotalProcessingTime { get; init; }
-
-    /// <summary>
-    /// Gets the current memory usage of this plugin in bytes.
-    /// </summary>
-    public long CurrentMemoryUsage { get; init; }
-
-    /// <summary>
-    /// Gets the peak memory usage of this plugin in bytes.
-    /// </summary>
-    public long PeakMemoryUsage { get; init; }
-
-    /// <summary>
-    /// Gets the number of errors encountered during processing.
-    /// </summary>
-    public long ErrorCount { get; init; }
-
-    /// <summary>
-    /// Gets the timestamp when these metrics were captured.
-    /// </summary>
-    public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
-
-    /// <summary>
-    /// Gets optional plugin-specific metrics.
-    /// </summary>
-    public IReadOnlyDictionary<string, object>? CustomMetrics { get; init; }
-
-    /// <summary>
-    /// Calculates the average processing time per chunk.
-    /// </summary>
-    public TimeSpan AverageChunkProcessingTime => 
-        TotalChunksProcessed > 0 ? TimeSpan.FromTicks(TotalProcessingTime.Ticks / TotalChunksProcessed) : TimeSpan.Zero;
-
-    /// <summary>
-    /// Calculates the throughput in rows per second.
-    /// </summary>
-    public double RowsPerSecond => 
-        TotalProcessingTime.TotalSeconds > 0 ? TotalRowsProcessed / TotalProcessingTime.TotalSeconds : 0.0;
+    event EventHandler<PluginStateChangedEventArgs>? StateChanged;
 }

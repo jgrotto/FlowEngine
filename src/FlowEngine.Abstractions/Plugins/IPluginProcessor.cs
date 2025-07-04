@@ -17,7 +17,7 @@ public interface IPluginProcessor : IDisposable
     /// <summary>
     /// Gets the current state of this processor.
     /// </summary>
-    ProcessorState State { get; }
+    PluginState State { get; }
 
     /// <summary>
     /// Gets the configuration used by this processor.
@@ -78,7 +78,7 @@ public interface IPluginProcessor : IDisposable
     /// <summary>
     /// Event raised when the processor state changes.
     /// </summary>
-    event EventHandler<ProcessorStateChangedEventArgs>? StateChanged;
+    event EventHandler<PluginStateChangedEventArgs>? StateChanged;
 }
 
 /// <summary>
@@ -89,12 +89,12 @@ public sealed class ProcessorStateChangedEventArgs : EventArgs
     /// <summary>
     /// Gets the previous state of the processor.
     /// </summary>
-    public required ProcessorState PreviousState { get; init; }
+    public required PluginState PreviousState { get; init; }
 
     /// <summary>
     /// Gets the current state of the processor.
     /// </summary>
-    public required ProcessorState CurrentState { get; init; }
+    public required PluginState CurrentState { get; init; }
 
     /// <summary>
     /// Gets the reason for the state change.

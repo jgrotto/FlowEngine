@@ -11,7 +11,7 @@ namespace FlowEngine.Abstractions.Plugins;
 public abstract class PluginProcessorBase : IPluginProcessor
 {
     private readonly ILogger _logger;
-    private ProcessorState _state = ProcessorState.Created;
+    private PluginState _state = PluginState.Created;
     private readonly object _stateLock = new();
     private bool _disposed;
     private ProcessorMetrics _metrics = new();
@@ -30,7 +30,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     public virtual string Id { get; protected set; }
 
     /// <inheritdoc />
-    public ProcessorState State
+    public PluginState State
     {
         get
         {
@@ -41,7 +41,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
         }
         protected set
         {
-            ProcessorState previousState;
+            PluginState previousState;
             lock (_stateLock)
             {
                 previousState = _state;
@@ -87,7 +87,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     {
         ThrowIfDisposed();
         
-        if (State != ProcessorState.Created)
+        if (State != PluginState.Created)
         {
             throw new InvalidOperationException($"Processor is in {State} state and cannot be initialized");
         }
@@ -99,12 +99,12 @@ public abstract class PluginProcessorBase : IPluginProcessor
             await InitializeInternalAsync(configuration, cancellationToken);
             
             Configuration = configuration;
-            State = ProcessorState.Initialized;
+            State = PluginState.Initialized;
             _logger.LogInformation("Processor {ProcessorId} initialized successfully", Id);
         }
         catch (Exception ex)
         {
-            State = ProcessorState.Failed;
+            State = PluginState.Failed;
             _logger.LogError(ex, "Processor {ProcessorId} initialization failed", Id);
             throw;
         }
@@ -115,7 +115,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     {
         ThrowIfDisposed();
         
-        if (State != ProcessorState.Running)
+        if (State != PluginState.Running)
         {
             return ProcessResult.CreateFailure($"Processor is in {State} state and cannot process data");
         }
@@ -157,7 +157,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     {
         ThrowIfDisposed();
         
-        if (State != ProcessorState.Running)
+        if (State != PluginState.Running)
         {
             throw new InvalidOperationException($"Processor is in {State} state and cannot process data");
         }
@@ -184,7 +184,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     {
         ThrowIfDisposed();
         
-        if (State != ProcessorState.Initialized)
+        if (State != PluginState.Initialized)
         {
             throw new InvalidOperationException($"Processor must be initialized before starting. Current state: {State}");
         }
@@ -195,12 +195,12 @@ public abstract class PluginProcessorBase : IPluginProcessor
             
             await StartInternalAsync(cancellationToken);
             
-            State = ProcessorState.Running;
+            State = PluginState.Running;
             _logger.LogInformation("Processor {ProcessorId} started successfully", Id);
         }
         catch (Exception ex)
         {
-            State = ProcessorState.Failed;
+            State = PluginState.Failed;
             _logger.LogError(ex, "Processor {ProcessorId} start failed", Id);
             throw;
         }
@@ -211,7 +211,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     {
         ThrowIfDisposed();
         
-        if (State != ProcessorState.Running)
+        if (State != PluginState.Running)
         {
             _logger.LogWarning("Processor {ProcessorId} is not running (state: {State})", Id, State);
             return;
@@ -223,12 +223,12 @@ public abstract class PluginProcessorBase : IPluginProcessor
             
             await StopInternalAsync(cancellationToken);
             
-            State = ProcessorState.Stopped;
+            State = PluginState.Stopped;
             _logger.LogInformation("Processor {ProcessorId} stopped successfully", Id);
         }
         catch (Exception ex)
         {
-            State = ProcessorState.Failed;
+            State = PluginState.Failed;
             _logger.LogError(ex, "Processor {ProcessorId} stop failed", Id);
             throw;
         }
@@ -244,10 +244,10 @@ public abstract class PluginProcessorBase : IPluginProcessor
             new HealthCheck
             {
                 Name = "Processor State",
-                Passed = State == ProcessorState.Running || State == ProcessorState.Initialized,
+                Passed = State == PluginState.Running || State == PluginState.Initialized,
                 Details = $"Current state: {State}",
                 ExecutionTime = TimeSpan.Zero,
-                Severity = State == ProcessorState.Failed ? HealthCheckSeverity.Critical : HealthCheckSeverity.Info
+                Severity = State == PluginState.Failed ? HealthCheckSeverity.Critical : HealthCheckSeverity.Info
             },
             new HealthCheck
             {
@@ -266,7 +266,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     }
 
     /// <inheritdoc />
-    public event EventHandler<ProcessorStateChangedEventArgs>? StateChanged;
+    public event EventHandler<PluginStateChangedEventArgs>? StateChanged;
 
     /// <summary>
     /// Performs processor-specific initialization logic.
@@ -346,9 +346,9 @@ public abstract class PluginProcessorBase : IPluginProcessor
     /// </summary>
     /// <param name="previousState">Previous state</param>
     /// <param name="currentState">Current state</param>
-    protected virtual void OnStateChanged(ProcessorState previousState, ProcessorState currentState)
+    protected virtual void OnStateChanged(PluginState previousState, PluginState currentState)
     {
-        StateChanged?.Invoke(this, new ProcessorStateChangedEventArgs
+        StateChanged?.Invoke(this, new PluginStateChangedEventArgs
         {
             PreviousState = previousState,
             CurrentState = currentState
@@ -383,7 +383,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
         {
             try
             {
-                if (State == ProcessorState.Running)
+                if (State == PluginState.Running)
                 {
                     StopAsync().GetAwaiter().GetResult();
                 }
@@ -394,7 +394,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
             }
             finally
             {
-                State = ProcessorState.Disposed;
+                State = PluginState.Disposed;
                 _disposed = true;
             }
         }

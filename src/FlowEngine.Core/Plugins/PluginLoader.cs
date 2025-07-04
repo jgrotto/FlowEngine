@@ -1,4 +1,6 @@
 using FlowEngine.Abstractions.Plugins;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -241,7 +243,7 @@ public sealed class PluginLoader : IPluginLoader
         if (!typeof(T).IsAssignableFrom(type))
             throw new PluginLoadException($"Type {typeName} does not implement {typeof(T).Name}");
 
-        var plugin = (T)(Activator.CreateInstance(type) ?? throw new PluginLoadException($"Failed to create instance of {typeName}"));
+        var plugin = CreatePluginInstance<T>(type);
 
         // Note: Plugin initialization will be handled by the plugin manager with configuration
 
@@ -269,7 +271,7 @@ public sealed class PluginLoader : IPluginLoader
             if (!typeof(T).IsAssignableFrom(type))
                 throw new PluginLoadException($"Type {typeName} does not implement {typeof(T).Name}");
 
-            var plugin = (T)(Activator.CreateInstance(type) ?? throw new PluginLoadException($"Failed to create instance of {typeName}"));
+            var plugin = CreatePluginInstance<T>(type);
 
             // Note: Plugin initialization will be handled by the plugin manager with configuration
 
@@ -358,6 +360,48 @@ public sealed class PluginLoader : IPluginLoader
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates a plugin instance with dependency injection support.
+    /// </summary>
+    private T CreatePluginInstance<T>(Type pluginType) where T : class, IPlugin
+    {
+        try
+        {
+            // First try parameterless constructor
+            var parameterlessConstructor = pluginType.GetConstructor(Type.EmptyTypes);
+            if (parameterlessConstructor != null)
+            {
+                return (T)(Activator.CreateInstance(pluginType) ?? throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
+            }
+
+            // Look for constructor with ILogger parameter
+            var loggerConstructor = pluginType.GetConstructor(new[] { typeof(ILogger<>).MakeGenericType(pluginType) });
+            if (loggerConstructor != null)
+            {
+                // Create a typed null logger - in a real implementation this would come from DI
+                var nullLoggerType = typeof(NullLogger<>).MakeGenericType(pluginType);
+                var logger = Activator.CreateInstance(nullLoggerType) ?? throw new PluginLoadException($"Failed to create logger for {pluginType.Name}");
+                return (T)(Activator.CreateInstance(pluginType, logger) ?? throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
+            }
+
+            // Look for constructor with ILogger parameter (non-generic)
+            var nonGenericLoggerConstructor = pluginType.GetConstructor(new[] { typeof(ILogger) });
+            if (nonGenericLoggerConstructor != null)
+            {
+                // Create a null logger for now - in a real implementation this would come from DI
+                var logger = NullLogger.Instance;
+                return (T)(Activator.CreateInstance(pluginType, logger) ?? throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
+            }
+
+            // If no suitable constructor found, throw exception
+            throw new PluginLoadException($"No suitable constructor found for plugin type {pluginType.Name}. Plugin must have either a parameterless constructor or a constructor with ILogger parameter.");
+        }
+        catch (Exception ex) when (!(ex is PluginLoadException))
+        {
+            throw new PluginLoadException($"Failed to create instance of {pluginType.Name}: {ex.Message}", ex);
         }
     }
 

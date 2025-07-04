@@ -42,7 +42,7 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
     /// Initializes a new FlowEngine coordinator with default components.
     /// </summary>
     public FlowEngineCoordinator() : this(
-        new PluginManager(),
+        CreateDefaultPluginManager(),
         new DagAnalyzer(),
         new PipelineExecutor(),
         new PluginRegistry())
@@ -327,5 +327,18 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(FlowEngineCoordinator));
+    }
+    
+    /// <summary>
+    /// Creates a default plugin manager for testing and simple scenarios.
+    /// </summary>
+    /// <returns>Configured plugin manager</returns>
+    private static PluginManager CreateDefaultPluginManager()
+    {
+        var pluginLoader = new PluginLoader();
+        var pluginRegistry = new PluginRegistry();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<PluginManager>.Instance;
+        
+        return new PluginManager(pluginLoader, pluginRegistry, logger);
     }
 }

@@ -1,0 +1,22 @@
+pipeline:
+  name: "Test Pipeline"
+  version: "1.0.0"
+  description: "Simple test pipeline using TemplatePlugin"
+  
+  plugins:
+    - name: "template-source"
+      type: "Phase3TemplatePlugin.TemplatePlugin"
+      assembly: "C:\\source\\FlowEngine\\plugins\\Phase3TemplatePlugin\\bin\\Debug\\net8.0\\Phase3TemplatePlugin.dll"
+      config:
+        RowCount: 100
+        BatchSize: 10
+        DataType: "TestData"
+        
+  connections: []
+  
+  settings:
+    defaultChannel:
+      bufferSize: 1000
+      backpressureThreshold: 80
+      fullMode: "Wait"
+      timeoutSeconds: 30

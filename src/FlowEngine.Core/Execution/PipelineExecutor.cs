@@ -44,7 +44,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
     /// <summary>
     /// Initializes a new pipeline executor with default dependencies.
     /// </summary>
-    public PipelineExecutor() : this(new Plugins.PluginManager(), new DagAnalyzer())
+    public PipelineExecutor() : this(CreateDefaultPluginManager(), new DagAnalyzer())
     {
     }
 
@@ -906,6 +906,19 @@ public sealed class PipelineExecutor : IPipelineExecutor
             metrics.RowsProcessed += chunk.RowCount;
             yield return chunk;
         }
+    }
+    
+    /// <summary>
+    /// Creates a default plugin manager for testing and simple scenarios.
+    /// </summary>
+    /// <returns>Configured plugin manager</returns>
+    private static Plugins.PluginManager CreateDefaultPluginManager()
+    {
+        var pluginLoader = new Plugins.PluginLoader();
+        var pluginRegistry = new Plugins.PluginRegistry();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<Plugins.PluginManager>.Instance;
+        
+        return new Plugins.PluginManager(pluginLoader, pluginRegistry, logger);
     }
 }
 

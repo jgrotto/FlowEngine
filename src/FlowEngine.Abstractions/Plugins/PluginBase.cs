@@ -8,7 +8,7 @@ namespace FlowEngine.Abstractions.Plugins;
 /// Abstract base class for FlowEngine plugins implementing the five-component architecture.
 /// Provides common functionality and lifecycle management for plugin development.
 /// </summary>
-public abstract class PluginBase : IPhase3Plugin
+public abstract class PluginBase : IPlugin
 {
     private readonly ILogger _logger;
     private PluginState _state = PluginState.Created;
@@ -77,6 +77,9 @@ public abstract class PluginBase : IPhase3Plugin
 
     /// <inheritdoc />
     public abstract bool SupportsHotSwapping { get; }
+
+    /// <inheritdoc />
+    public abstract ISchema? OutputSchema { get; }
 
     /// <summary>
     /// Gets the logger instance for this plugin.
@@ -260,6 +263,13 @@ public abstract class PluginBase : IPhase3Plugin
         healthChecks.AddRange(additionalChecks);
 
         return healthChecks;
+    }
+
+    /// <inheritdoc />
+    public virtual ValidationResult ValidateInputSchema(ISchema? inputSchema)
+    {
+        // Default implementation - subclasses can override for specific validation
+        return ValidationResult.Success();
     }
 
     /// <inheritdoc />

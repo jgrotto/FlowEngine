@@ -54,7 +54,7 @@ public interface IPluginManager : IDisposable
     /// </summary>
     /// <param name="definition">Plugin definition to validate</param>
     /// <returns>Validation result</returns>
-    Task<PluginValidationResult> ValidatePluginAsync(IPluginDefinition definition);
+    Task<ValidationResult> ValidatePluginAsync(IPluginDefinition definition);
 
     /// <summary>
     /// Reloads a plugin with new definition.
