@@ -386,10 +386,6 @@ public sealed class PluginManager : IPluginManager
 
     private Task<Abstractions.Plugins.IPluginConfiguration> CreateTemplatePluginConfigurationAsync(IPluginDefinition definition)
     {
-        // For Sprint 1, use a simple approach - create TemplatePluginConfiguration with default values
-        // The TemplatePlugin will use default values if specific properties aren't properly set
-        // This is a limitation we'll address in future sprints with proper configuration deserialization
-        
         var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for TemplatePlugin");
         var assembly = System.Reflection.Assembly.LoadFrom(assemblyPath);
         var configType = assembly.GetType("Phase3TemplatePlugin.TemplatePluginConfiguration");
@@ -397,17 +393,139 @@ public sealed class PluginManager : IPluginManager
         if (configType == null)
             throw new PluginLoadException("TemplatePluginConfiguration type not found in plugin assembly");
 
-        // Create with default constructor - this will use the default values defined in the class
-        var configInstance = Activator.CreateInstance(configType);
-        if (configInstance == null)
-            throw new PluginLoadException("Failed to create TemplatePluginConfiguration instance");
+        try
+        {
+            // Extract configuration values from YAML with proper type conversion
+            var config = definition.Configuration ?? (IReadOnlyDictionary<string, object>)new Dictionary<string, object>();
+            
+            var rowCount = ExtractConfigValue<int>(config, "RowCount", 1000);
+            var batchSize = ExtractConfigValue<int>(config, "BatchSize", 100);
+            var dataType = ExtractConfigValue<string>(config, "DataType", "Customer");
+            
+            // Validate configuration values
+            if (rowCount < 1 || rowCount > 1_000_000)
+                throw new PluginLoadException($"RowCount must be between 1 and 1,000,000, got: {rowCount}");
+                
+            if (batchSize < 1 || batchSize > 10_000)
+                throw new PluginLoadException($"BatchSize must be between 1 and 10,000, got: {batchSize}");
+                
+            if (string.IsNullOrWhiteSpace(dataType))
+                throw new PluginLoadException("DataType cannot be null or empty");
 
-        _logger.LogWarning("Created TemplatePluginConfiguration with default values. YAML configuration values (RowCount={RowCount}, BatchSize={BatchSize}, DataType={DataType}) will be ignored in Sprint 1", 
-            definition.Configuration?.TryGetValue("RowCount", out var rc) == true ? rc : "not specified",
-            definition.Configuration?.TryGetValue("BatchSize", out var bs) == true ? bs : "not specified", 
-            definition.Configuration?.TryGetValue("DataType", out var dt) == true ? dt : "not specified");
+            // Create configuration instance using reflection with proper property initialization
+            var configInstance = Activator.CreateInstance(configType, new object[0]);
+            if (configInstance == null)
+                throw new PluginLoadException("Failed to create TemplatePluginConfiguration instance");
 
-        return Task.FromResult((Abstractions.Plugins.IPluginConfiguration)configInstance);
+            // Since TemplatePluginConfiguration properties are init-only, we need to use reflection
+            // to set the values after construction, or create a new instance with the values
+            var properties = configType.GetProperties()
+                .Where(p => p.CanWrite || (p.SetMethod?.IsPublic == true))
+                .ToArray();
+
+            // Try to find the properties and set them via reflection
+            var rowCountProp = configType.GetProperty("RowCount");
+            var batchSizeProp = configType.GetProperty("BatchSize");
+            var dataTypeProp = configType.GetProperty("DataType");
+
+            // For init-only properties, we need to use a different approach
+            // Create a new instance using object initializer syntax via compiled expression
+            // or use unsafe reflection to set init properties
+            
+            // Alternative: Create new instance with computed values using Activator and property setting
+            var constructor = configType.GetConstructor(Type.EmptyTypes);
+            if (constructor != null)
+            {
+                configInstance = constructor.Invoke(null);
+                
+                // Use reflection to set init-only properties (this works for init accessors)
+                SetInitProperty(configInstance, "RowCount", rowCount);
+                SetInitProperty(configInstance, "BatchSize", batchSize);
+                SetInitProperty(configInstance, "DataType", dataType);
+            }
+
+            _logger.LogInformation("✅ Successfully bound YAML configuration values to TemplatePluginConfiguration: RowCount={RowCount}, BatchSize={BatchSize}, DataType={DataType}", 
+                rowCount, batchSize, dataType);
+
+            return Task.FromResult((Abstractions.Plugins.IPluginConfiguration)configInstance);
+        }
+        catch (Exception ex) when (!(ex is PluginLoadException))
+        {
+            _logger.LogError(ex, "Failed to bind configuration for TemplatePlugin");
+            throw new PluginLoadException($"Configuration binding failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Extracts and converts a configuration value from the YAML configuration dictionary.
+    /// </summary>
+    /// <typeparam name="T">The target type for the configuration value</typeparam>
+    /// <param name="config">The configuration dictionary from YAML</param>
+    /// <param name="key">The configuration key</param>
+    /// <param name="defaultValue">The default value if key is not found</param>
+    /// <returns>The converted configuration value</returns>
+    private static T ExtractConfigValue<T>(IReadOnlyDictionary<string, object> config, string key, T defaultValue)
+    {
+        if (!config.TryGetValue(key, out var value))
+            return defaultValue;
+
+        try
+        {
+            // Handle different value types from YAML parsing
+            return value switch
+            {
+                T directValue => directValue,
+                string strValue when typeof(T) == typeof(int) => (T)(object)int.Parse(strValue),
+                string strValue when typeof(T) == typeof(string) => (T)(object)strValue,
+                int intValue when typeof(T) == typeof(int) => (T)(object)intValue,
+                long longValue when typeof(T) == typeof(int) => (T)(object)(int)longValue,
+                _ => (T)Convert.ChangeType(value, typeof(T))
+            };
+        }
+        catch (Exception ex)
+        {
+            throw new PluginLoadException($"Failed to convert configuration value '{key}' of type {value?.GetType().Name} to {typeof(T).Name}: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Sets an init-only property using reflection.
+    /// </summary>
+    /// <param name="instance">The object instance</param>
+    /// <param name="propertyName">The property name</param>
+    /// <param name="value">The value to set</param>
+    private static void SetInitProperty(object instance, string propertyName, object value)
+    {
+        var property = instance.GetType().GetProperty(propertyName);
+        if (property == null)
+            throw new PluginLoadException($"Property '{propertyName}' not found on configuration type");
+
+        if (!property.CanWrite && property.SetMethod?.IsPublic != true)
+        {
+            // For init-only properties, we need to use the backing field or reflection tricks
+            var backingField = instance.GetType().GetField($"<{propertyName}>k__BackingField", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            
+            if (backingField != null)
+            {
+                backingField.SetValue(instance, value);
+                return;
+            }
+            
+            // Try alternative approach - use the init setter via reflection
+            var setMethod = property.GetSetMethod(true); // Get non-public setter
+            if (setMethod != null)
+            {
+                setMethod.Invoke(instance, new[] { value });
+                return;
+            }
+            
+            throw new PluginLoadException($"Unable to set init-only property '{propertyName}' on configuration type");
+        }
+        else
+        {
+            property.SetValue(instance, value);
+        }
     }
 
 

@@ -3,6 +3,9 @@ using FlowEngine.Abstractions.Data;
 using FlowEngine.Core;
 using FlowEngine.Core.Data;
 using FlowEngine.Core.Monitoring;
+using FlowEngine.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -16,14 +19,21 @@ public class Phase2IntegrationTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
     private readonly FlowEngineCoordinator _coordinator;
-    private readonly ChannelTelemetry _telemetry;
+    private readonly FlowEngine.Core.Monitoring.ChannelTelemetry _telemetry;
     private readonly PipelinePerformanceMonitor _monitor;
 
     public Phase2IntegrationTests(ITestOutputHelper output)
     {
         _output = output;
-        _coordinator = new FlowEngineCoordinator();
-        _telemetry = new ChannelTelemetry();
+        
+        // Create service provider for dependency injection
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddLogging(builder => builder.AddConsole());
+        services.AddFlowEngine();
+        
+        var serviceProvider = services.BuildServiceProvider();
+        _coordinator = serviceProvider.GetRequiredService<FlowEngineCoordinator>();
+        _telemetry = new FlowEngine.Core.Monitoring.ChannelTelemetry();
         _monitor = new PipelinePerformanceMonitor(_telemetry);
     }
 

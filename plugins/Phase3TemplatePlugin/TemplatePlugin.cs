@@ -201,6 +201,8 @@ public sealed class TemplatePlugin : PluginBase
             {
                 var dataset = await DemonstrateRealDataProcessingAsync();
                 Logger.LogInformation("✅ Data processing demonstration completed - dataset created with {RowCount} rows", dataset.RowCount);
+        Logger.LogInformation("📋 Configuration values used: RowCount={ConfigRowCount}, BatchSize={ConfigBatchSize}, DataType={ConfigDataType}", 
+            _configuration?.RowCount ?? 0, _configuration?.BatchSize ?? 0, _configuration?.DataType ?? "not set");
             }
             catch (Exception ex)
             {
