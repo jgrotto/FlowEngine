@@ -1,0 +1,39 @@
+<Project>
+  
+  <!-- Global properties for all projects in the solution -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <WarningsNotAsErrors />
+  </PropertyGroup>
+
+  <!-- File Organization Rules -->
+  <PropertyGroup>
+    <!-- Enable file organization checking for new projects -->
+    <EnableFileOrganizationCheck Condition="'$(EnableFileOrganizationCheck)' == ''">false</EnableFileOrganizationCheck>
+    <FileOrganizationCheckSeverity Condition="'$(FileOrganizationCheckSeverity)' == ''">warning</FileOrganizationCheckSeverity>
+  </PropertyGroup>
+
+  <!-- Code Analysis -->
+  <PropertyGroup>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!-- Import file organization targets -->
+  <Import Project="$(MSBuildThisFileDirectory)build\FileOrganization.targets" Condition="Exists('$(MSBuildThisFileDirectory)build\FileOrganization.targets')" />
+
+  <!-- Package properties for NuGet packages -->
+  <PropertyGroup>
+    <Company>FlowEngine Team</Company>
+    <Product>FlowEngine</Product>
+    <Copyright>© 2025 FlowEngine Team</Copyright>
+    <PackageProjectUrl>https://github.com/FlowEngine/FlowEngine</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/FlowEngine/FlowEngine</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+</Project>

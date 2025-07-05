@@ -17,14 +17,15 @@ namespace Phase3TemplatePlugin;
 public sealed class TemplatePluginProcessor : PluginProcessorBase
 {
     private TemplatePluginConfiguration? _configuration;
-    private readonly TemplatePluginService _service;
+    private TemplatePluginService _service;
 
     /// <summary>
     /// Constructor demonstrating proper component composition with base class
     /// </summary>
     public TemplatePluginProcessor(ILogger<TemplatePluginProcessor> logger) : base(logger)
     {
-        _service = new TemplatePluginService();
+        // Service will be created via dependency injection when available
+        _service = null!; // Will be set during plugin loading
     }
 
     /// <summary>
@@ -32,7 +33,16 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
     /// </summary>
     public TemplatePluginProcessor() : base(Microsoft.Extensions.Logging.Abstractions.NullLogger<TemplatePluginProcessor>.Instance)
     {
-        _service = new TemplatePluginService();
+        // Service will be created via dependency injection when available
+        _service = null!; // Will be set during plugin loading
+    }
+    
+    /// <summary>
+    /// Sets the service instance (called by plugin loader with DI-created service)
+    /// </summary>
+    public void SetService(TemplatePluginService service)
+    {
+        _service = service ?? throw new ArgumentNullException(nameof(service));
     }
 
     /// <inheritdoc />
@@ -98,6 +108,8 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
             Logger.LogDebug("Processing chunk with {RowCount} rows", input.RowCount);
 
             // Delegate processing to service component
+            if (_service == null)
+                throw new InvalidOperationException("Service not initialized");
             var processedChunk = await _service.ProcessChunkAsync(input, cancellationToken);
 
             Logger.LogDebug("Chunk processed successfully. {RowCount} rows", processedChunk.RowCount);

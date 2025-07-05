@@ -1,0 +1,44 @@
+{
+  "$schema": "../schemas/plugin-manifest-schema.json",
+  "id": "Phase3TemplatePlugin.TemplatePlugin",
+  "name": "Template Plugin",
+  "version": "1.0.0",
+  "description": "A template plugin for demonstrating FlowEngine plugin architecture with data generation capabilities",
+  "author": "FlowEngine Team",
+  "category": "Transform",
+  "assemblyFileName": "Phase3TemplatePlugin.dll",
+  "pluginTypeName": "Phase3TemplatePlugin.TemplatePlugin",
+  "dependencies": [
+    {
+      "name": "FlowEngine.Abstractions",
+      "version": ">=1.0.0",
+      "isOptional": false
+    },
+    {
+      "name": "FlowEngine.Core",
+      "version": ">=1.0.0", 
+      "isOptional": false
+    }
+  ],
+  "supportedInputSchemas": [
+    "Customer",
+    "Employee", 
+    "Product",
+    "Any"
+  ],
+  "supportedOutputSchemas": [
+    "Customer",
+    "Employee",
+    "Product"
+  ],
+  "requiresConfiguration": true,
+  "configurationSchemaFile": "Schemas/TemplatePluginConfiguration.json",
+  "metadata": {
+    "dataGenerationModes": ["TestData", "Random", "Sequential"],
+    "performanceOptimized": true,
+    "supportsArrayRowOptimization": true,
+    "memoryPooling": true,
+    "tags": ["demo", "template", "data-generation"]
+  },
+  "minimumFlowEngineVersion": "1.0.0"
+}

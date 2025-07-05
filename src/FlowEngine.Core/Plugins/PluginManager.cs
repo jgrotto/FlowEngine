@@ -15,6 +15,7 @@ public sealed class PluginManager : IPluginManager
 {
     private readonly IPluginLoader _pluginLoader;
     private readonly IPluginRegistry _pluginRegistry;
+    private readonly IPluginDiscoveryService? _discoveryService;
     private readonly ILogger<PluginManager> _logger;
     private readonly ConcurrentDictionary<string, LoadedPluginEntry> _loadedPlugins = new();
     private readonly object _loadLock = new();
@@ -26,10 +27,12 @@ public sealed class PluginManager : IPluginManager
     /// <param name="pluginLoader">Plugin loader for loading assemblies</param>
     /// <param name="pluginRegistry">Plugin registry for type discovery</param>
     /// <param name="logger">Logger for plugin operations</param>
-    public PluginManager(IPluginLoader pluginLoader, IPluginRegistry pluginRegistry, ILogger<PluginManager> logger)
+    /// <param name="discoveryService">Optional plugin discovery service for enhanced plugin discovery</param>
+    public PluginManager(IPluginLoader pluginLoader, IPluginRegistry pluginRegistry, ILogger<PluginManager> logger, IPluginDiscoveryService? discoveryService = null)
     {
         _pluginLoader = pluginLoader ?? throw new ArgumentNullException(nameof(pluginLoader));
         _pluginRegistry = pluginRegistry ?? throw new ArgumentNullException(nameof(pluginRegistry));
+        _discoveryService = discoveryService;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to loader events
@@ -291,6 +294,61 @@ public sealed class PluginManager : IPluginManager
 
     /// <inheritdoc />
     public event EventHandler<PluginErrorEventArgs>? PluginError;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyCollection<DiscoveredPlugin>> DiscoverAvailablePluginsAsync()
+    {
+        ThrowIfDisposed();
+
+        if (_discoveryService == null)
+        {
+            _logger.LogWarning("Plugin discovery service not available. Using basic directory scanning.");
+            return await DiscoverPluginsBasicAsync();
+        }
+
+        try
+        {
+            _logger.LogInformation("Starting enhanced plugin discovery across default directories");
+            var plugins = await _discoveryService.DiscoverPluginsAsync();
+            
+            _logger.LogInformation("Discovered {Count} plugins with enhanced discovery", plugins.Count);
+            return plugins;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Enhanced plugin discovery failed, falling back to basic scanning");
+            return await DiscoverPluginsBasicAsync();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyCollection<DiscoveredPlugin>> DiscoverPluginsInDirectoryAsync(string directoryPath, bool includeSubdirectories = true)
+    {
+        ThrowIfDisposed();
+
+        if (string.IsNullOrWhiteSpace(directoryPath))
+            throw new ArgumentException("Directory path cannot be null or empty", nameof(directoryPath));
+
+        if (_discoveryService == null)
+        {
+            _logger.LogWarning("Plugin discovery service not available. Using basic directory scanning for: {DirectoryPath}", directoryPath);
+            return await DiscoverPluginsBasicInDirectoryAsync(directoryPath, includeSubdirectories);
+        }
+
+        try
+        {
+            _logger.LogInformation("Starting enhanced plugin discovery in directory: {DirectoryPath}", directoryPath);
+            var plugins = await _discoveryService.DiscoverPluginsAsync(directoryPath, includeSubdirectories);
+            
+            _logger.LogInformation("Discovered {Count} plugins in directory: {DirectoryPath}", plugins.Count, directoryPath);
+            return plugins;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Enhanced plugin discovery failed for directory {DirectoryPath}, falling back to basic scanning", directoryPath);
+            return await DiscoverPluginsBasicInDirectoryAsync(directoryPath, includeSubdirectories);
+        }
+    }
 
     /// <inheritdoc />
     public void Dispose()
@@ -606,6 +664,88 @@ public sealed class PluginManager : IPluginManager
         {
             _logger.LogError(ex, "Error in plugin load failed event handler");
         }
+    }
+
+    /// <summary>
+    /// Basic plugin discovery fallback when enhanced discovery service is not available.
+    /// </summary>
+    private async Task<IReadOnlyCollection<DiscoveredPlugin>> DiscoverPluginsBasicAsync()
+    {
+        var allPlugins = new List<DiscoveredPlugin>();
+        var directories = GetPluginDirectories();
+
+        foreach (var directory in directories)
+        {
+            if (Directory.Exists(directory))
+            {
+                var plugins = await DiscoverPluginsBasicInDirectoryAsync(directory, includeSubdirectories: true);
+                allPlugins.AddRange(plugins);
+            }
+        }
+
+        return allPlugins.AsReadOnly();
+    }
+
+    /// <summary>
+    /// Basic plugin discovery for a specific directory.
+    /// </summary>
+    private async Task<IReadOnlyCollection<DiscoveredPlugin>> DiscoverPluginsBasicInDirectoryAsync(string directoryPath, bool includeSubdirectories)
+    {
+        var discoveredPlugins = new List<DiscoveredPlugin>();
+
+        try
+        {
+            // Scan for assemblies and register them
+            await _pluginRegistry.ScanDirectoryAsync(directoryPath, "*.dll");
+
+            // Create synthetic discovered plugins from registry
+            var pluginTypes = _pluginRegistry.GetPluginTypes()
+                .Where(pt => pt.AssemblyPath.StartsWith(directoryPath, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var pluginType in pluginTypes)
+            {
+                var manifest = new PluginManifest
+                {
+                    Id = pluginType.TypeName,
+                    Name = pluginType.FriendlyName,
+                    Version = pluginType.Version ?? "1.0.0",
+                    Description = pluginType.Description,
+                    Author = "Unknown",
+                    Category = pluginType.Category,
+                    AssemblyFileName = Path.GetFileName(pluginType.AssemblyPath),
+                    PluginTypeName = pluginType.TypeName,
+                    Dependencies = Array.Empty<PluginDependency>(),
+                    SupportedInputSchemas = pluginType.SupportedSchemas,
+                    SupportedOutputSchemas = Array.Empty<string>(),
+                    RequiresConfiguration = pluginType.RequiresConfiguration,
+                    ConfigurationSchemaFile = null,
+                    Metadata = pluginType.Metadata,
+                    MinimumFlowEngineVersion = null
+                };
+
+                var discoveredPlugin = new DiscoveredPlugin
+                {
+                    Manifest = manifest,
+                    DirectoryPath = Path.GetDirectoryName(pluginType.AssemblyPath)!,
+                    ManifestFilePath = string.Empty,
+                    AssemblyPath = pluginType.AssemblyPath,
+                    HasManifest = false,
+                    TypeInfo = pluginType
+                };
+
+                discoveredPlugins.Add(discoveredPlugin);
+            }
+
+            _logger.LogDebug("Basic discovery found {Count} plugins in directory: {DirectoryPath}", 
+                discoveredPlugins.Count, directoryPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Basic plugin discovery failed for directory: {DirectoryPath}", directoryPath);
+        }
+
+        return discoveredPlugins.AsReadOnly();
     }
 
     private void ThrowIfDisposed()

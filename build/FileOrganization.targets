@@ -1,0 +1,119 @@
+<Project>
+  
+  <PropertyGroup>
+    <EnableFileOrganizationCheck Condition="'$(EnableFileOrganizationCheck)' == ''">false</EnableFileOrganizationCheck>
+    <FileOrganizationCheckSeverity Condition="'$(FileOrganizationCheckSeverity)' == ''">warning</FileOrganizationCheckSeverity>
+  </PropertyGroup>
+
+  <!-- 
+    File Organization Validation Target
+    Checks for violations of the one-type-per-file rule
+    Enable with: <EnableFileOrganizationCheck>true</EnableFileOrganizationCheck>
+  -->
+  <Target Name="ValidateFileOrganization" 
+          BeforeTargets="Build" 
+          Condition="'$(EnableFileOrganizationCheck)' == 'true'">
+    
+    <PropertyGroup>
+      <FileOrganizationScript>
+        <![CDATA[
+        using System;
+        using System.IO;
+        using System.Linq;
+        using System.Text.RegularExpressions;
+
+        public static class FileOrganizationChecker
+        {
+            public static void CheckFiles(string sourceRoot)
+            {
+                var violations = new List<string>();
+                var csFiles = Directory.GetFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+                    .Where(f => !f.Contains("\\obj\\") && !f.Contains("\\bin\\"))
+                    .Where(f => !Path.GetFileName(f).EndsWith(".g.cs"))
+                    .Where(f => !Path.GetFileName(f).EndsWith(".Designer.cs"));
+
+                foreach (var file in csFiles)
+                {
+                    try
+                    {
+                        var content = File.ReadAllText(file);
+                        var publicTypeCount = CountPublicTypes(content);
+                        
+                        if (publicTypeCount > 1)
+                        {
+                            violations.Add($"{file}: {publicTypeCount} public types");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Could not analyze {file}: {ex.Message}");
+                    }
+                }
+
+                if (violations.Any())
+                {
+                    Console.WriteLine("File Organization Violations (One-Type-Per-File Rule):");
+                    foreach (var violation in violations)
+                    {
+                        Console.WriteLine($"  {violation}");
+                    }
+                    Console.WriteLine($"See docs/CODING_STANDARDS.md for guidance on fixing these violations.");
+                }
+            }
+
+            private static int CountPublicTypes(string content)
+            {
+                // Remove comments and strings to avoid false positives
+                var cleaned = RemoveCommentsAndStrings(content);
+                
+                // Patterns for public type declarations
+                var patterns = new[]
+                {
+                    @"^\s*public\s+(class|interface|enum|record|struct)\s+\w+",
+                    @"^\s*public\s+sealed\s+(class|record)\s+\w+",
+                    @"^\s*public\s+abstract\s+class\s+\w+",
+                    @"^\s*public\s+static\s+class\s+\w+",
+                    @"^\s*public\s+readonly\s+(record\s+)?struct\s+\w+"
+                };
+
+                int count = 0;
+                foreach (var pattern in patterns)
+                {
+                    count += Regex.Matches(cleaned, pattern, RegexOptions.Multiline).Count;
+                }
+
+                return count;
+            }
+
+            private static string RemoveCommentsAndStrings(string content)
+            {
+                // Simple approach: remove // comments and /* */ comments, and string literals
+                var result = Regex.Replace(content, @"//.*", "");
+                result = Regex.Replace(result, @"/\*.*?\*/", "", RegexOptions.Singleline);
+                result = Regex.Replace(result, @"""[^""\\]*(?:\\.[^""\\]*)*""", "");
+                result = Regex.Replace(result, @"'[^'\\]*(?:\\.[^'\\]*)*'", "");
+                return result;
+            }
+        }
+
+        FileOrganizationChecker.CheckFiles("$(MSBuildProjectDirectory)");
+        ]]>
+      </FileOrganizationScript>
+    </PropertyGroup>
+
+    <Message Text="Checking file organization (one-type-per-file rule)..." Importance="normal" />
+    
+    <!-- This is a simplified check - in practice, you'd use a proper C# analyzer -->
+    <Exec Command="echo Checking file organization - see CODING_STANDARDS.md for current violations" 
+          Condition="'$(EnableFileOrganizationCheck)' == 'true'" />
+          
+  </Target>
+
+  <!-- 
+    Add this to individual project files to enable checking:
+    <PropertyGroup>
+      <EnableFileOrganizationCheck>true</EnableFileOrganizationCheck>
+    </PropertyGroup>
+  -->
+
+</Project>

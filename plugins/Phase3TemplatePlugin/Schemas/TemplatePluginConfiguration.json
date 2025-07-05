@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Template Plugin Configuration",
+  "description": "Configuration schema for FlowEngine Template Plugin",
+  "type": "object",
+  "required": ["rowCount", "batchSize"],
+  "properties": {
+    "rowCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000,
+      "description": "Number of rows to generate",
+      "examples": [100, 1000, 10000]
+    },
+    "batchSize": {
+      "type": "integer", 
+      "minimum": 1,
+      "maximum": 10000,
+      "description": "Rows per batch for processing optimization",
+      "examples": [100, 500, 1000]
+    },
+    "dataType": {
+      "type": "string",
+      "enum": ["TestData", "Random", "Sequential"],
+      "default": "TestData",
+      "description": "Type of data to generate",
+      "examples": ["TestData", "Random", "Sequential"]
+    },
+    "delayMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5000,
+      "default": 0,
+      "description": "Delay in milliseconds between batch processing (for simulation purposes)",
+      "examples": [0, 10, 100]
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Schema definition for output data",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "index"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+                "description": "Column name (must be valid identifier)"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["int32", "string", "decimal", "datetime", "datetimeoffset", "bool"],
+                "description": "Data type of the column"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Zero-based index for ArrayRow optimization"
+              },
+              "required": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether the column is required (non-nullable)"
+              }
+            }
+          }
+        }
+      },
+      "required": ["columns"]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "rowCount": 1000,
+      "batchSize": 100,
+      "dataType": "TestData",
+      "delayMs": 10,
+      "outputSchema": {
+        "columns": [
+          {
+            "name": "Id",
+            "type": "int32",
+            "index": 0,
+            "required": true
+          },
+          {
+            "name": "Name",
+            "type": "string",
+            "index": 1,
+            "required": true
+          },
+          {
+            "name": "Category",
+            "type": "string",
+            "index": 2,
+            "required": true
+          },
+          {
+            "name": "Price",
+            "type": "decimal",
+            "index": 3,
+            "required": false
+          },
+          {
+            "name": "Timestamp",
+            "type": "datetimeoffset",
+            "index": 4,
+            "required": true
+          }
+        ]
+      }
+    }
+  ]
+}

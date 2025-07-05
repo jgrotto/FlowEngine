@@ -35,10 +35,14 @@ public sealed class Chunk : IChunk
         {
             var row = _rows[i];
             if (row == null)
+            {
                 throw new ArgumentException($"Row at index {i} is null", nameof(rows));
+            }
 
             if (!row.Schema.Equals(_schema))
+            {
                 throw new ArgumentException($"Row at index {i} has incompatible schema", nameof(rows));
+            }
         }
     }
 
@@ -90,8 +94,10 @@ public sealed class Chunk : IChunk
             ThrowIfDisposed();
             
             if ((uint)index >= (uint)_rows.Length)
+            {
                 throw new ArgumentOutOfRangeException(nameof(index), index, "Index is out of range");
-            
+            }
+
             return _rows[index];
         }
     }
@@ -185,8 +191,10 @@ public sealed class Chunk : IChunk
     public override string ToString()
     {
         if (_disposed)
+        {
             return "Chunk(Disposed)";
-        
+        }
+
         return $"Chunk({RowCount} rows, Schema: {_schema.Signature})";
     }
 
@@ -231,7 +239,9 @@ public sealed class Chunk : IChunk
         ThrowIfDisposed();
         
         if (chunkSize <= 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be positive");
+        }
 
         if (_rows.Length <= chunkSize)
         {
@@ -252,6 +262,8 @@ public sealed class Chunk : IChunk
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(Chunk));
+        }
     }
 }

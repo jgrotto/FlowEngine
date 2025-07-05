@@ -34,7 +34,13 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
     /// Template-specific configuration: Data type to generate
     /// </summary>
     [Required]
-    public string DataType { get; init; } = "Customer";
+    public string DataType { get; init; } = "TestData";
+
+    /// <summary>
+    /// Template-specific configuration: Delay in milliseconds between batch processing
+    /// </summary>
+    [Range(0, 5000, ErrorMessage = "DelayMs must be between 0 and 5,000")]
+    public int DelayMs { get; init; } = 0;
 
     // === IPluginConfiguration Implementation ===
 

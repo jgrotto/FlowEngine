@@ -78,6 +78,20 @@ public interface IPluginManager : IDisposable
     /// Event raised when a plugin operation fails.
     /// </summary>
     event EventHandler<PluginErrorEventArgs>? PluginError;
+
+    /// <summary>
+    /// Discovers available plugins in the default plugin directories.
+    /// </summary>
+    /// <returns>Collection of discovered plugin information</returns>
+    Task<IReadOnlyCollection<DiscoveredPlugin>> DiscoverAvailablePluginsAsync();
+
+    /// <summary>
+    /// Discovers available plugins in the specified directory.
+    /// </summary>
+    /// <param name="directoryPath">Directory to scan for plugins</param>
+    /// <param name="includeSubdirectories">Whether to scan subdirectories</param>
+    /// <returns>Collection of discovered plugin information</returns>
+    Task<IReadOnlyCollection<DiscoveredPlugin>> DiscoverPluginsInDirectoryAsync(string directoryPath, bool includeSubdirectories = true);
 }
 
 

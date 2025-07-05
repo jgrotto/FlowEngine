@@ -451,7 +451,7 @@ public sealed class TemplatePlugin : PluginBase
     /// </summary>
     public IPluginService GetService()
     {
-        return new TemplatePluginService();
+        return new TemplatePluginService(); // Constructor now uses optional DI parameters
     }
 
     /// <summary>
