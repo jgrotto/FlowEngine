@@ -80,7 +80,7 @@ public sealed class TemplatePluginValidator : SchemaValidatedPluginValidator<Tem
 
         return errors.Any() ? ValidationResult.Failure(errors.ToArray()) : ValidationResult.Success();
     }
-
+   
     /// <inheritdoc />
     public override SchemaCompatibilityResult ValidateSchemaCompatibility(ISchema? inputSchema, ISchema? outputSchema)
     {

@@ -88,6 +88,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<Abstractions.Plugins.IPluginRegistry, Plugins.PluginRegistry>();
         services.TryAddSingleton<Abstractions.Plugins.IPluginLoader, Plugins.PluginLoader>();
         services.TryAddSingleton<Abstractions.Plugins.IPluginManager, Plugins.PluginManager>();
+        services.TryAddSingleton<Abstractions.Plugins.IPluginDiscoveryService, Plugins.PluginDiscoveryService>();
 
         // Register execution infrastructure
         services.TryAddSingleton<Abstractions.Execution.IPipelineExecutor, Execution.PipelineExecutor>();

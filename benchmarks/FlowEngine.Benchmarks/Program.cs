@@ -8,6 +8,7 @@ using FlowEngine.Benchmarks.DataStructures;
 using FlowEngine.Benchmarks.Ports;
 using FlowEngine.Benchmarks.Memory;
 using FlowEngine.Benchmarks.Pipeline;
+using FlowEngine.Benchmarks.Integration;
 
 namespace FlowEngine.Benchmarks;
 
@@ -45,6 +46,7 @@ public class Program
             Console.WriteLine("  cross-platform - Cross-platform path handling");
             Console.WriteLine("  scaling   - Staged scaling tests (10K → 100K → 1M)");
             Console.WriteLine("  chunked   - Chunked processing benchmarks");
+            Console.WriteLine("  plugins   - Plugin data processing performance benchmarks");
             Console.WriteLine("  all       - Run all benchmarks");
             Console.WriteLine();
             Console.WriteLine("Usage: dotnet run -- <suite>");
@@ -102,6 +104,12 @@ public class Program
             case "chunked":
                 BenchmarkRunner.Run<ChunkedProcessingBenchmarks>(config);
                 break;
+
+            case "plugins":
+                Console.WriteLine("=== Plugin Performance Analysis ===");
+                Console.WriteLine("Target: 200K+ rows/sec for plugin processing");
+                BenchmarkRunner.Run<PluginPerformanceBenchmarks>(config);
+                break;
                 
             case "all":
                 BenchmarkRunner.Run<RowBenchmarks>(config);
@@ -112,6 +120,7 @@ public class Program
                 BenchmarkRunner.Run<StreamingPipelineBenchmarks>(config);
                 BenchmarkRunner.Run<MemoryEfficiencyBenchmarks>(config);
                 BenchmarkRunner.Run<CrossPlatformPathBenchmarks>(config);
+                BenchmarkRunner.Run<PluginPerformanceBenchmarks>(config);
                 break;
                 
             default:
