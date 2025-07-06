@@ -221,9 +221,20 @@ public class ResilientPluginLoaderTests : IDisposable
         _resilientLoader.PluginLoadFailed += (_, _) => pluginLoadFailedEventFired = true;
 
         // Act - Simulate base loader events
-        _mockBaseLoader.PluginLoaded += Raise.EventWith(new PluginLoadedEventArgs("test", "test"));
-        _mockBaseLoader.PluginUnloaded += Raise.EventWith(new PluginUnloadedEventArgs("test"));
-        _mockBaseLoader.PluginLoadFailed += Raise.EventWith(new PluginLoadFailedEventArgs("test", new Exception("test")));
+        var mockPluginInfo = new PluginInfo
+        {
+            Id = "test-id",
+            TypeName = "test-type",
+            AssemblyPath = "test-assembly",
+            IsolationLevel = PluginIsolationLevel.Shared,
+            LoadedAt = DateTimeOffset.UtcNow,
+            Status = PluginStatus.Loaded
+        };
+        var mockPlugin = Substitute.For<IPlugin>();
+        
+        _mockBaseLoader.PluginLoaded += Raise.EventWith(new PluginLoadedEventArgs(mockPluginInfo, mockPlugin));
+        _mockBaseLoader.PluginUnloaded += Raise.EventWith(new PluginUnloadedEventArgs(mockPluginInfo));
+        _mockBaseLoader.PluginLoadFailed += Raise.EventWith(new PluginLoadFailedEventArgs("test-assembly", "test-type", new Exception("test")));
 
         // Assert
         Assert.True(pluginLoadedEventFired);

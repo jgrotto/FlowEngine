@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions.Configuration;
+using FlowEngine.Cli.Commands;
 using FlowEngine.Core;
 using FlowEngine.Core.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,10 +10,15 @@ namespace FlowEngine.Cli;
 
 /// <summary>
 /// Entry point for the FlowEngine command-line interface.
-/// Simple execution pattern: FlowEngine.exe pipeline.yaml
+/// Supports both legacy pipeline execution and new command-based interface.
 /// </summary>
 internal class Program
 {
+    private static readonly Dictionary<string, ICommand> Commands = new()
+    {
+        ["plugin"] = new PluginCommand()
+    };
+
     /// <summary>
     /// Main entry point for the application.
     /// </summary>
@@ -22,19 +28,37 @@ internal class Program
     {
         try
         {
-            // Simple command pattern from Sprint 1 doc
             if (args.Length == 0 || args[0] == "--help" || args[0] == "-h")
             {
                 ShowUsage();
                 return args.Length == 0 ? 1 : 0;
             }
 
+            var firstArg = args[0].ToLowerInvariant();
+
+            // Check for command-based interface
+            if (Commands.TryGetValue(firstArg, out var command))
+            {
+                var commandArgs = args.Skip(1).ToArray();
+                return await command.ExecuteAsync(commandArgs);
+            }
+
+            // Legacy pipeline execution (backward compatibility)
             var configPath = args[0];
             
-            // Basic argument parsing for --verbose flag
-            var verbose = args.Contains("--verbose") || args.Contains("-v");
-            
-            return await ExecutePipelineAsync(configPath, verbose);
+            // Check if it looks like a config file
+            if (configPath.EndsWith(".yaml") || configPath.EndsWith(".yml") || File.Exists(configPath))
+            {
+                var verbose = args.Contains("--verbose") || args.Contains("-v");
+                return await ExecutePipelineAsync(configPath, verbose);
+            }
+            else
+            {
+                Console.Error.WriteLine($"Unknown command or file: {args[0]}");
+                Console.WriteLine();
+                ShowUsage();
+                return 1;
+            }
         }
         catch (Exception ex)
         {
@@ -56,18 +80,32 @@ internal class Program
         Console.WriteLine("High-performance data processing pipeline executor");
         Console.WriteLine();
         Console.WriteLine("Usage:");
-        Console.WriteLine("  FlowEngine.exe <pipeline.yaml>           Execute a pipeline");
-        Console.WriteLine("  FlowEngine.exe <pipeline.yaml> --verbose Verbose output");
-        Console.WriteLine("  FlowEngine.exe --help                    Show this help");
+        Console.WriteLine("  flowengine <pipeline.yaml>              Execute a pipeline");
+        Console.WriteLine("  flowengine <command> [options]          Run a command");
+        Console.WriteLine("  flowengine --help                       Show this help");
         Console.WriteLine();
-        Console.WriteLine("Examples:");
-        Console.WriteLine("  FlowEngine.exe simple-pipeline.yaml");
-        Console.WriteLine("  FlowEngine.exe production-pipeline.yaml --verbose");
+        Console.WriteLine("Commands:");
+        foreach (var command in Commands.Values)
+        {
+            Console.WriteLine($"  {command.Name,-12} {command.Description}");
+        }
+        Console.WriteLine();
+        Console.WriteLine("Pipeline Execution:");
+        Console.WriteLine("  flowengine simple-pipeline.yaml");
+        Console.WriteLine("  flowengine production-pipeline.yaml --verbose");
+        Console.WriteLine();
+        Console.WriteLine("Plugin Development:");
+        Console.WriteLine("  flowengine plugin create MySourcePlugin");
+        Console.WriteLine("  flowengine plugin validate ./MyPlugin");
+        Console.WriteLine("  flowengine plugin test ./MyPlugin");
+        Console.WriteLine("  flowengine plugin benchmark ./MyPlugin");
         Console.WriteLine();
         Console.WriteLine("Exit codes:");
         Console.WriteLine("  0  Success");
         Console.WriteLine("  1  Configuration error");
         Console.WriteLine("  2  Execution error");
+        Console.WriteLine();
+        Console.WriteLine("Use 'flowengine <command> --help' for detailed command help.");
     }
 
     /// <summary>
