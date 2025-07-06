@@ -3,7 +3,7 @@ using FlowEngine.Abstractions.Plugins;
 using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
 
-namespace Phase3TemplatePlugin;
+namespace TemplatePlugin;
 
 /// <summary>
 /// COMPONENT 1: Configuration

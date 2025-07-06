@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowEngine.Core\FlowEngine.Core.csproj" />
-    <ProjectReference Include="..\..\plugins\Phase3TemplatePlugin\Phase3TemplatePlugin.csproj" />
+    <ProjectReference Include="..\..\plugins\Phase3TemplatePlugin\TemplatePlugin.csproj" />
   </ItemGroup>
 
 </Project>

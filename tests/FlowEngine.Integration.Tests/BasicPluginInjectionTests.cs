@@ -5,7 +5,7 @@ using FlowEngine.Core;
 using FlowEngine.Core.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Phase3TemplatePlugin;
+using TemplatePlugin;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -43,7 +43,7 @@ public class BasicPluginInjectionTests : IDisposable
         _discoveryService = _serviceProvider.GetRequiredService<IPluginDiscoveryService>();
 
         // Get path to template plugin assembly
-        _templatePluginAssemblyPath = typeof(TemplatePlugin).Assembly.Location;
+        _templatePluginAssemblyPath = typeof(TemplatePlugin.TemplatePlugin).Assembly.Location;
         
         _output.WriteLine($"Test setup complete. Plugin assembly: {Path.GetFileName(_templatePluginAssemblyPath)}");
     }
@@ -57,7 +57,7 @@ public class BasicPluginInjectionTests : IDisposable
         // Act
         var plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
             _templatePluginAssemblyPath,
-            typeof(TemplatePlugin).FullName!);
+            typeof(TemplatePlugin.TemplatePlugin).FullName!);
 
         // Assert
         Assert.NotNull(plugin);
@@ -77,7 +77,7 @@ public class BasicPluginInjectionTests : IDisposable
 
         var plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
             _templatePluginAssemblyPath,
-            typeof(TemplatePlugin).FullName!);
+            typeof(TemplatePlugin.TemplatePlugin).FullName!);
 
         var configuration = new TemplatePluginConfiguration
         {
@@ -165,7 +165,7 @@ public class BasicPluginInjectionTests : IDisposable
         Assert.NotEmpty(discoveredPlugins);
         
         var templatePlugin = discoveredPlugins.FirstOrDefault(p => 
-            p.Manifest.Id == "Phase3TemplatePlugin.TemplatePlugin");
+            p.Manifest.Id == "TemplatePlugin.TemplatePlugin");
 
         Assert.NotNull(templatePlugin);
         Assert.Equal("Template", templatePlugin.Manifest.Name);
@@ -185,7 +185,7 @@ public class BasicPluginInjectionTests : IDisposable
 
         var plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
             _templatePluginAssemblyPath,
-            typeof(TemplatePlugin).FullName!);
+            typeof(TemplatePlugin.TemplatePlugin).FullName!);
 
         var configuration = new TemplatePluginConfiguration
         {
@@ -268,7 +268,7 @@ public class BasicPluginInjectionTests : IDisposable
                 
                 return await pluginLoader.LoadPluginAsync<IPlugin>(
                     _templatePluginAssemblyPath,
-                    typeof(TemplatePlugin).FullName!);
+                    typeof(TemplatePlugin.TemplatePlugin).FullName!);
             });
             loadingTasks.Add(task);
         }
@@ -351,7 +351,7 @@ public class BasicPluginInjectionTests : IDisposable
         // Act - Load as generic plugin first
         var genericPlugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
             _templatePluginAssemblyPath,
-            typeof(TemplatePlugin).FullName!);
+            typeof(TemplatePlugin.TemplatePlugin).FullName!);
 
         // Create separate service provider for the second load to avoid "already loaded" error
         var services = new ServiceCollection();
@@ -367,7 +367,7 @@ public class BasicPluginInjectionTests : IDisposable
         
         var secondPlugin = await pluginLoader2.LoadPluginAsync<IPlugin>(
             _templatePluginAssemblyPath,
-            typeof(TemplatePlugin).FullName!);
+            typeof(TemplatePlugin.TemplatePlugin).FullName!);
 
         // Assert
         Assert.NotNull(genericPlugin);

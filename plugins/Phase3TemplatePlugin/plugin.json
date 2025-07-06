@@ -1,13 +1,13 @@
 {
   "$schema": "../schemas/plugin-manifest-schema.json",
-  "id": "Phase3TemplatePlugin.TemplatePlugin",
+  "id": "TemplatePlugin.TemplatePlugin",
   "name": "Template Plugin",
   "version": "1.0.0",
   "description": "A template plugin for demonstrating FlowEngine plugin architecture with data generation capabilities",
   "author": "FlowEngine Team",
   "category": "Transform",
-  "assemblyFileName": "Phase3TemplatePlugin.dll",
-  "pluginTypeName": "Phase3TemplatePlugin.TemplatePlugin",
+  "assemblyFileName": "TemplatePlugin.dll",
+  "pluginTypeName": "TemplatePlugin.TemplatePlugin",
   "dependencies": [
     {
       "name": "FlowEngine.Abstractions",

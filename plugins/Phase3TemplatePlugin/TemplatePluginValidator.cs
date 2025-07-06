@@ -2,7 +2,7 @@ using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Plugins;
 using ValidationResult = FlowEngine.Abstractions.Plugins.ValidationResult;
 
-namespace Phase3TemplatePlugin;
+namespace TemplatePlugin;
 
 /// <summary>
 /// COMPONENT 2: Validator
@@ -18,7 +18,7 @@ public sealed class TemplatePluginValidator : SchemaValidatedPluginValidator<Tem
     /// <summary>
     /// Gets the embedded JSON Schema resource name for TemplatePlugin configuration.
     /// </summary>
-    protected override string? GetSchemaResourceName() => "Phase3TemplatePlugin.Schemas.TemplatePluginConfiguration.json";
+    protected override string? GetSchemaResourceName() => "TemplatePlugin.Schemas.TemplatePluginConfiguration.json";
 
     /// <summary>
     /// Validates semantic/business logic requirements for TemplatePlugin.

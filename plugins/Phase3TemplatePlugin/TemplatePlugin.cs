@@ -5,7 +5,7 @@ using FlowEngine.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 using System.Collections.Immutable;
 
-namespace Phase3TemplatePlugin;
+namespace TemplatePlugin;
 
 /// <summary>
 /// COMPONENT 3: Plugin

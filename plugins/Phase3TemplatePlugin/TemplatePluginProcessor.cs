@@ -2,7 +2,7 @@ using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Plugins;
 using Microsoft.Extensions.Logging;
 
-namespace Phase3TemplatePlugin;
+namespace TemplatePlugin;
 
 /// <summary>
 /// COMPONENT 4: Processor

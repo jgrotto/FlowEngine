@@ -1,6 +1,6 @@
 using FlowEngine.Abstractions.Data;
 using FlowEngine.Core.Data;
-using Phase3TemplatePlugin;
+using TemplatePlugin;
 using Xunit;
 
 namespace FlowEngine.Core.Tests.Plugins;

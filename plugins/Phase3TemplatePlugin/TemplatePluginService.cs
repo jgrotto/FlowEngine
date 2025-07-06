@@ -5,7 +5,7 @@ using FlowEngine.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 using System.Threading;
 
-namespace Phase3TemplatePlugin;
+namespace TemplatePlugin;
 
 /// <summary>
 /// COMPONENT 5: Service
