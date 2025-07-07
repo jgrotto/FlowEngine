@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Delimited Source Configuration",
+  "description": "Configuration schema for DelimitedSource plugin with schema inference and validation",
+  "properties": {
+    "FilePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the delimited file to read",
+      "examples": [
+        "data/customers.csv",
+        "/path/to/data.tsv",
+        "C:\\Data\\employees.csv"
+      ]
+    },
+    "Delimiter": {
+      "type": "string",
+      "maxLength": 1,
+      "default": ",",
+      "description": "Field delimiter character",
+      "examples": [",", "\t", "|", ";"]
+    },
+    "HasHeaders": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the first row contains column headers"
+    },
+    "Encoding": {
+      "type": "string",
+      "default": "UTF-8",
+      "enum": ["UTF-8", "UTF-16", "ASCII"],
+      "description": "File encoding format"
+    },
+    "ChunkSize": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 50000,
+      "default": 5000,
+      "description": "Number of rows to process in each chunk"
+    },
+    "OutputSchema": {
+      "type": ["object", "null"],
+      "properties": {
+        "Columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["Name", "Type", "Index"],
+            "properties": {
+              "Name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Column name"
+              },
+              "Type": {
+                "type": "string",
+                "enum": ["string", "int32", "int64", "decimal", "double", "datetime", "bool"],
+                "description": "Column data type"
+              },
+              "Index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Zero-based column index"
+              }
+            }
+          }
+        }
+      },
+      "description": "Explicit output schema definition (optional if InferSchema is true)"
+    },
+    "InferSchema": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to automatically infer schema from file data"
+    },
+    "InferenceSampleRows": {
+      "type": "integer",
+      "minimum": 10,
+      "maximum": 10000,
+      "default": 1000,
+      "description": "Number of rows to sample for schema inference"
+    },
+    "SkipMalformedRows": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to skip rows that cannot be parsed"
+    },
+    "MaxErrors": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000,
+      "default": 100,
+      "description": "Maximum number of parsing errors before stopping"
+    }
+  },
+  "required": ["FilePath"],
+  "additionalProperties": true,
+  "if": {
+    "properties": {
+      "InferSchema": {
+        "const": false
+      }
+    }
+  },
+  "then": {
+    "required": ["OutputSchema"]
+  }
+}

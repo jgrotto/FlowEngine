@@ -1,0 +1,37 @@
+{
+  "$schema": "../schemas/plugin-manifest-schema.json",
+  "id": "DelimitedSource.DelimitedSourcePlugin",
+  "name": "Delimited Source Plugin",
+  "version": "1.0.0",
+  "description": "A high-performance CSV/delimited file source plugin with schema inference and validation",
+  "author": "FlowEngine Team",
+  "category": "Source",
+  "assemblyFileName": "DelimitedSource.dll",
+  "pluginTypeName": "DelimitedSource.DelimitedSourcePlugin",
+  "dependencies": [
+    {
+      "name": "FlowEngine.Abstractions",
+      "version": ">=1.0.0",
+      "isOptional": false
+    }
+  ],
+  "supportedInputSchemas": [],
+  "supportedOutputSchemas": [
+    "Customer",
+    "Employee",
+    "Product",
+    "Any"
+  ],
+  "requiresConfiguration": true,
+  "configurationSchemaFile": "Schemas/DelimitedSourceConfiguration.json",
+  "metadata": {
+    "supportedDelimiters": [",", "\t", "|", ";"],
+    "supportedEncodings": ["UTF-8", "UTF-16", "ASCII"],
+    "schemaInferenceCapable": true,
+    "performanceOptimized": true,
+    "supportsArrayRowOptimization": true,
+    "memoryPooling": true,
+    "tags": ["csv", "delimited", "source", "file-input"]
+  },
+  "minimumFlowEngineVersion": "1.0.0"
+}

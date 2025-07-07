@@ -1,0 +1,37 @@
+{
+  "$schema": "../schemas/plugin-manifest-schema.json",
+  "id": "DelimitedSink.DelimitedSinkPlugin",
+  "name": "Delimited Sink Plugin",
+  "version": "1.0.0",
+  "description": "A high-performance CSV/delimited file sink plugin with flexible output formatting",
+  "author": "FlowEngine Team",
+  "category": "Sink",
+  "assemblyFileName": "DelimitedSink.dll",
+  "pluginTypeName": "DelimitedSink.DelimitedSinkPlugin",
+  "dependencies": [
+    {
+      "name": "FlowEngine.Abstractions",
+      "version": ">=1.0.0",
+      "isOptional": false
+    }
+  ],
+  "supportedInputSchemas": [
+    "Customer",
+    "Employee",
+    "Product",
+    "Any"
+  ],
+  "supportedOutputSchemas": [],
+  "requiresConfiguration": true,
+  "configurationSchemaFile": "Schemas/DelimitedSinkConfiguration.json",
+  "metadata": {
+    "supportedDelimiters": [",", "\t", "|", ";"],
+    "supportedEncodings": ["UTF-8", "UTF-16", "ASCII"],
+    "supportedFormats": ["CSV", "TSV", "PSV"],
+    "performanceOptimized": true,
+    "supportsArrayRowOptimization": true,
+    "memoryPooling": true,
+    "tags": ["csv", "delimited", "sink", "file-output"]
+  },
+  "minimumFlowEngineVersion": "1.0.0"
+}

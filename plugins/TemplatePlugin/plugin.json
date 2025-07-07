@@ -13,11 +13,6 @@
       "name": "FlowEngine.Abstractions",
       "version": ">=1.0.0",
       "isOptional": false
-    },
-    {
-      "name": "FlowEngine.Core",
-      "version": ">=1.0.0", 
-      "isOptional": false
     }
   ],
   "supportedInputSchemas": [
