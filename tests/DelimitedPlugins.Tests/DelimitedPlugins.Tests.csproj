@@ -17,11 +17,13 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="CsvHelper" Version="31.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowEngine.Abstractions\FlowEngine.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\FlowEngine.Core\FlowEngine.Core.csproj" />
     <ProjectReference Include="..\..\plugins\DelimitedSource\DelimitedSource.csproj" />
     <ProjectReference Include="..\..\plugins\DelimitedSink\DelimitedSink.csproj" />
   </ItemGroup>

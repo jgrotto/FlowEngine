@@ -150,6 +150,10 @@ public sealed class DelimitedSinkService : IPluginService
             var processingTime = DateTime.UtcNow - startTime;
             _totalProcessingTime = _totalProcessingTime.Add(processingTime);
 
+            // Record telemetry for chunk processing
+            var channelName = $"delimited_sink_{Path.GetFileName(_configuration.FilePath)}";
+            _channelTelemetry?.RecordRead(channelName, input.Rows.Length, processingTime);
+
             // Sink plugins pass through the input chunk unchanged
             return input;
         }
@@ -236,16 +240,30 @@ public sealed class DelimitedSinkService : IPluginService
             typeof(double), typeof(bool), typeof(DateTime), typeof(DateTimeOffset)
         };
 
+        // Types that are completely incompatible with CSV output
+        var incompatibleTypes = new HashSet<Type>
+        {
+            typeof(object), typeof(byte[]), typeof(Stream), typeof(IntPtr)
+        };
+
         foreach (var column in inputSchema.Columns)
         {
             if (!csvCompatibleTypes.Contains(column.DataType))
             {
+                // Check if this is a completely incompatible type
+                var isIncompatible = incompatibleTypes.Contains(column.DataType) ||
+                                   column.DataType.IsArray && column.DataType != typeof(string);
+
                 issues.Add(new CompatibilityIssue
                 {
-                    Type = "UnsupportedDataType",
-                    Severity = "Warning",
-                    Description = $"Column '{column.Name}' has type '{column.DataType.Name}' which may not format well in CSV",
-                    Resolution = "Consider converting complex types to string representation before writing to CSV"
+                    Type = isIncompatible ? "IncompatibleDataType" : "UnsupportedDataType",
+                    Severity = isIncompatible ? "Error" : "Warning",
+                    Description = isIncompatible 
+                        ? $"Column '{column.Name}' has type '{column.DataType.Name}' which cannot be serialized to CSV format"
+                        : $"Column '{column.Name}' has type '{column.DataType.Name}' which may not format well in CSV",
+                    Resolution = isIncompatible
+                        ? "Remove this column or convert it to a supported type before writing to CSV"
+                        : "Consider converting complex types to string representation before writing to CSV"
                 });
             }
         }
@@ -358,6 +376,15 @@ public sealed class DelimitedSinkService : IPluginService
             await _csvWriter.FlushAsync();
             await _streamWriter.FlushAsync();
             _lastFlush = DateTime.UtcNow;
+            
+            // Record buffer utilization telemetry
+            if (_configuration != null)
+            {
+                var channelName = $"delimited_sink_{Path.GetFileName(_configuration.FilePath)}";
+                // Estimate buffer usage based on rows written since last flush
+                var estimatedUsage = (int)(_rowsWritten % _configuration.FlushInterval);
+                _channelTelemetry?.RecordBufferUtilization(channelName, _configuration.BufferSize, estimatedUsage);
+            }
         }
     }
 

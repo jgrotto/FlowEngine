@@ -143,12 +143,44 @@ public sealed class DelimitedSourceService : IPluginService
             _logger.LogInformation("Completed reading {RowCount} rows from {FilePath} in {Duration}ms", 
                 rows.Count, config.FilePath, stopwatch.ElapsedMilliseconds);
                 
-            // Note: RecordMetric method signature may differ - for now skip telemetry
-            // _channelTelemetry?.RecordMetric("delimited_source.file_read_duration_ms", stopwatch.ElapsedMilliseconds);
-            // _channelTelemetry?.RecordMetric("delimited_source.rows_processed", rows.Count);
+            // Record telemetry for data channel monitoring
+            var channelName = $"delimited_source_{Path.GetFileName(config.FilePath)}";
+            _channelTelemetry?.RecordRead(channelName, rows.Count, stopwatch.Elapsed);
             
-            // For now, create a simple dataset - in real implementation would use factories
-            throw new NotImplementedException("DelimitedSource requires Core services integration to create full dataset. This is a Sprint 3 foundation implementation.");
+            // Create dataset using factory services
+            if (_datasetFactory == null)
+                throw new InvalidOperationException("DatasetFactory is required but was not provided. Ensure plugin is created with proper dependency injection.");
+            
+            if (_arrayRowFactory == null)
+                throw new InvalidOperationException("ArrayRowFactory is required but was not provided. Ensure plugin is created with proper dependency injection.");
+            
+            if (_chunkFactory == null)
+                throw new InvalidOperationException("ChunkFactory is required but was not provided. Ensure plugin is created with proper dependency injection.");
+
+            // Convert CSV rows to ArrayRows
+            var arrayRows = new List<IArrayRow>();
+            foreach (var csvRow in rows)
+            {
+                var arrayRow = _arrayRowFactory.CreateRow(schema, csvRow.Cast<object>().ToArray());
+                arrayRows.Add(arrayRow);
+            }
+
+            // Create chunks from rows
+            var chunks = new List<IChunk>();
+            for (int i = 0; i < arrayRows.Count; i += config.ChunkSize)
+            {
+                var chunkRows = arrayRows.Skip(i).Take(config.ChunkSize);
+                var chunk = _chunkFactory.CreateChunk(schema, chunkRows);
+                chunks.Add(chunk);
+                
+                // Record telemetry for each chunk written to the data flow
+                _channelTelemetry?.RecordWrite(channelName, chunk.Rows.Length, chunks.Count);
+                _processedChunks++;
+            }
+
+            // Create dataset from chunks
+            var dataset = _datasetFactory.CreateDataset(schema, chunks);
+            return dataset;
         }
         catch (Exception ex)
         {
