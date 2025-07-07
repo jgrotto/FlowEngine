@@ -425,7 +425,7 @@ public sealed class PluginManager : IPluginManager
         try
         {
             // Special handling for TemplatePlugin
-            if (definition.Type == "Phase3TemplatePlugin.TemplatePlugin")
+            if (definition.Type == "TemplatePlugin.TemplatePlugin")
             {
                 return await CreateTemplatePluginConfigurationAsync(definition);
             }
@@ -446,7 +446,7 @@ public sealed class PluginManager : IPluginManager
     {
         var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for TemplatePlugin");
         var assembly = System.Reflection.Assembly.LoadFrom(assemblyPath);
-        var configType = assembly.GetType("Phase3TemplatePlugin.TemplatePluginConfiguration");
+        var configType = assembly.GetType("TemplatePlugin.TemplatePluginConfiguration");
         
         if (configType == null)
             throw new PluginLoadException("TemplatePluginConfiguration type not found in plugin assembly");
