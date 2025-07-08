@@ -36,6 +36,10 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<Abstractions.Execution.IDagAnalyzer, Execution.DagAnalyzer>();
         services.TryAddSingleton<FlowEngineCoordinator>();
 
+        // Register JavaScript script engine services
+        services.TryAddSingleton<IScriptEngineService, JintScriptEngineService>();
+        services.TryAddSingleton<IJavaScriptContextService, JavaScriptContextService>();
+
         return services;
     }
 

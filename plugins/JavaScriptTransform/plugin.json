@@ -1,0 +1,23 @@
+{
+  "name": "JavaScriptTransform",
+  "version": "1.0.0",
+  "description": "JavaScript Transform plugin with pure context API for flexible data processing",
+  "author": "FlowEngine Team",
+  "type": "Transform",
+  "entryPoint": "JavaScriptTransform.JavaScriptTransformPlugin",
+  "configurationSchema": "Schemas/JavaScriptTransformConfiguration.json",
+  "dependencies": [
+    "Microsoft.ClearScript.V8"
+  ],
+  "capabilities": [
+    "Transform",
+    "Routing",
+    "Validation",
+    "Enrichment"
+  ],
+  "performance": {
+    "targetThroughput": "120000 rows/sec",
+    "memoryUsage": "bounded",
+    "scriptCaching": true
+  }
+}
