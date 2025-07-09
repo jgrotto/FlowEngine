@@ -1,4 +1,5 @@
 using FlowEngine.Abstractions.Data;
+using FlowEngine.Abstractions.Factories;
 using FlowEngine.Core.Data;
 using FlowEngine.Core.Factories;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,7 @@ namespace FlowEngine.Core.Services;
 /// </summary>
 public class JavaScriptContextService : IJavaScriptContextService
 {
-    private readonly ArrayRowFactory _arrayRowFactory;
+    private readonly IArrayRowFactory _arrayRowFactory;
     private readonly ILogger<JavaScriptContextService> _logger;
 
     /// <summary>
@@ -18,7 +19,7 @@ public class JavaScriptContextService : IJavaScriptContextService
     /// </summary>
     /// <param name="arrayRowFactory">Factory for creating array rows</param>
     /// <param name="logger">Logger instance for diagnostics</param>
-    public JavaScriptContextService(ArrayRowFactory arrayRowFactory, ILogger<JavaScriptContextService> logger)
+    public JavaScriptContextService(IArrayRowFactory arrayRowFactory, ILogger<JavaScriptContextService> logger)
     {
         _arrayRowFactory = arrayRowFactory;
         _logger = logger;
@@ -134,10 +135,10 @@ internal class InputContext : IInputContext
 internal class OutputContext : IOutputContext
 {
     private readonly ISchema _outputSchema;
-    private readonly ArrayRowFactory _arrayRowFactory;
+    private readonly IArrayRowFactory _arrayRowFactory;
     private readonly Dictionary<string, object?> _modifications = new();
 
-    public OutputContext(ISchema outputSchema, ArrayRowFactory arrayRowFactory)
+    public OutputContext(ISchema outputSchema, IArrayRowFactory arrayRowFactory)
     {
         _outputSchema = outputSchema;
         _arrayRowFactory = arrayRowFactory;

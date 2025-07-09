@@ -44,7 +44,8 @@ public class JavaScriptTransformBasicTests : IDisposable
         {
             Script = @"
 function process(context) {
-    return { result: 'test' };
+    context.output.setField('result', 'test');
+    return true;
 }",
             OutputSchema = new OutputSchemaConfiguration
             {
@@ -121,10 +122,13 @@ function process(context) {
             Script = @"
 function process(context) {
     var input = context.input.getValue('Name');
-    return { 
-        UpperName: input ? input.toUpperCase() : 'NULL',
-        Timestamp: new Date().toISOString()
-    };
+    
+    // Use pure context API to set output fields
+    context.output.setField('UpperName', input ? input.toUpperCase() : 'NULL');
+    context.output.setField('Timestamp', new Date().toISOString());
+    
+    // Return true to include this row in output
+    return true;
 }",
             OutputSchema = new OutputSchemaConfiguration
             {
@@ -200,7 +204,10 @@ function process(context) {
         // Arrange
         var transformConfig = new JavaScriptTransformConfiguration
         {
-            Script = @"function process(context) { return { test: 'value' }; }",
+            Script = @"function process(context) { 
+                context.output.setField('test', 'value'); 
+                return true; 
+            }",
             OutputSchema = new OutputSchemaConfiguration
             {
                 Fields = new List<OutputFieldDefinition>

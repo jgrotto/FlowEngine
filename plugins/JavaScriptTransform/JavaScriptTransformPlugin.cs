@@ -376,16 +376,16 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
             IncrementProcessedRows();
         }
 
-        // Create new chunk with transformed rows
-        var newChunk = chunk.WithRows(transformedRows);
+        // Create new chunk with transformed rows using output schema
+        IChunk newChunk = new Chunk(_outputSchema, transformedRows, chunk.Metadata);
         
         // Add routing results to chunk metadata if any
         if (routingResults.Count > 0)
         {
-            var metadata = new Dictionary<string, object>(chunk.Metadata)
-            {
-                ["RoutingResults"] = routingResults
-            };
+            var metadata = chunk.Metadata != null 
+                ? new Dictionary<string, object>(chunk.Metadata)
+                : new Dictionary<string, object>();
+            metadata["RoutingResults"] = routingResults;
             newChunk = newChunk.WithMetadata(metadata);
         }
         

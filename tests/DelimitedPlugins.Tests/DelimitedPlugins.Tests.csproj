@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +27,7 @@
     <ProjectReference Include="..\..\src\FlowEngine.Core\FlowEngine.Core.csproj" />
     <ProjectReference Include="..\..\plugins\DelimitedSource\DelimitedSource.csproj" />
     <ProjectReference Include="..\..\plugins\DelimitedSink\DelimitedSink.csproj" />
+    <ProjectReference Include="..\..\plugins\JavaScriptTransform\JavaScriptTransform.csproj" />
   </ItemGroup>
 
 </Project>
