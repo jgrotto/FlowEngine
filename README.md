@@ -433,12 +433,13 @@ pipeline:
 
 ## 📚 Documentation
 
+- **[Documentation Index](docs/README.md)**: Complete documentation overview
 - **[Architecture Deep Dive](docs/architecture.md)**: System design and patterns
 - **[Plugin Development Guide](docs/plugin-development.md)**: Create custom plugins
-- **[Performance Guide](docs/performance.md)**: Optimization strategies
+- **[Performance Guide](docs/performance.md)**: Optimization strategies and benchmarks
 - **[JavaScript Transform Reference](docs/javascript-transform.md)**: Complete API reference
-- **[Configuration Schema](docs/configuration.md)**: YAML reference
-- **[Troubleshooting](docs/troubleshooting.md)**: Common issues
+- **[Configuration Schema](docs/configuration.md)**: YAML configuration reference
+- **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions
 
 ## 🤝 Contributing
 
