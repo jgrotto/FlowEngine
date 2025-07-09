@@ -1,6 +1,7 @@
 using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Abstractions.Factories;
 using FlowEngine.Abstractions.Services;
+using FlowEngine.Core.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
@@ -25,6 +26,8 @@ public sealed class PluginLoader : IPluginLoader
     private readonly IMemoryManager _memoryManager;
     private readonly IPerformanceMonitor _performanceMonitor;
     private readonly IChannelTelemetry _channelTelemetry;
+    private readonly IScriptEngineService? _scriptEngineService;
+    private readonly IJavaScriptContextService? _javaScriptContextService;
     private readonly ILogger<PluginLoader> _logger;
     private bool _disposed;
 
@@ -39,6 +42,8 @@ public sealed class PluginLoader : IPluginLoader
     /// <param name="memoryManager">Service for memory management and pooling</param>
     /// <param name="performanceMonitor">Service for performance monitoring</param>
     /// <param name="channelTelemetry">Service for channel telemetry</param>
+    /// <param name="scriptEngineService">Service for JavaScript script execution (optional)</param>
+    /// <param name="javaScriptContextService">Service for JavaScript context creation (optional)</param>
     /// <param name="logger">Logger for plugin loading operations</param>
     public PluginLoader(
         ISchemaFactory schemaFactory,
@@ -49,7 +54,9 @@ public sealed class PluginLoader : IPluginLoader
         IMemoryManager memoryManager,
         IPerformanceMonitor performanceMonitor,
         IChannelTelemetry channelTelemetry,
-        ILogger<PluginLoader> logger)
+        ILogger<PluginLoader> logger,
+        IScriptEngineService? scriptEngineService = null,
+        IJavaScriptContextService? javaScriptContextService = null)
     {
         _schemaFactory = schemaFactory ?? throw new ArgumentNullException(nameof(schemaFactory));
         _arrayRowFactory = arrayRowFactory ?? throw new ArgumentNullException(nameof(arrayRowFactory));
@@ -59,6 +66,8 @@ public sealed class PluginLoader : IPluginLoader
         _memoryManager = memoryManager ?? throw new ArgumentNullException(nameof(memoryManager));
         _performanceMonitor = performanceMonitor ?? throw new ArgumentNullException(nameof(performanceMonitor));
         _channelTelemetry = channelTelemetry ?? throw new ArgumentNullException(nameof(channelTelemetry));
+        _scriptEngineService = scriptEngineService;
+        _javaScriptContextService = javaScriptContextService;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -498,6 +507,13 @@ public sealed class PluginLoader : IPluginLoader
         
         if (parameterType == typeof(IChannelTelemetry))
             return _channelTelemetry;
+
+        // JavaScript services
+        if (parameterType == typeof(IScriptEngineService))
+            return _scriptEngineService;
+        
+        if (parameterType == typeof(IJavaScriptContextService))
+            return _javaScriptContextService;
 
         // Logger services
         if (parameterType == typeof(ILogger))

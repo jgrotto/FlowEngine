@@ -1,0 +1,70 @@
+pipeline:
+  name: "Simple Test Pipeline"
+  version: "1.0.0"
+  description: "Minimal test - just read and write CSV"
+  
+  plugins:
+    # Source: Read customer data from CSV file
+    - name: "TestSource"
+      type: "DelimitedSource.DelimitedSourcePlugin"
+      assembly: "C:\\source\\FlowEngine\\plugins\\DelimitedSource\\bin\\Release\\net8.0\\DelimitedSource.dll"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 10
+        Encoding: "UTF-8"
+        InferSchema: true
+        InferenceSampleRows: 10
+        SkipMalformedRows: true
+        MaxErrors: 5
+        
+    # Sink: Write data to CSV file (no transform)
+    - name: "TestOutput"
+      type: "DelimitedSink.DelimitedSinkPlugin"
+      assembly: "C:\\source\\FlowEngine\\plugins\\DelimitedSink\\bin\\Release\\net8.0\\DelimitedSink.dll"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\output\\simple-test.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Encoding: "UTF-8"
+        BufferSize: 4096
+        FlushInterval: 500
+        CreateDirectory: true
+        OverwriteExisting: true
+        
+  connections:
+    # Direct connection from source to sink
+    - from: "TestSource"
+      to: "TestOutput"
+      channel:
+        bufferSize: 100
+        backpressureThreshold: 75
+        fullMode: "Wait"
+        timeoutSeconds: 10
+
+  settings:
+    defaultChannel:
+      bufferSize: 100
+      backpressureThreshold: 80
+      fullMode: "Wait"
+      timeoutSeconds: 10
+    
+    monitoring:
+      enableMetrics: true
+      metricsIntervalSeconds: 2
+      enableTracing: false
+      custom:
+        logLevel: "Information"
+        
+    custom:
+      performance:
+        maxConcurrentPlugins: 2
+        memoryLimitMB: 128
+        gcPressureThreshold: 0.8
+        
+      errorHandling:
+        maxRetries: 1
+        retryDelaySeconds: 1
+        stopOnError: true
+        logErrors: true

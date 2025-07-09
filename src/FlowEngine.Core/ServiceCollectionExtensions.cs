@@ -1,5 +1,7 @@
+using FlowEngine.Abstractions.Configuration;
 using FlowEngine.Abstractions.Factories;
 using FlowEngine.Abstractions.Services;
+using FlowEngine.Core.Configuration;
 using FlowEngine.Core.Factories;
 using FlowEngine.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +37,9 @@ public static class ServiceCollectionExtensions
         // Register Core infrastructure services
         services.TryAddSingleton<Abstractions.Execution.IDagAnalyzer, Execution.DagAnalyzer>();
         services.TryAddSingleton<FlowEngineCoordinator>();
+        
+        // Register configuration services
+        services.TryAddSingleton<IPluginConfigurationMapper, PluginConfigurationMapper>();
 
         // Register JavaScript script engine services
         services.TryAddSingleton<IScriptEngineService, JintScriptEngineService>();
