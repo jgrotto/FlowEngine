@@ -461,11 +461,10 @@ public sealed class PipelineExecutor : IPipelineExecutor
 
         try
         {
-            // Execute plugins in dependency order
-            // Sources first, then transforms, then sinks
-            var sourcePlugins = new List<(string name, IPlugin plugin)>();
-            var transformPlugins = new List<(string name, IPlugin plugin)>();
-            var sinkPlugins = new List<(string name, IPlugin plugin)>();
+            // Categorize plugins by type
+            var sourcePlugins = new List<(string name, ISourcePlugin plugin)>();
+            var transformPlugins = new List<(string name, ITransformPlugin plugin)>();
+            var sinkPlugins = new List<(string name, ISinkPlugin plugin)>();
 
             // Categorize plugins
             foreach (var pluginName in executionOrder)
@@ -483,44 +482,41 @@ public sealed class PipelineExecutor : IPipelineExecutor
 
                 switch (plugin)
                 {
-                    case ISourcePlugin:
-                        sourcePlugins.Add((pluginName, plugin));
+                    case ISourcePlugin sourcePlugin:
+                        sourcePlugins.Add((pluginName, sourcePlugin));
                         break;
-                    case ITransformPlugin:
-                        transformPlugins.Add((pluginName, plugin));
+                    case ITransformPlugin transformPlugin:
+                        transformPlugins.Add((pluginName, transformPlugin));
                         break;
-                    case ISinkPlugin:
-                        sinkPlugins.Add((pluginName, plugin));
+                    case ISinkPlugin sinkPlugin:
+                        sinkPlugins.Add((pluginName, sinkPlugin));
                         break;
                 }
             }
 
-            // Execute plugins in proper order to avoid deadlocks
-            var allTasks = new List<Task>();
-            
-            // Start sink and transform plugins first (they will wait for data)
-            // These plugins start their ConsumeAsync/TransformAsync operations which wait on channels
+            // NEW: Sequential Plugin Startup with Producer-Consumer Pattern
+            // This eliminates the circular dependency deadlock
+            var backgroundTasks = new List<Task>();
+
+            // 1. Start downstream plugins in background (ready to consume data)
             foreach (var (name, plugin) in sinkPlugins)
             {
-                allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
+                backgroundTasks.Add(ExecuteSinkPluginDirectAsync(plugin, name, cancellationToken));
             }
             
             foreach (var (name, plugin) in transformPlugins)
             {
-                allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
-            }
-            
-            // Give sink/transform plugins a brief moment to start waiting on channels
-            await Task.Delay(50, cancellationToken);
-            
-            // Now start source plugins (they will begin producing data)
-            foreach (var (name, plugin) in sourcePlugins)
-            {
-                allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
+                backgroundTasks.Add(ExecuteTransformPluginDirectAsync(plugin, name, cancellationToken));
             }
 
-            // Wait for all plugins to complete
-            await Task.WhenAll(allTasks);
+            // 2. Start upstream plugins in foreground (drive the pipeline)
+            foreach (var (name, plugin) in sourcePlugins)
+            {
+                await ExecuteSourcePluginDirectAsync(plugin, name, cancellationToken);
+            }
+
+            // 3. Wait for all downstream processing to complete
+            await Task.WhenAll(backgroundTasks);
 
             // Calculate totals
             totalRowsProcessed = _pluginMetrics.Values.Sum(m => m.RowsProcessed);
@@ -914,6 +910,195 @@ public sealed class PipelineExecutor : IPipelineExecutor
             metrics.RowsProcessed += chunk.RowCount;
             yield return chunk;
         }
+    }
+
+    /// <summary>
+    /// Direct execution of source plugin with producer-consumer pattern.
+    /// Sources drive the pipeline by producing data that flows directly to downstream plugins.
+    /// </summary>
+    private async Task ExecuteSourcePluginDirectAsync(ISourcePlugin sourcePlugin, string pluginName, CancellationToken cancellationToken)
+    {
+        var metrics = _pluginMetrics[pluginName];
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Find the downstream plugin that consumes this source
+            var downstreamPlugin = FindDownstreamPlugin(pluginName);
+            if (downstreamPlugin == null)
+            {
+                throw new PipelineExecutionException($"No downstream plugin found for source '{pluginName}'.");
+            }
+
+            // Stream data directly to downstream plugin
+            await foreach (var chunk in sourcePlugin.ProduceAsync(cancellationToken))
+            {
+                metrics.ChunksProcessed++;
+                metrics.RowsProcessed += chunk.RowCount;
+
+                // Send chunk directly to downstream plugin
+                await ProcessChunkThroughDownstreamAsync(chunk, downstreamPlugin.Value, cancellationToken);
+            }
+        }
+        finally
+        {
+            stopwatch.Stop();
+            metrics.ExecutionTime = stopwatch.Elapsed;
+        }
+    }
+
+    /// <summary>
+    /// Direct execution of transform plugin with producer-consumer pattern.
+    /// Transforms wait for data from upstream sources and process it when available.
+    /// </summary>
+    private async Task ExecuteTransformPluginDirectAsync(ITransformPlugin transformPlugin, string pluginName, CancellationToken cancellationToken)
+    {
+        var metrics = _pluginMetrics[pluginName];
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Get input and output channels for traditional channel-based approach
+            var inputChannels = GetInputChannelsForPlugin(pluginName);
+            var outputChannels = GetOutputChannelsForPlugin(pluginName);
+
+            // Merge input from all input channels
+            var inputChunks = MergeInputChannels(inputChannels, cancellationToken);
+
+            // Transform data and send to output channels
+            await foreach (var outputChunk in transformPlugin.TransformAsync(inputChunks, cancellationToken))
+            {
+                metrics.ChunksProcessed++;
+                metrics.RowsProcessed += outputChunk.RowCount;
+
+                // Send to all output channels
+                foreach (var channel in outputChannels)
+                {
+                    await channel.WriteAsync(outputChunk, cancellationToken);
+                }
+            }
+
+            // Signal completion to output channels
+            foreach (var channel in outputChannels)
+            {
+                channel.Complete();
+            }
+        }
+        finally
+        {
+            stopwatch.Stop();
+            metrics.ExecutionTime = stopwatch.Elapsed;
+        }
+    }
+
+    /// <summary>
+    /// Direct execution of sink plugin with producer-consumer pattern.
+    /// Sinks wait for data from upstream plugins and consume it when available.
+    /// </summary>
+    private async Task ExecuteSinkPluginDirectAsync(ISinkPlugin sinkPlugin, string pluginName, CancellationToken cancellationToken)
+    {
+        var metrics = _pluginMetrics[pluginName];
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Get input channels
+            var inputChannels = GetInputChannelsForPlugin(pluginName);
+
+            // Create async enumerable that tracks metrics while consuming
+            var trackingInputChunks = TrackingAsyncEnumerable(MergeInputChannels(inputChannels, cancellationToken), metrics);
+
+            // Consume data
+            await sinkPlugin.ConsumeAsync(trackingInputChunks, cancellationToken);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            metrics.ExecutionTime = stopwatch.Elapsed;
+        }
+    }
+
+    /// <summary>
+    /// Find the downstream plugin that consumes output from the specified plugin.
+    /// </summary>
+    private (string pluginName, IPlugin plugin)? FindDownstreamPlugin(string sourcePluginName)
+    {
+        // Look for a connection where this plugin is the source
+        var connection = _currentConfiguration?.Connections.FirstOrDefault(c => c.From == sourcePluginName);
+        if (connection != null && _loadedPlugins.TryGetValue(connection.To, out var plugin))
+        {
+            return (connection.To, plugin);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Process a chunk through the downstream plugin in the pipeline.
+    /// </summary>
+    private async Task ProcessChunkThroughDownstreamAsync(IChunk chunk, (string pluginName, IPlugin plugin) downstream, CancellationToken cancellationToken)
+    {
+        var (pluginName, plugin) = downstream;
+        
+        switch (plugin)
+        {
+            case ITransformPlugin transformPlugin:
+                await ProcessChunkThroughTransformAsync(chunk, transformPlugin, pluginName, cancellationToken);
+                break;
+            case ISinkPlugin sinkPlugin:
+                await ProcessChunkThroughSinkAsync(chunk, sinkPlugin, pluginName, cancellationToken);
+                break;
+            default:
+                throw new PipelineExecutionException($"Unsupported downstream plugin type: {plugin.GetType().Name}");
+        }
+    }
+
+    /// <summary>
+    /// Process a single chunk through a transform plugin.
+    /// </summary>
+    private async Task ProcessChunkThroughTransformAsync(IChunk chunk, ITransformPlugin transformPlugin, string pluginName, CancellationToken cancellationToken)
+    {
+        var metrics = _pluginMetrics[pluginName];
+        
+        // Create single-chunk input
+        var inputChunks = SingleChunkAsyncEnumerable(chunk, cancellationToken);
+        
+        // Transform and continue to next downstream plugin
+        await foreach (var outputChunk in transformPlugin.TransformAsync(inputChunks, cancellationToken))
+        {
+            metrics.ChunksProcessed++;
+            metrics.RowsProcessed += outputChunk.RowCount;
+
+            // Find next downstream plugin
+            var nextDownstream = FindDownstreamPlugin(pluginName);
+            if (nextDownstream != null)
+            {
+                await ProcessChunkThroughDownstreamAsync(outputChunk, nextDownstream.Value, cancellationToken);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Process a single chunk through a sink plugin.
+    /// </summary>
+    private async Task ProcessChunkThroughSinkAsync(IChunk chunk, ISinkPlugin sinkPlugin, string pluginName, CancellationToken cancellationToken)
+    {
+        var metrics = _pluginMetrics[pluginName];
+        
+        // Create single-chunk input with metrics tracking
+        var inputChunks = TrackingAsyncEnumerable(SingleChunkAsyncEnumerable(chunk, cancellationToken), metrics);
+        
+        // Consume the chunk
+        await sinkPlugin.ConsumeAsync(inputChunks, cancellationToken);
+    }
+
+    /// <summary>
+    /// Create an async enumerable that yields a single chunk.
+    /// </summary>
+    private async IAsyncEnumerable<IChunk> SingleChunkAsyncEnumerable(IChunk chunk, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        yield return chunk;
     }
     
 }
