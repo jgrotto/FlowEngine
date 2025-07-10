@@ -5,7 +5,8 @@ using FlowEngine.Core;
 using FlowEngine.Core.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using TemplatePlugin;
+using DelimitedSource;
+using DelimitedSink;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -21,7 +22,8 @@ public class BasicPluginInjectionTests : IDisposable
     private readonly ServiceProvider _serviceProvider;
     private readonly IPluginLoader _pluginLoader;
     private readonly IPluginDiscoveryService _discoveryService;
-    private readonly string _templatePluginAssemblyPath;
+    private readonly string _delimitedSourceAssemblyPath;
+    private readonly string _delimitedSinkAssemblyPath;
 
     public BasicPluginInjectionTests(ITestOutputHelper output)
     {
@@ -42,10 +44,12 @@ public class BasicPluginInjectionTests : IDisposable
         _pluginLoader = _serviceProvider.GetRequiredService<IPluginLoader>();
         _discoveryService = _serviceProvider.GetRequiredService<IPluginDiscoveryService>();
 
-        // Get path to template plugin assembly
-        _templatePluginAssemblyPath = typeof(TemplatePlugin.TemplatePlugin).Assembly.Location;
+        // Get paths to delimited plugin assemblies
+        _delimitedSourceAssemblyPath = typeof(DelimitedSourceService).Assembly.Location;
+        _delimitedSinkAssemblyPath = typeof(DelimitedSinkService).Assembly.Location;
         
-        _output.WriteLine($"Test setup complete. Plugin assembly: {Path.GetFileName(_templatePluginAssemblyPath)}");
+        _output.WriteLine($"Test setup complete. Source assembly: {Path.GetFileName(_delimitedSourceAssemblyPath)}");
+        _output.WriteLine($"Test setup complete. Sink assembly: {Path.GetFileName(_delimitedSinkAssemblyPath)}");
     }
 
     [Fact]
@@ -56,15 +60,15 @@ public class BasicPluginInjectionTests : IDisposable
 
         // Act
         var plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
-            _templatePluginAssemblyPath,
-            typeof(TemplatePlugin.TemplatePlugin).FullName!);
+            _delimitedSourceAssemblyPath,
+            typeof(DelimitedSourceService).FullName!);
 
         // Assert
         Assert.NotNull(plugin);
-        Assert.Contains("TemplatePlugin", plugin.GetType().Name);
+        Assert.Contains("DelimitedSource", plugin.GetType().Name);
         Assert.NotNull(plugin.Id);
         Assert.NotEmpty(plugin.Id);
-        Assert.Equal("Phase 3 Template Plugin", plugin.Name);
+        Assert.Equal("Delimited Source Plugin", plugin.Name);
 
         _output.WriteLine($"Successfully loaded plugin: {plugin.Name} (ID: {plugin.Id})");
     }
@@ -76,15 +80,15 @@ public class BasicPluginInjectionTests : IDisposable
         _output.WriteLine("Test: Plugin configuration and initialization");
 
         var plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
-            _templatePluginAssemblyPath,
-            typeof(TemplatePlugin.TemplatePlugin).FullName!);
+            _delimitedSourceAssemblyPath,
+            typeof(DelimitedSourceService).FullName!);
 
-        var configuration = new TemplatePluginConfiguration
+        var configuration = new DelimitedSourceConfiguration
         {
-            RowCount = 100,
-            BatchSize = 10,
-            DataType = "IntegrationTestData",
-            DelayMs = 0
+            FilePath = "/tmp/test.csv",
+            HasHeaders = true,
+            Delimiter = ",",
+            ChunkSize = 1000
         };
 
         // Act
@@ -100,11 +104,11 @@ public class BasicPluginInjectionTests : IDisposable
         
         if (initResult.Success && plugin.State == PluginState.Initialized)
         {
-            var templateConfig = plugin.Configuration as TemplatePluginConfiguration;
-            Assert.NotNull(templateConfig);
-            Assert.Equal("IntegrationTestData", templateConfig.DataType);
-            Assert.Equal(100, templateConfig.RowCount);
-            Assert.Equal(10, templateConfig.BatchSize);
+            var delimitedConfig = plugin.Configuration as DelimitedSourceConfiguration;
+            Assert.NotNull(delimitedConfig);
+            Assert.Equal("/tmp/test.csv", delimitedConfig.FilePath);
+            Assert.True(delimitedConfig.HasHeaders);
+            Assert.Equal(",", delimitedConfig.Delimiter);
         }
 
         _output.WriteLine($"Plugin configuration test completed:");
@@ -156,7 +160,7 @@ public class BasicPluginInjectionTests : IDisposable
         // Arrange
         _output.WriteLine("Test: Plugin discovery with manifest file");
 
-        var pluginDirectory = Path.GetDirectoryName(_templatePluginAssemblyPath)!;
+        var pluginDirectory = Path.GetDirectoryName(_delimitedSourceAssemblyPath)!;
 
         // Act
         var discoveredPlugins = await _discoveryService.DiscoverPluginsAsync(pluginDirectory);
@@ -164,17 +168,17 @@ public class BasicPluginInjectionTests : IDisposable
         // Assert
         Assert.NotEmpty(discoveredPlugins);
         
-        var templatePlugin = discoveredPlugins.FirstOrDefault(p => 
-            p.Manifest.Id == "TemplatePlugin.TemplatePlugin");
+        var delimitedPlugin = discoveredPlugins.FirstOrDefault(p => 
+            p.Manifest.Id == "DelimitedSource.DelimitedSourceService");
 
-        Assert.NotNull(templatePlugin);
-        Assert.Equal("Template", templatePlugin.Manifest.Name);
-        Assert.Equal("3.0.0.0", templatePlugin.Manifest.Version);
-        Assert.Equal(PluginCategory.Other, templatePlugin.Manifest.Category);
+        Assert.NotNull(delimitedPlugin);
+        Assert.Equal("Delimited Source", delimitedPlugin.Manifest.Name);
+        Assert.Equal("1.0.0.0", delimitedPlugin.Manifest.Version);
+        Assert.Equal(PluginCategory.Source, delimitedPlugin.Manifest.Category);
 
         _output.WriteLine($"Discovery successful:");
         _output.WriteLine($"  Total plugins found: {discoveredPlugins.Count()}");
-        _output.WriteLine($"  Template plugin: {templatePlugin.Manifest.Name} v{templatePlugin.Manifest.Version}");
+        _output.WriteLine($"  Delimited plugin: {delimitedPlugin.Manifest.Name} v{delimitedPlugin.Manifest.Version}");
     }
 
     [Fact]
@@ -184,14 +188,15 @@ public class BasicPluginInjectionTests : IDisposable
         _output.WriteLine("Test: Plugin as transform plugin interface");
 
         var plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
-            _templatePluginAssemblyPath,
-            typeof(TemplatePlugin.TemplatePlugin).FullName!);
+            _delimitedSourceAssemblyPath,
+            typeof(DelimitedSourceService).FullName!);
 
-        var configuration = new TemplatePluginConfiguration
+        var configuration = new DelimitedSourceConfiguration
         {
-            RowCount = 5,
-            BatchSize = 2,
-            DataType = "TransformTest"
+            FilePath = "/tmp/transform_test.csv",
+            HasHeaders = true,
+            Delimiter = ",",
+            ChunkSize = 100
         };
 
         // Act
@@ -267,8 +272,8 @@ public class BasicPluginInjectionTests : IDisposable
                 var pluginLoader = serviceProvider.GetRequiredService<IPluginLoader>();
                 
                 return await pluginLoader.LoadPluginAsync<IPlugin>(
-                    _templatePluginAssemblyPath,
-                    typeof(TemplatePlugin.TemplatePlugin).FullName!);
+                    _delimitedSourceAssemblyPath,
+                    typeof(DelimitedSourceService).FullName!);
             });
             loadingTasks.Add(task);
         }
@@ -326,7 +331,7 @@ public class BasicPluginInjectionTests : IDisposable
         var exception = await Assert.ThrowsAsync<PluginLoadException>(async () =>
         {
             await _pluginLoader.LoadPluginAsync<IPlugin>(
-                _templatePluginAssemblyPath,
+                _delimitedSourceAssemblyPath,
                 invalidTypeName);
         });
 
@@ -338,7 +343,7 @@ public class BasicPluginInjectionTests : IDisposable
         _output.WriteLine($"Exception message: {exception.Message}");
 
         _output.WriteLine($"Type validation error handled correctly:");
-        _output.WriteLine($"  Expected assembly: {Path.GetFileName(_templatePluginAssemblyPath)}");
+        _output.WriteLine($"  Expected assembly: {Path.GetFileName(_delimitedSourceAssemblyPath)}");
         _output.WriteLine($"  Invalid type: {invalidTypeName}");
     }
 
@@ -348,10 +353,10 @@ public class BasicPluginInjectionTests : IDisposable
         // Arrange
         _output.WriteLine("Test: Loading plugin with different interface types");
 
-        // Act - Load as generic plugin first
-        var genericPlugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
-            _templatePluginAssemblyPath,
-            typeof(TemplatePlugin.TemplatePlugin).FullName!);
+        // Act - Load as source plugin first
+        var sourcePlugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
+            _delimitedSourceAssemblyPath,
+            typeof(DelimitedSourceService).FullName!);
 
         // Create separate service provider for the second load to avoid "already loaded" error
         var services = new ServiceCollection();
@@ -365,22 +370,22 @@ public class BasicPluginInjectionTests : IDisposable
         using var serviceProvider2 = services.BuildServiceProvider();
         var pluginLoader2 = serviceProvider2.GetRequiredService<IPluginLoader>();
         
-        var secondPlugin = await pluginLoader2.LoadPluginAsync<IPlugin>(
-            _templatePluginAssemblyPath,
-            typeof(TemplatePlugin.TemplatePlugin).FullName!);
+        var sinkPlugin = await pluginLoader2.LoadPluginAsync<IPlugin>(
+            _delimitedSinkAssemblyPath,
+            typeof(DelimitedSinkService).FullName!);
 
         // Assert
-        Assert.NotNull(genericPlugin);
-        Assert.NotNull(secondPlugin);
-        Assert.IsAssignableFrom<IPlugin>(genericPlugin);
-        Assert.IsAssignableFrom<IPlugin>(secondPlugin);
+        Assert.NotNull(sourcePlugin);
+        Assert.NotNull(sinkPlugin);
+        Assert.IsAssignableFrom<IPlugin>(sourcePlugin);
+        Assert.IsAssignableFrom<IPlugin>(sinkPlugin);
         
         // Verify they are separate instances with different IDs
-        Assert.NotEqual(genericPlugin.Id, secondPlugin.Id);
+        Assert.NotEqual(sourcePlugin.Id, sinkPlugin.Id);
 
         _output.WriteLine($"Multiple instance loading successful:");
-        _output.WriteLine($"  First plugin: {genericPlugin.GetType().Name} (ID: {genericPlugin.Id})");
-        _output.WriteLine($"  Second plugin: {secondPlugin.GetType().Name} (ID: {secondPlugin.Id})");
+        _output.WriteLine($"  Source plugin: {sourcePlugin.GetType().Name} (ID: {sourcePlugin.Id})");
+        _output.WriteLine($"  Sink plugin: {sinkPlugin.GetType().Name} (ID: {sinkPlugin.Id})");
     }
 
     public void Dispose()

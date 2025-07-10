@@ -115,16 +115,19 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
                         _logger.LogError(ex,
                             "Operation {OperationName} failed permanently after {Attempts} attempts over {TotalDuration}ms",
                             operationName, attempt, attempts.Sum(a => a.Duration.TotalMilliseconds));
+                        
+                        // Wrap the exception with retry context
+                        throw CreateRetryExhaustedException(operationName, attempts, lastException);
                     }
                     else
                     {
                         _logger.LogError(ex,
                             "Operation {OperationName} failed with non-retryable error on attempt {Attempt}: {ErrorMessage}",
                             operationName, attempt, ex.Message);
+                        
+                        // For non-retryable exceptions, throw the original exception immediately
+                        throw;
                     }
-
-                    // Wrap the exception with retry context
-                    throw CreateRetryExhaustedException(operationName, attempts, lastException);
                 }
             }
         }

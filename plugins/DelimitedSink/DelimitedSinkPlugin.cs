@@ -10,7 +10,7 @@ namespace DelimitedSink;
 /// <summary>
 /// DelimitedSink plugin for writing CSV and other delimited files with flexible formatting.
 /// </summary>
-public sealed class DelimitedSinkPlugin : IPlugin
+public sealed class DelimitedSinkPlugin : ISinkPlugin
 {
     private readonly ILogger<DelimitedSinkPlugin> _logger;
     private readonly ISchemaFactory? _schemaFactory;
@@ -351,6 +351,70 @@ public sealed class DelimitedSinkPlugin : IPlugin
         return errors.Any(e => e.Severity == ValidationSeverity.Error)
             ? ValidationResult.Failure(errors.ToArray())
             : ValidationResult.Success();
+    }
+
+    // ISinkPlugin implementation - DelimitedSink accepts any schema
+    public ISchema InputSchema => _schemaFactory?.CreateSchema(Array.Empty<ColumnDefinition>()) ?? throw new InvalidOperationException("SchemaFactory not available");
+    public bool SupportsTransactions => false; // Transactions not supported for file writes
+    public WriteMode Mode => WriteMode.Buffered; // File writing is buffered
+    public TransactionState? CurrentTransaction => null; // No transactions
+
+    public async Task ConsumeAsync(IAsyncEnumerable<IChunk> input, CancellationToken cancellationToken = default)
+    {
+        if (_state != PluginState.Running)
+            throw new PluginExecutionException($"Plugin must be running to consume data. Current state: {_state}");
+
+        if (_configuration == null)
+            throw new PluginExecutionException("Plugin not configured");
+
+        _logger.LogInformation("Starting data consumption to file: {FilePath}", _configuration.FilePath);
+
+        try
+        {
+            var sinkService = GetSinkService();
+            await foreach (var chunk in input.WithCancellation(cancellationToken))
+            {
+                _logger.LogDebug("Consuming chunk with {RowCount} rows", chunk.RowCount);
+                await sinkService.ProcessChunkAsync(chunk, cancellationToken);
+            }
+            
+            // Ensure all data is flushed
+            await FlushAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error consuming data to file: {FilePath}", _configuration.FilePath);
+            throw new PluginExecutionException($"Failed to consume data: {ex.Message}", ex);
+        }
+
+        _logger.LogInformation("Completed data consumption to file: {FilePath}", _configuration.FilePath);
+    }
+
+    public Task<string> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("Transactions are not supported by DelimitedSink plugin");
+    }
+
+    public Task CommitTransactionAsync(string transactionId, CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("Transactions are not supported by DelimitedSink plugin");
+    }
+
+    public Task RollbackTransactionAsync(string transactionId, CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("Transactions are not supported by DelimitedSink plugin");
+    }
+
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_configuration == null)
+            return;
+
+        _logger.LogDebug("Flushing buffered data to file: {FilePath}", _configuration.FilePath);
+        
+        // File I/O is automatically flushed when streams are disposed
+        // For more sophisticated buffering, this would trigger actual flush operations
+        await Task.CompletedTask;
     }
 
     public void Dispose()

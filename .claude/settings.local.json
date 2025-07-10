@@ -29,7 +29,18 @@
       "Bash(find:*)",
       "Bash(pwsh:*)",
       "Bash(powershell:*)",
-      "Bash(dotnet.exe test:*)"
+      "Bash(dotnet.exe test:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git.exe diff --staged)",
+      "Bash(git.exe log --oneline -5)",
+      "Bash(git.exe add src/FlowEngine.Core/Services/IScriptEngineService.cs src/FlowEngine.Core/Services/IJavaScriptContextService.cs src/FlowEngine.Core/Services/JintScriptEngineService.cs src/FlowEngine.Core/Services/JavaScriptContextService.cs)",
+      "Bash(git.exe add src/FlowEngine.Core/FlowEngine.Core.csproj src/FlowEngine.Core/ServiceCollectionExtensions.cs)",
+      "Bash(git.exe add plugins/JavaScriptTransform/JavaScriptTransform.csproj plugins/JavaScriptTransform/JavaScriptTransformConfiguration.cs plugins/JavaScriptTransform/JavaScriptTransformPlugin.cs plugins/JavaScriptTransform/plugin.json plugins/JavaScriptTransform/Schemas/)",
+      "Bash(git.exe add tests/DelimitedPlugins.Tests/JavaScriptTransformBasicTests.cs tests/DelimitedPlugins.Tests/JavaScriptTransformStructureTests.cs)",
+      "Bash(git.exe rm plugins/JavaScriptTransform/TestProgram.cs plugins/JavaScriptTransform/WorkingJavaScriptPlugin.cs)",
+      "Bash(git.exe status)",
+      "Bash(git.exe add .)"
     ],
     "deny": []
   }

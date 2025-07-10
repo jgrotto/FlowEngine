@@ -1,0 +1,23 @@
+pipeline:
+  name: "Simple Test Pipeline"
+  version: "1.0.0"
+  description: "Simple source-only test"
+  
+  plugins:
+    - name: "TestSource"
+      type: "DelimitedSource.DelimitedSourcePlugin"
+      assembly: "C:\\source\\FlowEngine\\plugins\\DelimitedSource\\bin\\Debug\\net8.0\\DelimitedSource.dll"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 1000
+        
+  connections: []
+  
+  settings:
+    defaultChannel:
+      bufferSize: 1000
+      backpressureThreshold: 80
+      fullMode: "Wait"
+      timeoutSeconds: 30

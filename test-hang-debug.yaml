@@ -1,0 +1,51 @@
+pipeline:
+  name: "Test Hang Debug"
+  version: "1.0.0"
+  description: "Minimal test to debug hanging issue"
+  
+  plugins:
+    # Source: Read customer data from CSV file
+    - name: "TestSource"
+      type: "DelimitedSource.DelimitedSourcePlugin"
+      assembly: "C:\\source\\FlowEngine\\plugins\\DelimitedSource\\bin\\Debug\\net8.0\\DelimitedSource.dll"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 100
+        Encoding: "UTF-8"
+        InferSchema: true
+        InferenceSampleRows: 10
+        SkipMalformedRows: true
+        MaxErrors: 10
+        
+    # Sink: Write processed data to CSV file
+    - name: "TestOutput"
+      type: "DelimitedSink.DelimitedSinkPlugin"
+      assembly: "C:\\source\\FlowEngine\\plugins\\DelimitedSink\\bin\\Debug\\net8.0\\DelimitedSink.dll"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\test-output.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Encoding: "UTF-8"
+        BufferSize: 8192
+        FlushInterval: 100
+        CreateDirectory: true
+        OverwriteExisting: true
+        
+  connections:
+    # Customer data flows from source to sink
+    - from: "TestSource"
+      to: "TestOutput"
+      channel:
+        bufferSize: 200
+        backpressureThreshold: 75
+        fullMode: "Wait"
+        timeoutSeconds: 30
+
+  settings:
+    defaultChannel:
+      bufferSize: 100
+      backpressureThreshold: 80
+      fullMode: "Wait"
+      timeoutSeconds: 30

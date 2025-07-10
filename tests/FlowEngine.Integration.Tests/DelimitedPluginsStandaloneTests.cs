@@ -1,5 +1,6 @@
 using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Plugins;
+using FlowEngine.Core.Data;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text;
@@ -378,7 +379,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
 
     private ISchema CreateSimpleSchema()
     {
-        return new TestSchema();
+        return TestSchemaHelper.CreateTestSchema();
     }
 
     public void Dispose()
@@ -403,52 +404,20 @@ public class DelimitedPluginsStandaloneTests : IDisposable
 }
 
 /// <summary>
-/// Simple test schema implementation for testing purposes.
+/// Helper method to create a test schema for testing purposes.
 /// </summary>
-public class TestSchema : ISchema
+public static class TestSchemaHelper
 {
-    public string Name => "TestSchema";
-    public int Version => 1;
-    
-    public IColumn[] Columns { get; } = new IColumn[]
+    public static ISchema CreateTestSchema()
     {
-        new TestColumn { Name = "Id", DataType = typeof(int), Index = 0 },
-        new TestColumn { Name = "Name", DataType = typeof(string), Index = 1 },
-        new TestColumn { Name = "Email", DataType = typeof(string), Index = 2 },
-        new TestColumn { Name = "CreatedAt", DataType = typeof(DateTime), Index = 3 }
-    };
-
-    public int GetIndex(string columnName)
-    {
-        var column = Columns.FirstOrDefault(c => c.Name == columnName);
-        return column?.Index ?? -1;
+        var columns = new[]
+        {
+            new ColumnDefinition { Name = "Id", DataType = typeof(int), Index = 0, IsNullable = false },
+            new ColumnDefinition { Name = "Name", DataType = typeof(string), Index = 1, IsNullable = false },
+            new ColumnDefinition { Name = "Email", DataType = typeof(string), Index = 2, IsNullable = true },
+            new ColumnDefinition { Name = "CreatedAt", DataType = typeof(DateTime), Index = 3, IsNullable = false }
+        };
+        
+        return Schema.GetOrCreate(columns);
     }
-
-    public IColumn? GetColumn(string columnName)
-    {
-        return Columns.FirstOrDefault(c => c.Name == columnName);
-    }
-
-    public IColumn? GetColumn(int index)
-    {
-        return Columns.FirstOrDefault(c => c.Index == index);
-    }
-
-    public bool IsCompatibleWith(ISchema other)
-    {
-        return other.Name == Name && other.Version <= Version;
-    }
-}
-
-/// <summary>
-/// Simple test column implementation for testing purposes.
-/// </summary>
-public class TestColumn : IColumn
-{
-    public required string Name { get; init; }
-    public required Type DataType { get; init; }
-    public required int Index { get; init; }
-    public bool IsNullable { get; init; } = true;
-    public object? DefaultValue { get; init; } = null;
-    public string? Description { get; init; } = null;
 }

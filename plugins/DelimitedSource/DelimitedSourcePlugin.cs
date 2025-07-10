@@ -10,7 +10,7 @@ namespace DelimitedSource;
 /// <summary>
 /// DelimitedSource plugin for reading CSV and other delimited files with schema inference.
 /// </summary>
-public sealed class DelimitedSourcePlugin : IPlugin
+public sealed class DelimitedSourcePlugin : ISourcePlugin
 {
     private readonly ILogger<DelimitedSourcePlugin> _logger;
     private readonly ISchemaFactory? _schemaFactory;
@@ -242,6 +242,60 @@ public sealed class DelimitedSourcePlugin : IPlugin
     {
         // Source plugins don't have input schemas, so this is always valid
         return ValidationResult.Success();
+    }
+
+    // ISourcePlugin implementation
+    public long? EstimatedRowCount => null; // Unknown row count for delimited files
+    public bool IsSeekable => false; // Seeking not supported for simplicity
+    public SourcePosition? CurrentPosition => null; // Position tracking not implemented
+
+    public async IAsyncEnumerable<IChunk> ProduceAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (_state != PluginState.Running)
+            throw new PluginExecutionException($"Plugin must be running to produce data. Current state: {_state}");
+
+        if (_configuration == null)
+            throw new PluginExecutionException("Plugin not configured");
+
+        _logger.LogInformation("ProduceAsync: Starting data production from file: {FilePath}", _configuration.FilePath);
+
+        var sourceService = GetSourceService();
+        IDataset dataset;
+        
+        try
+        {
+            _logger.LogDebug("ProduceAsync: Calling ReadFileAsync");
+            dataset = await sourceService.ReadFileAsync(cancellationToken);
+            _logger.LogDebug("ProduceAsync: ReadFileAsync completed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ProduceAsync: Error loading data from file: {FilePath}", _configuration.FilePath);
+            throw new PluginExecutionException($"Failed to load data: {ex.Message}", ex);
+        }
+
+        using (dataset)
+        {
+            // Use the dataset's chunk iterator directly with our configured chunk size
+            var chunkingOptions = new ChunkingOptions { PreferredChunkSize = _configuration.ChunkSize };
+            
+            _logger.LogDebug("ProduceAsync: Starting chunk iteration");
+            var chunkCount = 0;
+            await foreach (var chunk in dataset.GetChunksAsync(chunkingOptions, cancellationToken))
+            {
+                chunkCount++;
+                _logger.LogDebug("ProduceAsync: Produced chunk {ChunkNumber} with {RowCount} rows", chunkCount, chunk.RowCount);
+                yield return chunk;
+            }
+            _logger.LogDebug("ProduceAsync: Completed chunk iteration - produced {TotalChunks} chunks", chunkCount);
+        }
+
+        _logger.LogInformation("ProduceAsync: Completed data production from file: {FilePath}", _configuration.FilePath);
+    }
+
+    public Task SeekAsync(SourcePosition position, CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("Seeking is not supported by DelimitedSource plugin");
     }
 
     public void Dispose()

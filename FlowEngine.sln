@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DelimitedSource", "plugins\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DelimitedSink", "plugins\DelimitedSink\DelimitedSink.csproj", "{630A50A5-4105-441F-9B4C-7DB2E4EF2B5A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JavaScriptTransform", "plugins\JavaScriptTransform\JavaScriptTransform.csproj", "{F9A94CBD-412D-4A19-BB61-2FD81090056B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -117,6 +119,18 @@ Global
 		{630A50A5-4105-441F-9B4C-7DB2E4EF2B5A}.Release|x64.Build.0 = Release|Any CPU
 		{630A50A5-4105-441F-9B4C-7DB2E4EF2B5A}.Release|x86.ActiveCfg = Release|Any CPU
 		{630A50A5-4105-441F-9B4C-7DB2E4EF2B5A}.Release|x86.Build.0 = Release|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Debug|x64.Build.0 = Debug|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Debug|x86.Build.0 = Debug|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Release|x64.ActiveCfg = Release|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Release|x64.Build.0 = Release|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Release|x86.ActiveCfg = Release|Any CPU
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -129,6 +143,7 @@ Global
 		{1B52566A-E3B1-465D-B770-F727A2E2C0BA} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{A4208097-0B10-487A-ACC1-C9518BCF2C93} = {E7F8A2B1-3C4D-5E6F-7890-1A2B3C4D5E6F}
 		{630A50A5-4105-441F-9B4C-7DB2E4EF2B5A} = {E7F8A2B1-3C4D-5E6F-7890-1A2B3C4D5E6F}
+		{F9A94CBD-412D-4A19-BB61-2FD81090056B} = {E7F8A2B1-3C4D-5E6F-7890-1A2B3C4D5E6F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {833A6E43-FC1C-4B31-A61D-35E0153F0713}

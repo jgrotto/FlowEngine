@@ -70,15 +70,22 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
             // Then, scan for assemblies without manifests
             await ScanForAssemblyBasedPluginsAsync(directoryPath, includeSubdirectories, discoveredPlugins);
 
-            _logger.LogInformation("Discovered {Count} plugins in directory: {DirectoryPath}", 
-                discoveredPlugins.Count, directoryPath);
+            // Remove duplicates based on plugin ID
+            var uniquePlugins = discoveredPlugins
+                .GroupBy(p => p.Manifest.Id)
+                .Select(g => g.OrderByDescending(p => p.HasManifest).First())
+                .ToList();
+
+            _logger.LogInformation("Discovered {TotalCount} plugins in directory: {DirectoryPath} ({UniqueCount} unique)", 
+                discoveredPlugins.Count, directoryPath, uniquePlugins.Count);
+            
+            return uniquePlugins.AsReadOnly();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during plugin discovery in directory: {DirectoryPath}", directoryPath);
+            return Array.Empty<DiscoveredPlugin>();
         }
-
-        return discoveredPlugins.AsReadOnly();
     }
 
     /// <inheritdoc />
@@ -89,8 +96,11 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
 
         foreach (var directory in directories)
         {
-            var plugins = await DiscoverPluginsAsync(directory, includeSubdirectories: true);
-            allPlugins.AddRange(plugins);
+            if (Directory.Exists(directory))
+            {
+                var plugins = await DiscoverPluginsAsync(directory, includeSubdirectories: true);
+                allPlugins.AddRange(plugins);
+            }
         }
 
         // Remove duplicates based on plugin ID
@@ -249,7 +259,7 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
             appDirectory // Current directory as fallback
         };
 
-        return directories.Where(Directory.Exists).ToArray();
+        return directories.ToArray();
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 using FlowEngine.Abstractions.Configuration;
 using FlowEngine.Abstractions.Data;
 using FlowEngine.Abstractions.Plugins;
+using FlowEngine.Core.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
@@ -16,6 +17,7 @@ public sealed class PluginManager : IPluginManager
     private readonly IPluginLoader _pluginLoader;
     private readonly IPluginRegistry _pluginRegistry;
     private readonly IPluginDiscoveryService? _discoveryService;
+    private readonly IPluginConfigurationMapper _configurationMapper;
     private readonly ILogger<PluginManager> _logger;
     private readonly ConcurrentDictionary<string, LoadedPluginEntry> _loadedPlugins = new();
     private readonly object _loadLock = new();
@@ -28,11 +30,12 @@ public sealed class PluginManager : IPluginManager
     /// <param name="pluginRegistry">Plugin registry for type discovery</param>
     /// <param name="logger">Logger for plugin operations</param>
     /// <param name="discoveryService">Optional plugin discovery service for enhanced plugin discovery</param>
-    public PluginManager(IPluginLoader pluginLoader, IPluginRegistry pluginRegistry, ILogger<PluginManager> logger, IPluginDiscoveryService? discoveryService = null)
+    public PluginManager(IPluginLoader pluginLoader, IPluginRegistry pluginRegistry, ILogger<PluginManager> logger, IPluginDiscoveryService? discoveryService = null, IPluginConfigurationMapper? configurationMapper = null)
     {
         _pluginLoader = pluginLoader ?? throw new ArgumentNullException(nameof(pluginLoader));
         _pluginRegistry = pluginRegistry ?? throw new ArgumentNullException(nameof(pluginRegistry));
         _discoveryService = discoveryService;
+        _configurationMapper = configurationMapper ?? new PluginConfigurationMapper(Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PluginConfigurationMapper>());
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to loader events
@@ -419,27 +422,8 @@ public sealed class PluginManager : IPluginManager
 
     private async Task<Abstractions.Plugins.IPluginConfiguration> CreatePluginConfigurationAsync(IPluginDefinition definition)
     {
-        // For Sprint 1, handle specific known plugin types
-        // TODO: Implement general configuration mapping in future sprints
-        
-        try
-        {
-            // Special handling for TemplatePlugin
-            if (definition.Type == "TemplatePlugin.TemplatePlugin")
-            {
-                return await CreateTemplatePluginConfigurationAsync(definition);
-            }
-            
-            // Default to simple configuration for unknown plugins
-            _logger.LogWarning("Using simple configuration for unknown plugin type '{PluginType}'", definition.Type);
-            return new SimplePluginConfiguration(definition);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to create configuration for plugin '{PluginName}' of type '{PluginType}'", 
-                definition.Name, definition.Type);
-            throw new PluginLoadException($"Failed to create configuration: {ex.Message}", ex);
-        }
+        // Use the enhanced configuration mapper for all plugin types
+        return await _configurationMapper.CreateConfigurationAsync(definition);
     }
 
     private Task<Abstractions.Plugins.IPluginConfiguration> CreateTemplatePluginConfigurationAsync(IPluginDefinition definition)
@@ -461,11 +445,11 @@ public sealed class PluginManager : IPluginManager
             var dataType = ExtractConfigValue<string>(config, "DataType", "Customer");
             
             // Validate configuration values
-            if (rowCount < 1 || rowCount > 1_000_000)
-                throw new PluginLoadException($"RowCount must be between 1 and 1,000,000, got: {rowCount}");
+            if (rowCount < 1 || rowCount > 5_000_000)
+                throw new PluginLoadException($"RowCount must be between 1 and 5,000,000, got: {rowCount}");
                 
-            if (batchSize < 1 || batchSize > 10_000)
-                throw new PluginLoadException($"BatchSize must be between 1 and 10,000, got: {batchSize}");
+            if (batchSize < 1 || batchSize > 50_000)
+                throw new PluginLoadException($"BatchSize must be between 1 and 50,000, got: {batchSize}");
                 
             if (string.IsNullOrWhiteSpace(dataType))
                 throw new PluginLoadException("DataType cannot be null or empty");

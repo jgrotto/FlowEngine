@@ -135,13 +135,12 @@ public sealed class ChannelTelemetry : IDisposable
     {
         if (_disposed) return;
 
-        if (_channelMetrics.TryGetValue(channelId, out var metrics))
+        var metrics = _channelMetrics.GetOrAdd(channelId, _ => new ChannelMetrics { ChannelId = channelId });
+        
+        lock (_metricsLock)
         {
-            lock (_metricsLock)
-            {
-                metrics.CompletedAt = DateTimeOffset.UtcNow;
-                metrics.IsCompleted = true;
-            }
+            metrics.CompletedAt = DateTimeOffset.UtcNow;
+            metrics.IsCompleted = true;
         }
     }
 

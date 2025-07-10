@@ -132,19 +132,16 @@ public sealed class DelimitedSinkService : IPluginService
                 _headersWritten = true;
             }
 
-            // Write each row in the chunk
+            // Optimized: Write all rows in chunk with minimal flushing
             for (int i = 0; i < input.Rows.Length; i++)
             {
-                var row = input.Rows[i];
-                await WriteRowAsync(row, input.Schema, cancellationToken);
+                await WriteRowAsync(input.Rows[i], input.Schema, cancellationToken);
                 _rowsWritten++;
-
-                // Flush periodically
-                if (_rowsWritten % _configuration.FlushInterval == 0)
-                {
-                    await FlushAsync(cancellationToken);
-                }
             }
+            
+            // Optimized: Flush only once per chunk instead of per FlushInterval
+            // This reduces I/O operations significantly
+            await FlushAsync(cancellationToken);
 
             _chunksProcessed++;
             var processingTime = DateTime.UtcNow - startTime;

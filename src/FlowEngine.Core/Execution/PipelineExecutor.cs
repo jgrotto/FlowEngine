@@ -118,6 +118,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
             // Create channels
             await CreateChannelsAsync(configuration, linkedToken);
 
+            // Start plugins (move from Initialized to Running state)
+            await StartPluginsAsync(configuration, linkedToken);
+
             // Execute pipeline
             SetStatus(PipelineExecutionStatus.Running);
             var result = await ExecutePipelineAsync(validation.ExecutionOrder, linkedToken);
@@ -363,6 +366,17 @@ public sealed class PipelineExecutor : IPipelineExecutor
         await Task.CompletedTask;
     }
 
+    private async Task StartPluginsAsync(IPipelineConfiguration configuration, CancellationToken cancellationToken)
+    {
+        var startTasks = _loadedPlugins.Values.Select(async plugin =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await plugin.StartAsync(cancellationToken);
+        });
+
+        await Task.WhenAll(startTasks);
+    }
+
     private async Task SetupSchemasAsync(IPipelineConfiguration configuration, IReadOnlyList<string> executionOrder, CancellationToken cancellationToken)
     {
         var schemaMap = new Dictionary<string, ISchema>();
@@ -481,22 +495,25 @@ public sealed class PipelineExecutor : IPipelineExecutor
                 }
             }
 
-            // Start all plugins concurrently but coordinate their execution
+            // Execute plugins in proper order to avoid deadlocks
             var allTasks = new List<Task>();
             
-            // Start sink plugins first (they'll wait for data)
+            // Start sink and transform plugins first (they will wait for data)
+            // These plugins start their ConsumeAsync/TransformAsync operations which wait on channels
             foreach (var (name, plugin) in sinkPlugins)
             {
                 allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
             }
             
-            // Start transform plugins (they'll wait for input and provide output)
             foreach (var (name, plugin) in transformPlugins)
             {
                 allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
             }
             
-            // Start source plugins last (they'll produce data)
+            // Give sink/transform plugins a brief moment to start waiting on channels
+            await Task.Delay(50, cancellationToken);
+            
+            // Now start source plugins (they will begin producing data)
             foreach (var (name, plugin) in sourcePlugins)
             {
                 allTasks.Add(ExecutePluginAsync(plugin, name, cancellationToken));
@@ -541,9 +558,6 @@ public sealed class PipelineExecutor : IPipelineExecutor
 
         try
         {
-            // Plugin execution logic would go here
-            // For now, this is a placeholder that simulates plugin execution
-
             switch (plugin)
             {
                 case ISourcePlugin sourcePlugin:

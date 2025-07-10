@@ -300,7 +300,7 @@ public class CoreIntegrationTests : IDisposable
             Delimiter = ",",
             HasHeaders = true,
             Encoding = "UTF-8",
-            ChunkSize = 10000, // Large chunks for performance
+            ChunkSize = 10000, // Optimal chunk size for performance
             OutputSchema = inputSchema
         };
 
@@ -311,7 +311,7 @@ public class CoreIntegrationTests : IDisposable
             IncludeHeaders = true,
             Encoding = "UTF-8",
             BufferSize = 131072, // 128KB buffer for performance
-            FlushInterval = 5000, // Flush every 5K rows
+            FlushInterval = 10000, // Flush every 10K rows
             InputSchema = inputSchema,
             OverwriteExisting = true,
             CreateDirectories = true
