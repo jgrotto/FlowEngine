@@ -14,8 +14,35 @@ pipeline:
         Delimiter: ","
         ChunkSize: 1000
         Encoding: "UTF-8"
-        InferSchema: true
-        InferenceSampleRows: 100
+        InferSchema: false
+        OutputSchema:
+          Name: "CustomerData"
+          Description: "Customer information schema"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 3
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 4
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 5
+              IsNullable: false
         SkipMalformedRows: true
         MaxErrors: 10
         
@@ -24,6 +51,58 @@ pipeline:
       type: "JavaScriptTransform.JavaScriptTransformPlugin"
       assembly: "C:\\source\\FlowEngine\\plugins\\JavaScriptTransform\\bin\\Release\\net8.0\\JavaScriptTransform.dll"
       config:
+        OutputSchema:
+          Name: "ProcessedCustomerData"
+          Description: "Customer data with transformations and enrichments"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "full_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 3
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 4
+              IsNullable: false
+            - Name: "age_category"
+              Type: "String"
+              Index: 5
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 6
+              IsNullable: false
+            - Name: "email_domain"
+              Type: "String"
+              Index: 7
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 8
+              IsNullable: false
+            - Name: "value_category"
+              Type: "String"
+              Index: 9
+              IsNullable: false
+            - Name: "priority_score"
+              Type: "Integer"
+              Index: 10
+              IsNullable: false
+            - Name: "processed_date"
+              Type: "String"
+              Index: 11
+              IsNullable: false
         Script: |
           function process(context) {
               try {

@@ -1,7 +1,10 @@
 using FlowEngine.Abstractions;
 using FlowEngine.Abstractions.Configuration;
+using FlowEngine.Abstractions.Data;
+using FlowEngine.Abstractions.Factories;
 using FlowEngine.Abstractions.Plugins;
 using Microsoft.Extensions.Logging;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Reflection;
@@ -16,6 +19,7 @@ namespace FlowEngine.Core.Configuration;
 public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
 {
     private readonly ILogger<PluginConfigurationMapper> _logger;
+    private readonly ISchemaFactory _schemaFactory;
     private readonly ConcurrentDictionary<string, PluginConfigurationMapping> _mappings = new();
     private readonly JsonSerializerOptions _jsonOptions;
 
@@ -23,9 +27,11 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     /// Initializes a new instance of the plugin configuration mapper.
     /// </summary>
     /// <param name="logger">Logger for configuration mapping operations</param>
-    public PluginConfigurationMapper(ILogger<PluginConfigurationMapper> logger)
+    /// <param name="schemaFactory">Factory for creating schema objects</param>
+    public PluginConfigurationMapper(ILogger<PluginConfigurationMapper> logger, ISchemaFactory schemaFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _schemaFactory = schemaFactory ?? throw new ArgumentNullException(nameof(schemaFactory));
         
         _jsonOptions = new JsonSerializerOptions
         {
@@ -153,6 +159,13 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         var inferenceSampleRows = ExtractConfigValue<int>(config, "InferenceSampleRows", 100);
         var skipMalformedRows = ExtractConfigValue<bool>(config, "SkipMalformedRows", false);
         var maxErrors = ExtractConfigValue<int>(config, "MaxErrors", 0);
+        
+        // Extract OutputSchema if provided
+        ISchema? outputSchema = null;
+        if (config.TryGetValue("OutputSchema", out var schemaConfig) && schemaConfig != null)
+        {
+            outputSchema = ParseSchemaFromConfig(schemaConfig);
+        }
 
         // Create instance using object initializer pattern via reflection
         var configInstance = Activator.CreateInstance(configType);
@@ -167,6 +180,12 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         SetInitProperty(configInstance, "InferenceSampleRows", inferenceSampleRows);
         SetInitProperty(configInstance, "SkipMalformedRows", skipMalformedRows);
         SetInitProperty(configInstance, "MaxErrors", maxErrors);
+        
+        // Set OutputSchema if provided
+        if (outputSchema != null)
+        {
+            SetInitProperty(configInstance, "OutputSchema", outputSchema);
+        }
         
         return (FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance;
     }
@@ -241,20 +260,41 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         var engineConfig = Activator.CreateInstance(engineConfigType);
         SetInitProperty(engineConfig, "Timeout", timeoutSeconds * 1000); // Convert to milliseconds
         
-        // Create a basic output schema configuration (since this is complex, we'll create a simple one)
+        // Create output schema configuration from YAML
         var outputSchemaConfig = Activator.CreateInstance(outputSchemaConfigType);
         var fieldsListType = typeof(List<>).MakeGenericType(outputFieldDefType);
         var fieldsList = Activator.CreateInstance(fieldsListType);
         
-        // Add basic output fields (since we don't have schema information from YAML)
-        var outputField = Activator.CreateInstance(outputFieldDefType);
-        SetInitProperty(outputField, "Name", "result");
-        SetInitProperty(outputField, "Type", "string");
-        SetInitProperty(outputField, "Required", false);
-        
-        // Add the field to the list
-        var addMethod = fieldsListType.GetMethod("Add");
-        addMethod?.Invoke(fieldsList, new[] { outputField });
+        // Parse OutputSchema from YAML configuration if provided
+        if (config.TryGetValue("OutputSchema", out var schemaConfig) && schemaConfig != null)
+        {
+            var schema = ParseSchemaFromConfig(schemaConfig);
+            
+            // Convert schema columns to JavaScriptTransform output field definitions
+            foreach (var column in schema.Columns)
+            {
+                var outputField = Activator.CreateInstance(outputFieldDefType);
+                SetInitProperty(outputField, "Name", column.Name);
+                SetInitProperty(outputField, "Type", ConvertTypeToString(column.DataType));
+                SetInitProperty(outputField, "Required", !column.IsNullable);
+                
+                // Add the field to the list
+                var addMethod = fieldsListType.GetMethod("Add");
+                addMethod?.Invoke(fieldsList, new[] { outputField });
+            }
+        }
+        else
+        {
+            // Fallback: Add basic output field if no schema provided
+            var outputField = Activator.CreateInstance(outputFieldDefType);
+            SetInitProperty(outputField, "Name", "result");
+            SetInitProperty(outputField, "Type", "string");
+            SetInitProperty(outputField, "Required", false);
+            
+            // Add the field to the list
+            var addMethod = fieldsListType.GetMethod("Add");
+            addMethod?.Invoke(fieldsList, new[] { outputField });
+        }
         
         SetInitProperty(outputSchemaConfig, "Fields", fieldsList);
         
@@ -456,5 +496,154 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         {
             property.SetValue(instance, value);
         }
+    }
+    
+    /// <summary>
+    /// Parses schema configuration from YAML into an ISchema object using the schema factory.
+    /// </summary>
+    private ISchema ParseSchemaFromConfig(object schemaConfig)
+    {
+        _logger.LogDebug("ParseSchemaFromConfig called with object type: {Type}", schemaConfig?.GetType().Name ?? "null");
+        
+        // Handle different dictionary types from YAML parsing
+        Dictionary<string, object> schemaDict;
+        switch (schemaConfig)
+        {
+            case Dictionary<string, object> stringKeyDict:
+                schemaDict = stringKeyDict;
+                break;
+            case Dictionary<object, object> objectKeyDict:
+                // Convert Dictionary<object, object> to Dictionary<string, object>
+                schemaDict = objectKeyDict.ToDictionary(
+                    kvp => kvp.Key?.ToString() ?? string.Empty,
+                    kvp => kvp.Value);
+                break;
+            case IDictionary dict:
+                // Convert any IDictionary to Dictionary<string, object>
+                schemaDict = new Dictionary<string, object>();
+                foreach (DictionaryEntry entry in dict)
+                {
+                    schemaDict[entry.Key?.ToString() ?? string.Empty] = entry.Value ?? new object();
+                }
+                break;
+            default:
+                _logger.LogError("OutputSchema is not a dictionary. Actual type: {Type}, Value: {Value}", 
+                    schemaConfig?.GetType().Name ?? "null", schemaConfig?.ToString() ?? "null");
+                throw new PluginLoadException($"OutputSchema must be a dictionary, got: {schemaConfig?.GetType().Name ?? "null"}");
+        }
+        
+        _logger.LogDebug("Schema dictionary has {Count} keys: {Keys}", 
+            schemaDict.Count, string.Join(", ", schemaDict.Keys));
+        
+        // Parse columns
+        var columns = new List<ColumnDefinition>();
+        if (schemaDict.TryGetValue("Columns", out var columnsObj))
+        {
+            _logger.LogDebug("Columns object type: {Type}", columnsObj?.GetType().Name ?? "null");
+            
+            // Handle different list types from YAML parsing
+            List<object> columnsList;
+            switch (columnsObj)
+            {
+                case List<object> objList:
+                    columnsList = objList;
+                    break;
+                case IList list:
+                    columnsList = new List<object>();
+                    foreach (var item in list)
+                    {
+                        columnsList.Add(item);
+                    }
+                    break;
+                default:
+                    _logger.LogError("Columns is not a list. Type: {Type}", columnsObj?.GetType().Name ?? "null");
+                    throw new PluginLoadException($"Columns must be a list, got: {columnsObj?.GetType().Name ?? "null"}");
+            }
+            
+            _logger.LogDebug("Processing {Count} columns", columnsList.Count);
+            
+            foreach (var columnObj in columnsList)
+            {
+                _logger.LogDebug("Column object type: {Type}", columnObj?.GetType().Name ?? "null");
+                
+                // Convert column object to dictionary
+                Dictionary<string, object> columnDict;
+                switch (columnObj)
+                {
+                    case Dictionary<string, object> stringKeyDict:
+                        columnDict = stringKeyDict;
+                        break;
+                    case Dictionary<object, object> objectKeyDict:
+                        columnDict = objectKeyDict.ToDictionary(
+                            kvp => kvp.Key?.ToString() ?? string.Empty,
+                            kvp => kvp.Value);
+                        break;
+                    case IDictionary dict:
+                        columnDict = new Dictionary<string, object>();
+                        foreach (DictionaryEntry entry in dict)
+                        {
+                            columnDict[entry.Key?.ToString() ?? string.Empty] = entry.Value ?? new object();
+                        }
+                        break;
+                    default:
+                        _logger.LogError("Column is not a dictionary. Type: {Type}", columnObj?.GetType().Name ?? "null");
+                        continue; // Skip this column
+                }
+                
+                var columnName = ExtractConfigValue<string>(columnDict, "Name") ?? 
+                    throw new PluginLoadException("Column Name is required");
+                var columnType = ExtractConfigValue<string>(columnDict, "Type") ?? 
+                    throw new PluginLoadException("Column Type is required");
+                var index = ExtractConfigValue<int>(columnDict, "Index", 0);
+                var isNullable = ExtractConfigValue<bool>(columnDict, "IsNullable", false);
+                
+                _logger.LogDebug("Processing column: {Name}, Type: {Type}, Index: {Index}", 
+                    columnName, columnType, index);
+                
+                // Convert string type to .NET Type
+                var dataType = columnType.ToLowerInvariant() switch
+                {
+                    "string" => typeof(string),
+                    "integer" => typeof(int),
+                    "decimal" => typeof(decimal),
+                    "boolean" => typeof(bool),
+                    "datetime" => typeof(DateTime),
+                    _ => throw new PluginLoadException($"Unsupported column type: {columnType}")
+                };
+                
+                columns.Add(new ColumnDefinition
+                {
+                    Name = columnName,
+                    DataType = dataType,
+                    Index = index,
+                    IsNullable = isNullable
+                });
+            }
+        }
+        else
+        {
+            _logger.LogWarning("No Columns found in schema dictionary");
+        }
+        
+        _logger.LogInformation("Created schema with {Count} columns", columns.Count);
+        
+        // Use the schema factory to create the schema
+        return _schemaFactory.CreateSchema(columns.ToArray());
+    }
+    
+    /// <summary>
+    /// Converts .NET Type to string representation for JavaScriptTransform plugin.
+    /// </summary>
+    private static string ConvertTypeToString(Type dataType)
+    {
+        return dataType.Name.ToLowerInvariant() switch
+        {
+            "string" => "string",
+            "int32" => "integer",
+            "decimal" => "decimal", 
+            "boolean" => "boolean",
+            "datetime" => "datetime",
+            _ => "string" // Default fallback
+        };
     }
 }

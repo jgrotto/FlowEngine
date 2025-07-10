@@ -366,7 +366,7 @@ public sealed class DelimitedSinkService : IPluginService
         return timeSinceLastFlush.TotalMilliseconds >= _configuration.FlushInterval;
     }
 
-    private async Task FlushAsync(CancellationToken cancellationToken)
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
         if (_csvWriter != null && _streamWriter != null)
         {

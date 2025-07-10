@@ -371,7 +371,11 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
 
         try
         {
-            var sinkService = GetSinkService();
+            using var sinkService = GetSinkService();
+            
+            // Initialize the service with the configuration
+            await sinkService.InitializeAsync(_configuration, cancellationToken);
+            
             await foreach (var chunk in input.WithCancellation(cancellationToken))
             {
                 _logger.LogDebug("Consuming chunk with {RowCount} rows", chunk.RowCount);
@@ -379,7 +383,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
             }
             
             // Ensure all data is flushed
-            await FlushAsync(cancellationToken);
+            await sinkService.FlushAsync(cancellationToken);
         }
         catch (Exception ex)
         {
