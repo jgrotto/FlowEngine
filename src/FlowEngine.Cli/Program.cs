@@ -1,9 +1,10 @@
 using FlowEngine.Abstractions.Configuration;
+using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Cli.Commands;
 using FlowEngine.Core;
 using FlowEngine.Core.Configuration;
+using FlowEngine.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace FlowEngine.Cli;
@@ -109,7 +110,7 @@ internal class Program
     }
 
     /// <summary>
-    /// Executes a pipeline from the specified configuration file.
+    /// Executes a pipeline from the specified configuration file using the new bootstrapper approach.
     /// </summary>
     /// <param name="configPath">Path to the pipeline configuration file</param>
     /// <param name="verbose">Enable verbose output</param>
@@ -131,41 +132,57 @@ internal class Program
 
         try
         {
-            // Step 2: Create service provider with FlowEngine services
+            // Step 2: Configure services and create service provider
             Console.WriteLine("Initializing FlowEngine...");
             var services = new ServiceCollection();
-
+            
             // Add logging
             services.AddLogging(builder =>
             {
                 builder.AddConsole();
-                if (verbose)
-                {
-                    builder.SetMinimumLevel(LogLevel.Debug);
-                }
-                else
-                {
-                    builder.SetMinimumLevel(LogLevel.Information);
-                }
+                builder.SetMinimumLevel(verbose ? LogLevel.Debug : LogLevel.Information);
             });
-
+            
             // Add FlowEngine services
             services.AddFlowEngine();
-
-            await using var serviceProvider = services.BuildServiceProvider();
+            
+            var serviceProvider = services.BuildServiceProvider();
+            
+            // Step 3: Get core services
             var coordinator = serviceProvider.GetRequiredService<FlowEngineCoordinator>();
-            var typeResolver = serviceProvider.GetRequiredService<IPluginTypeResolver>();
+            var pluginDiscovery = serviceProvider.GetRequiredService<IPluginDiscoveryService>();
+            var configMapper = serviceProvider.GetRequiredService<IPluginConfigurationMapper>();
+            
+            // Step 4: Discover plugins for bootstrap
+            Console.WriteLine("Discovering plugins...");
+            var discoveryOptions = new PluginDiscoveryOptions
+            {
+                IncludeBuiltInPlugins = true,
+                ScanRecursively = true,
+                PerformValidation = true,
+                DiscoveryTimeout = TimeSpan.FromSeconds(30)
+            };
+            
+            var discoveredPlugins = await pluginDiscovery.DiscoverPluginsForBootstrapAsync(discoveryOptions);
+            
+            if (verbose)
+            {
+                Console.WriteLine($"Available plugins: {discoveredPlugins.Count}");
+                foreach (var plugin in discoveredPlugins.Take(5)) // Show first 5
+                {
+                    Console.WriteLine($"  - {plugin.Manifest.Name} ({plugin.Capabilities})");
+                }
+                if (discoveredPlugins.Count > 5)
+                {
+                    Console.WriteLine($"  ... and {discoveredPlugins.Count - 5} more");
+                }
+            }
 
-            // Step 3: Scan for plugins
-            Console.WriteLine("Scanning for plugins...");
-            await ScanPluginDirectoriesAsync(coordinator, verbose);
-
-            // Initialize the type resolver with discovered plugins
-            await typeResolver.ScanAvailablePluginsAsync();
-
-            // Step 4: Load pipeline configuration with type resolution
+            // Step 5: Load pipeline configuration
             Console.WriteLine("Loading pipeline configuration...");
-            var pipelineConfig = await LoadPipelineConfigurationAsync(configPath, typeResolver, verbose);
+            var yamlContent = await File.ReadAllTextAsync(configPath);
+            var typeResolver = serviceProvider.GetRequiredService<IPluginTypeResolver>();
+            var pipelineConfig = PipelineConfiguration.LoadFromYaml(yamlContent, typeResolver);
 
             if (verbose)
             {
@@ -174,11 +191,28 @@ internal class Program
                 Console.WriteLine($"Connections: {pipelineConfig.Connections.Count()}");
             }
 
-            // Step 5: Execute pipeline
+            // Step 6: Validate that required plugins are available
+            Console.WriteLine("Validating configuration...");
+            var requiredPluginTypes = pipelineConfig.Plugins.Select(p => p.Type).Distinct().ToHashSet();
+            var availablePluginTypes = discoveredPlugins.Select(p => p.Manifest.PluginTypeName).ToHashSet();
+            var missingPlugins = requiredPluginTypes.Except(availablePluginTypes).ToList();
+            
+            if (missingPlugins.Any())
+            {
+                Console.Error.WriteLine("Configuration validation failed:");
+                Console.Error.WriteLine("Missing plugins:");
+                foreach (var missing in missingPlugins)
+                {
+                    Console.Error.WriteLine($"  - {missing}");
+                }
+                return 1;
+            }
+
+            // Step 7: Execute pipeline
             Console.WriteLine("Executing pipeline...");
             var result = await coordinator.PipelineExecutor.ExecuteAsync(pipelineConfig);
 
-            // Step 5: Report results
+            // Step 8: Report results
             Console.WriteLine();
             Console.WriteLine("=== Execution Results ===");
             Console.WriteLine($"Status: {(result.IsSuccess ? "SUCCESS" : "FAILED")}");
@@ -228,12 +262,17 @@ internal class Program
             Console.WriteLine("Pipeline executed successfully!");
             return 0;
         }
-        catch (ConfigurationException ex)
+        catch (FileNotFoundException ex)
+        {
+            Console.Error.WriteLine($"Configuration file error: {ex.Message}");
+            return 1;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("configuration"))
         {
             Console.Error.WriteLine($"Configuration error: {ex.Message}");
-            if (verbose)
+            if (verbose && ex.InnerException != null)
             {
-                Console.Error.WriteLine($"Details: {ex.StackTrace}");
+                Console.Error.WriteLine($"Details: {ex.InnerException.Message}");
             }
             return 1;
         }
@@ -248,125 +287,4 @@ internal class Program
         }
     }
 
-    /// <summary>
-    /// Loads and validates a pipeline configuration from a YAML file.
-    /// </summary>
-    /// <param name="configPath">Path to the configuration file</param>
-    /// <param name="typeResolver">Plugin type resolver for automatic type resolution</param>
-    /// <param name="verbose">Enable verbose output</param>
-    /// <returns>Parsed pipeline configuration</returns>
-    private static async Task<IPipelineConfiguration> LoadPipelineConfigurationAsync(string configPath, IPluginTypeResolver typeResolver, bool verbose)
-    {
-        try
-        {
-            if (verbose)
-            {
-                Console.WriteLine("Loading configuration file...");
-                var fileInfo = new FileInfo(configPath);
-                Console.WriteLine($"File size: {fileInfo.Length} bytes");
-            }
-
-            // Parse YAML to pipeline configuration with automatic type resolution
-            var config = await PipelineConfiguration.LoadFromFileAsync(configPath, typeResolver);
-
-            if (verbose)
-            {
-                Console.WriteLine("Configuration parsed successfully.");
-            }
-
-            return config;
-        }
-        catch (Exception ex)
-        {
-            throw new ConfigurationException($"Failed to load configuration from '{configPath}': {ex.Message}", ex);
-        }
-    }
-
-    /// <summary>
-    /// Scans common plugin directories for available plugins.
-    /// </summary>
-    /// <param name="coordinator">FlowEngine coordinator</param>
-    /// <param name="verbose">Enable verbose output</param>
-    private static async Task ScanPluginDirectoriesAsync(FlowEngineCoordinator coordinator, bool verbose)
-    {
-        var pluginDirectories = GetPluginDirectories();
-
-        foreach (var directory in pluginDirectories)
-        {
-            if (Directory.Exists(directory))
-            {
-                if (verbose)
-                {
-                    Console.WriteLine($"Scanning plugin directory: {directory}");
-                }
-
-                try
-                {
-                    if (verbose)
-                    {
-                        var dllFiles = Directory.GetFiles(directory, "*.dll", SearchOption.AllDirectories);
-                        Console.WriteLine($"DLL files found: {dllFiles.Length}");
-                        foreach (var dll in dllFiles)
-                        {
-                            Console.WriteLine($"  - {dll}");
-                        }
-                    }
-
-                    await coordinator.DiscoverPluginsAsync(directory);
-                    var pluginCount = coordinator.GetAvailablePlugins().Count;
-
-                    if (verbose)
-                    {
-                        Console.WriteLine($"Found {pluginCount} plugins in {directory}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (verbose)
-                    {
-                        Console.WriteLine($"Warning: Failed to scan {directory}: {ex.Message}");
-                        Console.WriteLine($"Exception details: {ex}");
-                    }
-                }
-            }
-        }
-
-        var totalPlugins = coordinator.GetAvailablePlugins().Count;
-        Console.WriteLine($"Total plugins available: {totalPlugins}");
-
-        if (verbose)
-        {
-            Console.WriteLine("Available plugins:");
-            foreach (var plugin in coordinator.GetAvailablePlugins())
-            {
-                Console.WriteLine($"  - {plugin.TypeName} ({plugin.Category})");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Gets common plugin directories to scan.
-    /// </summary>
-    /// <returns>Array of plugin directory paths</returns>
-    private static string[] GetPluginDirectories()
-    {
-        var appDirectory = AppDomain.CurrentDomain.BaseDirectory;
-        return new[]
-        {
-            Path.Combine(appDirectory, "plugins"),
-            Path.Combine(appDirectory, "Plugins"),
-            Path.Combine(appDirectory, "..", "plugins"),
-            Path.Combine(Directory.GetCurrentDirectory(), "plugins"),
-            appDirectory // Current directory as fallback
-        };
-    }
-}
-
-/// <summary>
-/// Exception thrown when configuration loading or validation fails.
-/// </summary>
-public class ConfigurationException : Exception
-{
-    public ConfigurationException(string message) : base(message) { }
-    public ConfigurationException(string message, Exception innerException) : base(message, innerException) { }
 }

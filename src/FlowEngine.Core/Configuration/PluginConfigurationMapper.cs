@@ -225,6 +225,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         var flushInterval = ExtractConfigValue<int>(config, "FlushInterval", 1000);
         var createDirectories = ExtractConfigValue<bool>(config, "CreateDirectory", true); // Map CreateDirectory to CreateDirectories
         var overwriteExisting = ExtractConfigValue<bool>(config, "OverwriteExisting", true);
+        var appendMode = ExtractConfigValue<bool>(config, "AppendMode", true); // Default to append mode for multi-chunk processing
 
         // Create instance using object initializer pattern via reflection
         var configInstance = Activator.CreateInstance(configType);
@@ -238,6 +239,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         SetInitProperty(configInstance, "FlushInterval", flushInterval);
         SetInitProperty(configInstance, "CreateDirectories", createDirectories);
         SetInitProperty(configInstance, "OverwriteExisting", overwriteExisting);
+        SetInitProperty(configInstance, "AppendMode", appendMode);
 
         return Task.FromResult((FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance);
     }
