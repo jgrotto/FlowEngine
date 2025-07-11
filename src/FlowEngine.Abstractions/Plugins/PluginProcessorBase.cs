@@ -47,7 +47,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
                 previousState = _state;
                 _state = value;
             }
-            
+
             if (previousState != value)
             {
                 OnStateChanged(previousState, value);
@@ -86,7 +86,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     public virtual async Task InitializeAsync(IPluginConfiguration configuration, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Created)
         {
             throw new InvalidOperationException($"Processor is in {State} state and cannot be initialized");
@@ -95,9 +95,9 @@ public abstract class PluginProcessorBase : IPluginProcessor
         try
         {
             _logger.LogDebug("Initializing processor {ProcessorId} with configuration", Id);
-            
+
             await InitializeInternalAsync(configuration, cancellationToken);
-            
+
             Configuration = configuration;
             State = PluginState.Initialized;
             _logger.LogInformation("Processor {ProcessorId} initialized successfully", Id);
@@ -114,7 +114,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     public virtual async Task<ProcessResult> ProcessAsync(IChunk input, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Running)
         {
             return ProcessResult.CreateFailure($"Processor is in {State} state and cannot process data");
@@ -124,12 +124,12 @@ public abstract class PluginProcessorBase : IPluginProcessor
         try
         {
             _logger.LogDebug("Processing chunk with {RowCount} rows", input.RowCount);
-            
+
             var result = await ProcessInternalAsync(input, cancellationToken);
-            
+
             stopwatch.Stop();
             UpdateMetrics(input.RowCount, stopwatch.Elapsed, result.Success);
-            
+
             if (result.Success)
             {
                 _logger.LogDebug("Processed chunk successfully in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
@@ -138,16 +138,16 @@ public abstract class PluginProcessorBase : IPluginProcessor
             {
                 _logger.LogWarning("Chunk processing failed: {Errors}", string.Join(", ", result.Errors));
             }
-            
+
             return result with { ProcessingTime = stopwatch.Elapsed };
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
             UpdateMetrics(input.RowCount, stopwatch.Elapsed, false);
-            
+
             _logger.LogError(ex, "Chunk processing failed with exception");
-            
+
             return ProcessResult.CreateFailure(ex.Message);
         }
     }
@@ -156,7 +156,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     public virtual async Task<IDataset> ProcessDatasetAsync(IDataset input, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Running)
         {
             throw new InvalidOperationException($"Processor is in {State} state and cannot process data");
@@ -165,11 +165,11 @@ public abstract class PluginProcessorBase : IPluginProcessor
         try
         {
             _logger.LogDebug("Processing dataset with streaming approach");
-            
+
             var result = await ProcessDatasetInternalAsync(input, cancellationToken);
-            
+
             _logger.LogDebug("Dataset processing completed");
-            
+
             return result;
         }
         catch (Exception ex)
@@ -183,7 +183,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     public virtual async Task StartAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Initialized)
         {
             throw new InvalidOperationException($"Processor must be initialized before starting. Current state: {State}");
@@ -192,9 +192,9 @@ public abstract class PluginProcessorBase : IPluginProcessor
         try
         {
             _logger.LogDebug("Starting processor {ProcessorId}", Id);
-            
+
             await StartInternalAsync(cancellationToken);
-            
+
             State = PluginState.Running;
             _logger.LogInformation("Processor {ProcessorId} started successfully", Id);
         }
@@ -210,7 +210,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     public virtual async Task StopAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Running)
         {
             _logger.LogWarning("Processor {ProcessorId} is not running (state: {State})", Id, State);
@@ -220,9 +220,9 @@ public abstract class PluginProcessorBase : IPluginProcessor
         try
         {
             _logger.LogDebug("Stopping processor {ProcessorId}", Id);
-            
+
             await StopInternalAsync(cancellationToken);
-            
+
             State = PluginState.Stopped;
             _logger.LogInformation("Processor {ProcessorId} stopped successfully", Id);
         }
@@ -238,7 +238,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
     public virtual async Task<IEnumerable<HealthCheck>> HealthCheckAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         var healthChecks = new List<HealthCheck>
         {
             new HealthCheck
@@ -327,7 +327,7 @@ public abstract class PluginProcessorBase : IPluginProcessor
         lock (_stateLock)
         {
             var currentMemory = GC.GetTotalMemory(false);
-            
+
             _metrics = _metrics with
             {
                 TotalChunks = _metrics.TotalChunks + 1,

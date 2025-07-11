@@ -24,7 +24,7 @@ public sealed class TemplatePluginService : IPluginService
     private long _rowsProcessed;
     private readonly object _metricsLock = new();
     private bool _disposed;
-    
+
     // Injected Core services for real data processing (optional for backward compatibility)
     private readonly IArrayRowFactory? _arrayRowFactory;
     private readonly ISchemaFactory? _schemaFactory;
@@ -34,7 +34,7 @@ public sealed class TemplatePluginService : IPluginService
     private readonly IPerformanceMonitor? _performanceMonitor;
     private readonly IChannelTelemetry? _channelTelemetry;
     private readonly ILogger<TemplatePluginService> _logger;
-    
+
     // Pre-calculated field indexes for O(1) access
     private int _idIndex = -1;
     private int _nameIndex = -1;
@@ -43,13 +43,13 @@ public sealed class TemplatePluginService : IPluginService
     private int _timestampIndex = -1;
 
     // Sample data for generation (in real implementation, this might come from injected services)
-    private static readonly string[] SampleNames = 
+    private static readonly string[] SampleNames =
     {
         "Alice", "Bob", "Charlie", "Diana", "Edward", "Fiona", "George", "Hannah",
         "Ivan", "Julia", "Kevin", "Luna", "Marcus", "Nina", "Oliver", "Petra"
     };
 
-    private static readonly string[] SampleCategories = 
+    private static readonly string[] SampleCategories =
     {
         "Electronics", "Books", "Clothing", "Home", "Sports", "Toys", "Automotive", "Health"
     };
@@ -107,7 +107,7 @@ public sealed class TemplatePluginService : IPluginService
         }
 
         _config = templateConfig;
-        
+
         // Pre-calculate field indexes for O(1) access performance
         if (_config.OutputSchema != null)
         {
@@ -116,11 +116,11 @@ public sealed class TemplatePluginService : IPluginService
             _categoryIndex = _config.OutputSchema.GetIndex("Category");
             _priceIndex = _config.OutputSchema.GetIndex("Price");
             _timestampIndex = _config.OutputSchema.GetIndex("Timestamp");
-            
+
             _logger.LogInformation("TemplatePluginService initialized with schema. Field indexes: Id={IdIndex}, Name={NameIndex}, Category={CategoryIndex}, Price={PriceIndex}, Timestamp={TimestampIndex}",
                 _idIndex, _nameIndex, _categoryIndex, _priceIndex, _timestampIndex);
         }
-        
+
         await Task.CompletedTask;
     }
 
@@ -128,7 +128,9 @@ public sealed class TemplatePluginService : IPluginService
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_config == null)
+        {
             throw new InvalidOperationException("Service must be initialized before starting");
+        }
 
         await Task.CompletedTask;
     }
@@ -153,9 +155,9 @@ public sealed class TemplatePluginService : IPluginService
     }
 
     /// <inheritdoc />
-    public async Task<IEnumerable<HealthCheck>> HealthCheckAsync(CancellationToken cancellationToken = default)
+    public Task<IEnumerable<HealthCheck>> HealthCheckAsync(CancellationToken cancellationToken = default)
     {
-        return new[]
+        return Task.FromResult<IEnumerable<HealthCheck>>(new[]
         {
             new HealthCheck
             {
@@ -165,7 +167,7 @@ public sealed class TemplatePluginService : IPluginService
                 ExecutionTime = TimeSpan.Zero,
                 Severity = HealthCheckSeverity.Info
             }
-        };
+        });
     }
 
     // === Core Business Logic with ArrayRow Optimization ===
@@ -174,21 +176,23 @@ public sealed class TemplatePluginService : IPluginService
     public async Task<IChunk> ProcessChunkAsync(IChunk input, CancellationToken cancellationToken = default)
     {
         if (_config == null)
+        {
             throw new InvalidOperationException("Service not initialized");
-            
+        }
+
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        
+
         try
         {
             // For source plugins, generate new data instead of processing input
             var outputRows = new List<IArrayRow>();
             var batchSize = Math.Min(_config.BatchSize, _config.RowCount);
-            
+
             for (int i = 0; i < batchSize; i++)
             {
                 var row = await GenerateDataRowAsync(cancellationToken);
                 outputRows.Add(row);
-                
+
                 // Check memory pressure and yield if needed (if memory manager available)
                 if (i % 100 == 0 && _memoryManager?.IsUnderMemoryPressure() == true)
                 {
@@ -196,17 +200,17 @@ public sealed class TemplatePluginService : IPluginService
                     await Task.Yield();
                 }
             }
-            
+
             var chunk = _chunkFactory?.CreateChunk(_config.OutputSchema, outputRows) ?? CreateBasicChunk(_config.OutputSchema, outputRows);
-            
+
             stopwatch.Stop();
             _performanceMonitor?.RecordChunkProcessed(outputRows.Count, stopwatch.Elapsed, "TemplatePluginService");
-            
+
             lock (_metricsLock)
             {
                 _rowsProcessed += outputRows.Count;
             }
-            
+
             return chunk;
         }
         catch (Exception ex)
@@ -222,18 +226,20 @@ public sealed class TemplatePluginService : IPluginService
     public async Task<IArrayRow> ProcessRowAsync(IArrayRow input, CancellationToken cancellationToken = default)
     {
         if (_config == null)
+        {
             throw new InvalidOperationException("Service not initialized");
+        }
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        
+
         try
         {
             // For source plugins, generate new data instead of processing input
             var row = await GenerateDataRowAsync(cancellationToken);
-            
+
             stopwatch.Stop();
             _performanceMonitor?.RecordProcessingTime("ProcessRow", stopwatch.Elapsed);
-            
+
             lock (_metricsLock)
             {
                 _rowsProcessed++;
@@ -251,19 +257,21 @@ public sealed class TemplatePluginService : IPluginService
     }
 
     // === Real Data Generation Using Core Factories ===
-    
+
     /// <summary>
     /// Generates a single data row using injected Core factories with O(1) field access
     /// </summary>
     private async Task<IArrayRow> GenerateDataRowAsync(CancellationToken cancellationToken = default)
     {
         if (_config?.OutputSchema == null)
+        {
             throw new InvalidOperationException("Output schema not configured");
-            
+        }
+
         // Create array for field values using pre-calculated indexes
         var fieldCount = _config.OutputSchema.ColumnCount;
         var values = new object?[fieldCount];
-        
+
         // Generate data based on configured type
         switch (_config.DataType)
         {
@@ -279,58 +287,115 @@ public sealed class TemplatePluginService : IPluginService
             default:
                 throw new InvalidOperationException($"Unsupported data type: {_config.DataType}");
         }
-        
+
         // Use injected factory to create ArrayRow with proper validation (if available)
         var result = _arrayRowFactory?.CreateRow(_config.OutputSchema, values) ?? CreateBasicRow(_config.OutputSchema, values);
-        
+
         await Task.CompletedTask;
         return result;
     }
-    
+
     /// <summary>
     /// Generates test data with realistic business values
     /// </summary>
     private void GenerateTestData(object?[] values)
     {
         var currentRowId = Interlocked.Read(ref _rowsProcessed) + 1;
-        
-        if (_idIndex >= 0) values[_idIndex] = (int)currentRowId;
-        if (_nameIndex >= 0) values[_nameIndex] = SampleNames[_random.Next(SampleNames.Length)];
-        if (_categoryIndex >= 0) values[_categoryIndex] = SampleCategories[_random.Next(SampleCategories.Length)];
-        if (_priceIndex >= 0) values[_priceIndex] = Math.Round(_random.NextDouble() * 999.99 + 0.01, 2);
-        if (_timestampIndex >= 0) values[_timestampIndex] = DateTimeOffset.UtcNow;
+
+        if (_idIndex >= 0)
+        {
+            values[_idIndex] = (int)currentRowId;
+        }
+
+        if (_nameIndex >= 0)
+        {
+            values[_nameIndex] = SampleNames[_random.Next(SampleNames.Length)];
+        }
+
+        if (_categoryIndex >= 0)
+        {
+            values[_categoryIndex] = SampleCategories[_random.Next(SampleCategories.Length)];
+        }
+
+        if (_priceIndex >= 0)
+        {
+            values[_priceIndex] = Math.Round(_random.NextDouble() * 999.99 + 0.01, 2);
+        }
+
+        if (_timestampIndex >= 0)
+        {
+            values[_timestampIndex] = DateTimeOffset.UtcNow;
+        }
     }
-    
+
     /// <summary>
     /// Generates random data for stress testing
     /// </summary>
     private void GenerateRandomData(object?[] values)
     {
         var currentRowId = Interlocked.Read(ref _rowsProcessed) + 1;
-        
-        if (_idIndex >= 0) values[_idIndex] = _random.Next(1, 1_000_000);
-        if (_nameIndex >= 0) values[_nameIndex] = $"Random{_random.Next(10000, 99999)}";
-        if (_categoryIndex >= 0) values[_categoryIndex] = $"Category{_random.Next(1, 10)}";
-        if (_priceIndex >= 0) values[_priceIndex] = Math.Round(_random.NextDouble() * 9999.99, 2);
-        if (_timestampIndex >= 0) values[_timestampIndex] = DateTimeOffset.UtcNow.AddMinutes(_random.Next(-1440, 1440));
+
+        if (_idIndex >= 0)
+        {
+            values[_idIndex] = _random.Next(1, 1_000_000);
+        }
+
+        if (_nameIndex >= 0)
+        {
+            values[_nameIndex] = $"Random{_random.Next(10000, 99999)}";
+        }
+
+        if (_categoryIndex >= 0)
+        {
+            values[_categoryIndex] = $"Category{_random.Next(1, 10)}";
+        }
+
+        if (_priceIndex >= 0)
+        {
+            values[_priceIndex] = Math.Round(_random.NextDouble() * 9999.99, 2);
+        }
+
+        if (_timestampIndex >= 0)
+        {
+            values[_timestampIndex] = DateTimeOffset.UtcNow.AddMinutes(_random.Next(-1440, 1440));
+        }
     }
-    
+
     /// <summary>
     /// Generates sequential data for predictable testing
     /// </summary>
     private void GenerateSequentialData(object?[] values)
     {
         var currentRowId = Interlocked.Read(ref _rowsProcessed) + 1;
-        
-        if (_idIndex >= 0) values[_idIndex] = (int)currentRowId;
-        if (_nameIndex >= 0) values[_nameIndex] = $"Item{currentRowId:D6}";
-        if (_categoryIndex >= 0) values[_categoryIndex] = $"Category{(currentRowId % 5) + 1}";
-        if (_priceIndex >= 0) values[_priceIndex] = Math.Round((double)currentRowId * 1.5, 2);
-        if (_timestampIndex >= 0) values[_timestampIndex] = DateTimeOffset.UtcNow.AddSeconds(currentRowId);
+
+        if (_idIndex >= 0)
+        {
+            values[_idIndex] = (int)currentRowId;
+        }
+
+        if (_nameIndex >= 0)
+        {
+            values[_nameIndex] = $"Item{currentRowId:D6}";
+        }
+
+        if (_categoryIndex >= 0)
+        {
+            values[_categoryIndex] = $"Category{(currentRowId % 5) + 1}";
+        }
+
+        if (_priceIndex >= 0)
+        {
+            values[_priceIndex] = Math.Round((double)currentRowId * 1.5, 2);
+        }
+
+        if (_timestampIndex >= 0)
+        {
+            values[_timestampIndex] = DateTimeOffset.UtcNow.AddSeconds(currentRowId);
+        }
     }
-    
+
     // === Basic Factory Methods (Fallback when DI not available) ===
-    
+
     /// <summary>
     /// Creates a basic ArrayRow when factory is not available
     /// </summary>
@@ -340,15 +405,19 @@ public sealed class TemplatePluginService : IPluginService
         var coreAssembly = System.Reflection.Assembly.LoadFrom("FlowEngine.Core.dll");
         var arrayRowType = coreAssembly.GetType("FlowEngine.Core.Data.ArrayRow");
         if (arrayRowType == null)
+        {
             throw new InvalidOperationException("Unable to find ArrayRow type in Core assembly");
-            
+        }
+
         var constructor = arrayRowType.GetConstructor(new[] { typeof(ISchema), typeof(object[]) });
         if (constructor == null)
+        {
             throw new InvalidOperationException("Unable to find ArrayRow constructor");
-            
+        }
+
         return (IArrayRow)constructor.Invoke(new object[] { schema, values });
     }
-    
+
     /// <summary>
     /// Creates a basic Chunk when factory is not available
     /// </summary>
@@ -358,15 +427,19 @@ public sealed class TemplatePluginService : IPluginService
         var coreAssembly = System.Reflection.Assembly.LoadFrom("FlowEngine.Core.dll");
         var chunkType = coreAssembly.GetType("FlowEngine.Core.Data.Chunk");
         if (chunkType == null)
+        {
             throw new InvalidOperationException("Unable to find Chunk type in Core assembly");
-            
+        }
+
         var constructor = chunkType.GetConstructor(new[] { typeof(ISchema), typeof(IArrayRow[]) });
         if (constructor == null)
+        {
             throw new InvalidOperationException("Unable to find Chunk constructor");
-            
+        }
+
         return (IChunk)constructor.Invoke(new object[] { schema, rows.ToArray() });
     }
-    
+
     /// <summary>
     /// Disposes the service resources
     /// </summary>

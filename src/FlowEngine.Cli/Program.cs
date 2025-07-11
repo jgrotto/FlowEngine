@@ -45,7 +45,7 @@ internal class Program
 
             // Legacy pipeline execution (backward compatibility)
             var configPath = args[0];
-            
+
             // Check if it looks like a config file
             if (configPath.EndsWith(".yaml") || configPath.EndsWith(".yml") || File.Exists(configPath))
             {
@@ -131,21 +131,10 @@ internal class Program
 
         try
         {
-            // Step 2: Load pipeline configuration
-            Console.WriteLine("Loading pipeline configuration...");
-            var pipelineConfig = await LoadPipelineConfigurationAsync(configPath, verbose);
-            
-            if (verbose)
-            {
-                Console.WriteLine($"Pipeline: {pipelineConfig.Name}");
-                Console.WriteLine($"Plugins: {pipelineConfig.Plugins.Count()}");
-                Console.WriteLine($"Connections: {pipelineConfig.Connections.Count()}");
-            }
-
-            // Step 3: Create service provider with FlowEngine services
+            // Step 2: Create service provider with FlowEngine services
             Console.WriteLine("Initializing FlowEngine...");
             var services = new ServiceCollection();
-            
+
             // Add logging
             services.AddLogging(builder =>
             {
@@ -159,18 +148,33 @@ internal class Program
                     builder.SetMinimumLevel(LogLevel.Information);
                 }
             });
-            
+
             // Add FlowEngine services
             services.AddFlowEngine();
-            
+
             await using var serviceProvider = services.BuildServiceProvider();
             var coordinator = serviceProvider.GetRequiredService<FlowEngineCoordinator>();
-            
-            // Step 3a: Scan for plugins
+            var typeResolver = serviceProvider.GetRequiredService<IPluginTypeResolver>();
+
+            // Step 3: Scan for plugins
             Console.WriteLine("Scanning for plugins...");
             await ScanPluginDirectoriesAsync(coordinator, verbose);
 
-            // Step 4: Execute pipeline
+            // Initialize the type resolver with discovered plugins
+            await typeResolver.ScanAvailablePluginsAsync();
+
+            // Step 4: Load pipeline configuration with type resolution
+            Console.WriteLine("Loading pipeline configuration...");
+            var pipelineConfig = await LoadPipelineConfigurationAsync(configPath, typeResolver, verbose);
+
+            if (verbose)
+            {
+                Console.WriteLine($"Pipeline: {pipelineConfig.Name}");
+                Console.WriteLine($"Plugins: {pipelineConfig.Plugins.Count()}");
+                Console.WriteLine($"Connections: {pipelineConfig.Connections.Count()}");
+            }
+
+            // Step 5: Execute pipeline
             Console.WriteLine("Executing pipeline...");
             var result = await coordinator.PipelineExecutor.ExecuteAsync(pipelineConfig);
 
@@ -181,7 +185,7 @@ internal class Program
             Console.WriteLine($"Execution Time: {result.ExecutionTime.TotalSeconds:F2}s");
             Console.WriteLine($"Total Rows Processed: {result.TotalRowsProcessed:N0}");
             Console.WriteLine($"Total Chunks Processed: {result.TotalChunksProcessed:N0}");
-            
+
             if (result.TotalRowsProcessed > 0 && result.ExecutionTime.TotalSeconds > 0)
             {
                 var throughput = result.TotalRowsProcessed / result.ExecutionTime.TotalSeconds;
@@ -248,9 +252,10 @@ internal class Program
     /// Loads and validates a pipeline configuration from a YAML file.
     /// </summary>
     /// <param name="configPath">Path to the configuration file</param>
+    /// <param name="typeResolver">Plugin type resolver for automatic type resolution</param>
     /// <param name="verbose">Enable verbose output</param>
     /// <returns>Parsed pipeline configuration</returns>
-    private static async Task<IPipelineConfiguration> LoadPipelineConfigurationAsync(string configPath, bool verbose)
+    private static async Task<IPipelineConfiguration> LoadPipelineConfigurationAsync(string configPath, IPluginTypeResolver typeResolver, bool verbose)
     {
         try
         {
@@ -261,8 +266,8 @@ internal class Program
                 Console.WriteLine($"File size: {fileInfo.Length} bytes");
             }
 
-            // Parse YAML to pipeline configuration
-            var config = await PipelineConfiguration.LoadFromFileAsync(configPath);
+            // Parse YAML to pipeline configuration with automatic type resolution
+            var config = await PipelineConfiguration.LoadFromFileAsync(configPath, typeResolver);
 
             if (verbose)
             {
@@ -285,7 +290,7 @@ internal class Program
     private static async Task ScanPluginDirectoriesAsync(FlowEngineCoordinator coordinator, bool verbose)
     {
         var pluginDirectories = GetPluginDirectories();
-        
+
         foreach (var directory in pluginDirectories)
         {
             if (Directory.Exists(directory))
@@ -294,7 +299,7 @@ internal class Program
                 {
                     Console.WriteLine($"Scanning plugin directory: {directory}");
                 }
-                
+
                 try
                 {
                     if (verbose)
@@ -306,10 +311,10 @@ internal class Program
                             Console.WriteLine($"  - {dll}");
                         }
                     }
-                    
+
                     await coordinator.DiscoverPluginsAsync(directory);
                     var pluginCount = coordinator.GetAvailablePlugins().Count;
-                    
+
                     if (verbose)
                     {
                         Console.WriteLine($"Found {pluginCount} plugins in {directory}");
@@ -325,10 +330,10 @@ internal class Program
                 }
             }
         }
-        
+
         var totalPlugins = coordinator.GetAvailablePlugins().Count;
         Console.WriteLine($"Total plugins available: {totalPlugins}");
-        
+
         if (verbose)
         {
             Console.WriteLine("Available plugins:");
@@ -349,7 +354,7 @@ internal class Program
         return new[]
         {
             Path.Combine(appDirectory, "plugins"),
-            Path.Combine(appDirectory, "Plugins"), 
+            Path.Combine(appDirectory, "Plugins"),
             Path.Combine(appDirectory, "..", "plugins"),
             Path.Combine(Directory.GetCurrentDirectory(), "plugins"),
             appDirectory // Current directory as fallback

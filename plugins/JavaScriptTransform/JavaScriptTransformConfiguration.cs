@@ -93,13 +93,19 @@ public class JavaScriptTransformConfiguration : IPluginConfiguration
     public bool IsValid()
     {
         if (string.IsNullOrWhiteSpace(Script))
+        {
             return false;
+        }
 
         if (!Script.Contains("function process(context)"))
+        {
             return false;
+        }
 
         if (OutputSchema?.Fields == null || OutputSchema.Fields.Count == 0)
+        {
             return false;
+        }
 
         return true;
     }
@@ -112,19 +118,29 @@ public class JavaScriptTransformConfiguration : IPluginConfiguration
         var errors = new List<string>();
 
         if (string.IsNullOrWhiteSpace(Script))
+        {
             errors.Add("Script is required and cannot be empty");
+        }
 
         if (!Script.Contains("function process(context)"))
+        {
             errors.Add("Script must contain a 'function process(context)' function");
+        }
 
         if (OutputSchema?.Fields == null || OutputSchema.Fields.Count == 0)
+        {
             errors.Add("OutputSchema.Fields is required and must contain at least one field");
+        }
 
         if (Engine.Timeout < 100 || Engine.Timeout > 30000)
+        {
             errors.Add("Engine.Timeout must be between 100ms and 30000ms");
+        }
 
         if (Engine.MemoryLimit < 1048576 || Engine.MemoryLimit > 104857600) // 1MB to 100MB
+        {
             errors.Add("Engine.MemoryLimit must be between 1MB and 100MB");
+        }
 
         return errors;
     }

@@ -29,7 +29,7 @@ public sealed class TemplatePluginValidator : SchemaValidatedPluginValidator<Tem
         var errors = new List<ValidationError>();
 
         // Business logic validation that can't be expressed in JSON Schema
-        
+
         // 1. Performance optimization validation
         if (configuration.BatchSize > configuration.RowCount)
         {
@@ -80,7 +80,7 @@ public sealed class TemplatePluginValidator : SchemaValidatedPluginValidator<Tem
 
         return errors.Any() ? ValidationResult.Failure(errors.ToArray()) : ValidationResult.Success();
     }
-   
+
     /// <inheritdoc />
     public override SchemaCompatibilityResult ValidateSchemaCompatibility(ISchema? inputSchema, ISchema? outputSchema)
     {
@@ -101,7 +101,7 @@ public sealed class TemplatePluginValidator : SchemaValidatedPluginValidator<Tem
                 return SchemaCompatibilityResult.Failure(compatibilityIssues);
             }
         }
-        
+
         return SchemaCompatibilityResult.Success();
     }
 
@@ -110,7 +110,7 @@ public sealed class TemplatePluginValidator : SchemaValidatedPluginValidator<Tem
     {
         // Check that schema has sequential field indexes for ArrayRow optimization
         var issues = new List<OptimizationIssue>();
-        
+
         for (int i = 0; i < schema.Columns.Length; i++)
         {
             var column = schema.Columns[i];
@@ -126,7 +126,7 @@ public sealed class TemplatePluginValidator : SchemaValidatedPluginValidator<Tem
             }
         }
 
-        return issues.Any() 
+        return issues.Any()
             ? OptimizationValidationResult.Failure(issues.ToArray())
             : OptimizationValidationResult.Success();
     }

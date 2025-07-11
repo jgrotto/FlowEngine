@@ -39,7 +39,7 @@ public class PluginCommand : BaseCommand
         }
 
         var subCommandName = args[0].ToLowerInvariant();
-        
+
         if (_subCommands.TryGetValue(subCommandName, out var subCommand))
         {
             // Pass remaining arguments to subcommand
@@ -62,12 +62,12 @@ public class PluginCommand : BaseCommand
         Console.WriteLine();
         Console.WriteLine("Plugin development commands:");
         Console.WriteLine();
-        
+
         foreach (var subCommand in _subCommands.Values)
         {
             Console.WriteLine($"  {subCommand.Name,-12} {subCommand.Description}");
         }
-        
+
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  --help, -h     Show this help");

@@ -13,7 +13,9 @@ public sealed class DagAnalyzer : IDagAnalyzer
     public DagAnalysisResult AnalyzePipeline(IPipelineConfiguration configuration)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         var graph = BuildDependencyGraph(configuration);
         var cycles = DetectCyclesInternal(graph);
@@ -27,13 +29,19 @@ public sealed class DagAnalyzer : IDagAnalyzer
 
         // Add warnings for unusual graph structures
         if (isolatedNodes.Count > 0)
+        {
             warnings.Add($"Found {isolatedNodes.Count} isolated plugin(s) with no connections: {string.Join(", ", isolatedNodes)}");
+        }
 
         if (sourceNodes.Count == 0 && graph.Nodes.Count > 0)
+        {
             warnings.Add("No source plugins found - pipeline may not receive input data");
+        }
 
         if (sinkNodes.Count == 0 && graph.Nodes.Count > 0)
+        {
             warnings.Add("No sink plugins found - processed data may not be output anywhere");
+        }
 
         // Determine execution order
         var executionOrder = isValid ? GetExecutionOrderInternal(graph) : Array.Empty<string>();
@@ -55,7 +63,9 @@ public sealed class DagAnalyzer : IDagAnalyzer
     public IReadOnlyList<string> GetExecutionOrder(IPipelineConfiguration configuration)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         var graph = BuildDependencyGraph(configuration);
         var cycles = DetectCyclesInternal(graph);
@@ -75,7 +85,9 @@ public sealed class DagAnalyzer : IDagAnalyzer
     public IReadOnlyList<DependencyCycle> DetectCycles(IPipelineConfiguration configuration)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         var graph = BuildDependencyGraph(configuration);
         return DetectCyclesInternal(graph);
@@ -85,15 +97,19 @@ public sealed class DagAnalyzer : IDagAnalyzer
     public IReadOnlyList<string> GetDependencies(IPipelineConfiguration configuration, string pluginName)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         if (string.IsNullOrWhiteSpace(pluginName))
+        {
             throw new ArgumentException("Plugin name cannot be null or empty", nameof(pluginName));
+        }
 
         var graph = BuildDependencyGraph(configuration);
-        
-        return graph.ReverseAdjacencyList.TryGetValue(pluginName, out var dependencies) 
-            ? dependencies 
+
+        return graph.ReverseAdjacencyList.TryGetValue(pluginName, out var dependencies)
+            ? dependencies
             : Array.Empty<string>();
     }
 
@@ -101,15 +117,19 @@ public sealed class DagAnalyzer : IDagAnalyzer
     public IReadOnlyList<string> GetDependents(IPipelineConfiguration configuration, string pluginName)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         if (string.IsNullOrWhiteSpace(pluginName))
+        {
             throw new ArgumentException("Plugin name cannot be null or empty", nameof(pluginName));
+        }
 
         var graph = BuildDependencyGraph(configuration);
-        
-        return graph.AdjacencyList.TryGetValue(pluginName, out var dependents) 
-            ? dependents 
+
+        return graph.AdjacencyList.TryGetValue(pluginName, out var dependents)
+            ? dependents
             : Array.Empty<string>();
     }
 
@@ -117,7 +137,9 @@ public sealed class DagAnalyzer : IDagAnalyzer
     public DagValidationResult ValidateDag(IPipelineConfiguration configuration)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -125,7 +147,7 @@ public sealed class DagAnalyzer : IDagAnalyzer
         try
         {
             var analysis = AnalyzePipeline(configuration);
-            
+
             if (!analysis.IsValid)
             {
                 foreach (var cycle in analysis.Cycles)
@@ -140,7 +162,7 @@ public sealed class DagAnalyzer : IDagAnalyzer
             ValidatePluginConnections(configuration, errors, warnings);
             ValidatePortReferences(configuration, errors, warnings);
 
-            return errors.Count > 0 
+            return errors.Count > 0
                 ? DagValidationResult.Failure(errors.ToArray())
                 : DagValidationResult.Success(warnings.ToArray());
         }
@@ -173,10 +195,14 @@ public sealed class DagAnalyzer : IDagAnalyzer
         foreach (var connection in configuration.Connections)
         {
             if (!nodes.Contains(connection.From))
+            {
                 throw new InvalidOperationException($"Connection references unknown source plugin: {connection.From}");
+            }
 
             if (!nodes.Contains(connection.To))
+            {
                 throw new InvalidOperationException($"Connection references unknown destination plugin: {connection.To}");
+            }
 
             var edge = new DependencyEdge
             {
@@ -196,11 +222,11 @@ public sealed class DagAnalyzer : IDagAnalyzer
 
         // Convert to readonly collections
         var readonlyAdjacencyList = adjacencyList.ToDictionary(
-            kvp => kvp.Key, 
+            kvp => kvp.Key,
             kvp => (IReadOnlyList<string>)kvp.Value.ToArray());
 
         var readonlyReverseAdjacencyList = reverseAdjacencyList.ToDictionary(
-            kvp => kvp.Key, 
+            kvp => kvp.Key,
             kvp => (IReadOnlyList<string>)kvp.Value.ToArray());
 
         return new DependencyGraph
@@ -258,7 +284,7 @@ public sealed class DagAnalyzer : IDagAnalyzer
                     var cycleStart = currentPath.IndexOf(neighbor);
                     var cycleNodes = currentPath.Skip(cycleStart).ToList();
                     var cycleEdges = BuildCycleEdges(cycleNodes, graph);
-                    
+
                     var cycle = new DependencyCycle
                     {
                         Plugins = cycleNodes,
@@ -369,14 +395,20 @@ public sealed class DagAnalyzer : IDagAnalyzer
         foreach (var connection in configuration.Connections)
         {
             if (!pluginNames.Contains(connection.From))
+            {
                 errors.Add($"Connection references unknown source plugin: {connection.From}");
+            }
 
             if (!pluginNames.Contains(connection.To))
+            {
                 errors.Add($"Connection references unknown destination plugin: {connection.To}");
+            }
 
             // Self-connections
             if (connection.From == connection.To)
+            {
                 warnings.Add($"Plugin '{connection.From}' connects to itself - this may cause infinite loops");
+            }
         }
     }
 
@@ -390,13 +422,17 @@ public sealed class DagAnalyzer : IDagAnalyzer
                 // In a full implementation, we would validate that the plugin actually has this port
                 // For now, just warn about potential issues
                 if (connection.FromPort.Contains(" ") || connection.FromPort.Contains("\t"))
+                {
                     warnings.Add($"Port name '{connection.FromPort}' contains whitespace - this may cause issues");
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(connection.ToPort))
             {
                 if (connection.ToPort.Contains(" ") || connection.ToPort.Contains("\t"))
+                {
                     warnings.Add($"Port name '{connection.ToPort}' contains whitespace - this may cause issues");
+                }
             }
         }
     }

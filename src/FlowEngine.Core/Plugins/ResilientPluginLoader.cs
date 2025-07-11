@@ -42,8 +42,8 @@ public sealed class ResilientPluginLoader : IPluginLoader
 
     /// <inheritdoc />
     public async Task<T> LoadPluginAsync<T>(
-        string assemblyPath, 
-        string typeName, 
+        string assemblyPath,
+        string typeName,
         PluginIsolationLevel isolationLevel = PluginIsolationLevel.Isolated) where T : class, IPlugin
     {
         var context = ErrorContextBuilder.Create("LoadPlugin", "ResilientPluginLoader")
@@ -131,7 +131,9 @@ public sealed class ResilientPluginLoader : IPluginLoader
     public Task UnloadPluginAsync(IPlugin plugin)
     {
         if (plugin == null)
+        {
             throw new ArgumentNullException(nameof(plugin));
+        }
 
         var context = ErrorContextBuilder.Create("UnloadPlugin", "ResilientPluginLoader")
             .WithProperty("PluginType", plugin.GetType().FullName ?? "Unknown")
@@ -140,7 +142,7 @@ public sealed class ResilientPluginLoader : IPluginLoader
         try
         {
             _logger.LogDebug("Unloading plugin {PluginType}", plugin.GetType().FullName);
-            
+
             return _baseLoader.UnloadPluginAsync(plugin);
         }
         catch (Exception ex)
@@ -300,8 +302,8 @@ public sealed class ResilientPluginLoader : IPluginLoader
         {
             AssemblyPath = context.Properties.TryGetValue("AssemblyPath", out var path) ? path?.ToString() : null,
             TypeName = context.Properties.TryGetValue("TypeName", out var type) ? type?.ToString() : null,
-            IsolationLevel = context.Properties.TryGetValue("IsolationLevel", out var isolation) 
-                ? Enum.TryParse<PluginIsolationLevel>(isolation?.ToString(), out var level) ? level : null 
+            IsolationLevel = context.Properties.TryGetValue("IsolationLevel", out var isolation)
+                ? Enum.TryParse<PluginIsolationLevel>(isolation?.ToString(), out var level) ? level : null
                 : null,
             Context = new Dictionary<string, object>
             {

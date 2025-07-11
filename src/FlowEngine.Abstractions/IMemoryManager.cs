@@ -82,7 +82,10 @@ public sealed class MemoryAllocation<T> : IDisposable where T : class
         get
         {
             if (_disposed)
+            {
                 throw new ObjectDisposedException(nameof(MemoryAllocation<T>));
+            }
+
             return _resource!;
         }
     }

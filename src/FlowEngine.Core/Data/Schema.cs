@@ -19,7 +19,7 @@ public sealed class Schema : ISchema
     private readonly FrozenDictionary<string, ColumnDefinition> _columnsByName;
     private readonly string _signature;
     private readonly int _hashCode;
-    
+
     // Global schema cache to avoid recreation of identical schemas
     private static readonly ConcurrentDictionary<string, Schema> _schemaCache = new();
 
@@ -35,7 +35,9 @@ public sealed class Schema : ISchema
 
         var columnArray = columns.ToArray();
         if (columnArray.Length == 0)
+        {
             throw new ArgumentException("Schema must contain at least one column", nameof(columns));
+        }
 
         // Check for duplicate column names (case-insensitive)
         var duplicates = columnArray
@@ -45,7 +47,9 @@ public sealed class Schema : ISchema
             .ToArray();
 
         if (duplicates.Length > 0)
+        {
             throw new ArgumentException($"Duplicate column names found: {string.Join(", ", duplicates)}", nameof(columns));
+        }
 
         _columns = columnArray.ToImmutableArray();
 
@@ -92,7 +96,7 @@ public sealed class Schema : ISchema
         {
             return true;
         }
-        
+
         index = -1;
         return false;
     }
@@ -118,22 +122,30 @@ public sealed class Schema : ISchema
 
         // Fast path: identical schemas are always compatible
         if (ReferenceEquals(this, other) || Equals(other))
+        {
             return true;
+        }
 
         // Check if all columns in the target schema exist in this schema with compatible types
         foreach (var targetColumn in other.Columns)
         {
             var sourceColumn = GetColumn(targetColumn.Name);
             if (sourceColumn == null)
+            {
                 return false;
+            }
 
             // Check type compatibility
             if (!IsTypeCompatible(sourceColumn.DataType, targetColumn.DataType))
+            {
                 return false;
+            }
 
             // Check nullability compatibility (source nullable -> target non-nullable is invalid)
             if (sourceColumn.IsNullable && !targetColumn.IsNullable)
+            {
                 return false;
+            }
         }
 
         return true;
@@ -145,7 +157,9 @@ public sealed class Schema : ISchema
         ArgumentNullException.ThrowIfNull(columns);
 
         if (columns.Length == 0)
+        {
             return this;
+        }
 
         var allColumns = _columns.Concat(columns);
         return GetOrCreate(allColumns);
@@ -157,11 +171,13 @@ public sealed class Schema : ISchema
         ArgumentNullException.ThrowIfNull(columnNames);
 
         if (columnNames.Length == 0)
+        {
             return this;
+        }
 
         var namesToRemove = new HashSet<string>(columnNames, StringComparer.OrdinalIgnoreCase);
         var remainingColumns = _columns.Where(c => !namesToRemove.Contains(c.Name));
-        
+
         return GetOrCreate(remainingColumns);
     }
 
@@ -169,9 +185,11 @@ public sealed class Schema : ISchema
     public bool Equals(ISchema? other)
     {
         if (other is not Schema otherSchema)
+        {
             return false;
+        }
 
-        return ReferenceEquals(this, otherSchema) || 
+        return ReferenceEquals(this, otherSchema) ||
                (_hashCode == otherSchema._hashCode && string.Equals(_signature, otherSchema._signature, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -211,18 +229,22 @@ public sealed class Schema : ISchema
     private static string GenerateSignature(ColumnDefinition[] columns)
     {
         var sb = new StringBuilder();
-        
+
         foreach (var column in columns.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
             if (sb.Length > 0)
+            {
                 sb.Append('|');
-            
+            }
+
             sb.Append(column.Name);
             sb.Append(':');
             sb.Append(column.DataType.Name);
-            
+
             if (column.IsNullable)
+            {
                 sb.Append('?');
+            }
         }
 
         return sb.ToString();
@@ -232,11 +254,15 @@ public sealed class Schema : ISchema
     {
         // Exact match is always compatible
         if (sourceType == targetType)
+        {
             return true;
+        }
 
         // Check if target type is assignable from source type
         if (targetType.IsAssignableFrom(sourceType))
+        {
             return true;
+        }
 
         // Handle common numeric conversions
         if (IsNumericType(sourceType) && IsNumericType(targetType))
@@ -249,13 +275,19 @@ public sealed class Schema : ISchema
         var targetNullable = Nullable.GetUnderlyingType(targetType);
 
         if (sourceNullable != null && targetNullable != null)
+        {
             return IsTypeCompatible(sourceNullable, targetNullable);
+        }
 
         if (sourceNullable != null)
+        {
             return IsTypeCompatible(sourceNullable, targetType);
+        }
 
         if (targetNullable != null)
+        {
             return IsTypeCompatible(sourceType, targetNullable);
+        }
 
         return false;
     }
@@ -275,7 +307,7 @@ public sealed class Schema : ISchema
         // This is a simplified implementation - in production, you might want more sophisticated logic
         var sourceSize = GetNumericSize(sourceType);
         var targetSize = GetNumericSize(targetType);
-        
+
         // Generally allow conversion to larger types
         return targetSize >= sourceSize;
     }

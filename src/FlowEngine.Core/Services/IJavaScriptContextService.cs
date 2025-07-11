@@ -167,7 +167,7 @@ public class RoutingTarget
     /// Gets the name of the routing queue.
     /// </summary>
     public string QueueName { get; }
-    
+
     /// <summary>
     /// Gets the routing mode (move or copy).
     /// </summary>

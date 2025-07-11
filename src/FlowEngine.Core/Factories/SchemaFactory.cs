@@ -27,7 +27,7 @@ public sealed class SchemaFactory : ISchemaFactory
     public ISchema CreateSchema(ColumnDefinition[] columns)
     {
         ArgumentNullException.ThrowIfNull(columns);
-        
+
         var validation = ValidateColumns(columns);
         if (!validation.IsValid)
         {
@@ -42,7 +42,7 @@ public sealed class SchemaFactory : ISchemaFactory
     public ISchema CreateSchema(ColumnDefinition[] columns, IReadOnlyDictionary<string, object>? metadata)
     {
         ArgumentNullException.ThrowIfNull(columns);
-        
+
         var validation = ValidateColumns(columns);
         if (!validation.IsValid)
         {
@@ -59,7 +59,7 @@ public sealed class SchemaFactory : ISchemaFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
         ArgumentNullException.ThrowIfNull(columns);
-        
+
         var validation = ValidateColumns(columns);
         if (!validation.IsValid)
         {
@@ -67,13 +67,13 @@ public sealed class SchemaFactory : ISchemaFactory
         }
 
         _logger.LogDebug("Creating schema '{Name}' v{Version} with {ColumnCount} columns", name, version, columns.Length);
-        
+
         var metadata = new Dictionary<string, object>
         {
             ["Name"] = name,
             ["Version"] = version
         };
-        
+
         return Schema.GetOrCreate(columns);
     }
 
@@ -83,7 +83,7 @@ public sealed class SchemaFactory : ISchemaFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
         ArgumentNullException.ThrowIfNull(columns);
-        
+
         var validation = ValidateColumns(columns);
         if (!validation.IsValid)
         {
@@ -91,7 +91,7 @@ public sealed class SchemaFactory : ISchemaFactory
         }
 
         _logger.LogDebug("Creating schema '{Name}' v{Version} with {ColumnCount} columns and metadata", name, version, columns.Length);
-        
+
         var combinedMetadata = new Dictionary<string, object>
         {
             ["Name"] = name,
@@ -105,7 +105,7 @@ public sealed class SchemaFactory : ISchemaFactory
                 combinedMetadata[kvp.Key] = kvp.Value;
             }
         }
-        
+
         return Schema.GetOrCreate(columns);
     }
 
@@ -123,11 +123,11 @@ public sealed class SchemaFactory : ISchemaFactory
         }
 
         var columnNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        
+
         for (int i = 0; i < columns.Length; i++)
         {
             var column = columns[i];
-            
+
             // Validate column name
             if (string.IsNullOrWhiteSpace(column.Name))
             {
@@ -203,7 +203,7 @@ public sealed class SchemaFactory : ISchemaFactory
         {
             allColumns[i] = baseSchema.Columns[i];
         }
-        
+
         for (int i = 0; i < additionalColumns.Length; i++)
         {
             var column = additionalColumns[i];
@@ -234,12 +234,12 @@ public sealed class SchemaFactory : ISchemaFactory
             {
                 throw new ArgumentException($"Column '{columnName}' not found in base schema");
             }
-            
+
             projectedColumns[i] = column with { Index = i };
         }
 
         _logger.LogDebug("Projecting schema to {ProjectedColumns} columns", columnNames.Length);
-        
+
         return Schema.GetOrCreate(projectedColumns);
     }
 
@@ -250,11 +250,15 @@ public sealed class SchemaFactory : ISchemaFactory
     {
         // Support all basic .NET types
         if (dataType.IsPrimitive || dataType == typeof(string) || dataType == typeof(decimal))
+        {
             return true;
+        }
 
         // Support common nullable types
         if (dataType.IsGenericType && dataType.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
             return IsSupportedDataType(Nullable.GetUnderlyingType(dataType)!);
+        }
 
         // Support common value types
         return dataType == typeof(DateTime) ||

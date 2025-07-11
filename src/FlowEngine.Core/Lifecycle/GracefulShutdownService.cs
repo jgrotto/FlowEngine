@@ -42,7 +42,7 @@ public sealed class GracefulShutdownService : IDisposable
         AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
         Console.CancelKeyPress += OnCancelKeyPress;
 
-        _logger.LogInformation("Graceful shutdown service initialized with timeout {Timeout}ms", 
+        _logger.LogInformation("Graceful shutdown service initialized with timeout {Timeout}ms",
             _configuration.ShutdownTimeout.TotalMilliseconds);
     }
 
@@ -52,7 +52,9 @@ public sealed class GracefulShutdownService : IDisposable
     public void RegisterShutdownHandler(IShutdownHandler handler)
     {
         if (handler == null)
+        {
             throw new ArgumentNullException(nameof(handler));
+        }
 
         lock (_lock)
         {
@@ -68,9 +70,14 @@ public sealed class GracefulShutdownService : IDisposable
     public void RegisterShutdownAction(string name, Func<CancellationToken, Task> action, ShutdownPriority priority = ShutdownPriority.Normal)
     {
         if (string.IsNullOrEmpty(name))
+        {
             throw new ArgumentException("Name cannot be null or empty", nameof(name));
+        }
+
         if (action == null)
+        {
             throw new ArgumentNullException(nameof(action));
+        }
 
         var handler = new ActionShutdownHandler(name, action, priority);
         RegisterShutdownHandler(handler);
@@ -92,18 +99,18 @@ public sealed class GracefulShutdownService : IDisposable
         }
 
         var stopwatch = Stopwatch.StartNew();
-        
+
         try
         {
             _logger.LogInformation("Initiating graceful shutdown. Reason: {Reason}", reason);
-            
+
             // Raise shutdown initiated event
             RaiseShutdownInitiated(reason);
 
             // Create combined cancellation token
             using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken, _shutdownCancellation.Token);
-            
+
             // Set timeout for the entire shutdown process
             combinedCts.CancelAfter(_configuration.ShutdownTimeout);
 
@@ -117,20 +124,20 @@ public sealed class GracefulShutdownService : IDisposable
             var completedHandlers = 0;
             var failedHandlers = new List<string>();
 
-            _logger.LogInformation("Executing shutdown for {HandlerCount} handlers in {GroupCount} priority groups", 
+            _logger.LogInformation("Executing shutdown for {HandlerCount} handlers in {GroupCount} priority groups",
                 totalHandlers, handlerGroups.Length);
 
             foreach (var group in handlerGroups)
             {
                 var priority = group.Key;
                 var handlers = group.ToArray();
-                
-                _logger.LogInformation("Executing {HandlerCount} shutdown handlers with priority {Priority}", 
+
+                _logger.LogInformation("Executing {HandlerCount} shutdown handlers with priority {Priority}",
                     handlers.Length, priority);
 
                 // Execute handlers in parallel within the same priority group
                 var tasks = handlers.Select(handler => ExecuteHandlerSafelyAsync(handler, combinedCts.Token)).ToArray();
-                
+
                 try
                 {
                     await Task.WhenAll(tasks);
@@ -146,7 +153,7 @@ public sealed class GracefulShutdownService : IDisposable
                 {
                     var task = tasks[i];
                     var handler = handlers[i];
-                    
+
                     if (task.IsCompletedSuccessfully)
                     {
                         completedHandlers++;
@@ -167,7 +174,7 @@ public sealed class GracefulShutdownService : IDisposable
             }
 
             stopwatch.Stop();
-            
+
             var result = new ShutdownResult
             {
                 Success = failedHandlers.Count == 0,
@@ -178,7 +185,7 @@ public sealed class GracefulShutdownService : IDisposable
                 Reason = reason
             };
 
-            _logger.LogInformation("Graceful shutdown completed in {Duration}ms. Success: {Success}, Completed: {Completed}/{Total}, Failed: {Failed}", 
+            _logger.LogInformation("Graceful shutdown completed in {Duration}ms. Success: {Success}, Completed: {Completed}/{Total}, Failed: {Failed}",
                 stopwatch.ElapsedMilliseconds, result.Success, result.CompletedHandlers, result.TotalHandlers, result.FailedHandlers.Length);
 
             // Raise shutdown completed event
@@ -187,7 +194,7 @@ public sealed class GracefulShutdownService : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during graceful shutdown");
-            
+
             var errorResult = new ShutdownResult
             {
                 Success = false,
@@ -198,7 +205,7 @@ public sealed class GracefulShutdownService : IDisposable
                 Reason = reason,
                 ErrorMessage = ex.Message
             };
-            
+
             RaiseShutdownCompleted(errorResult);
         }
         finally
@@ -216,12 +223,12 @@ public sealed class GracefulShutdownService : IDisposable
     public void ForceShutdown(string reason = "Forced shutdown")
     {
         _logger.LogWarning("Forcing immediate shutdown. Reason: {Reason}", reason);
-        
+
         _shutdownCancellation.Cancel();
-        
+
         // Give a brief moment for cleanup
         Thread.Sleep(100);
-        
+
         _logger.LogWarning("Force shutdown completed");
     }
 
@@ -230,13 +237,13 @@ public sealed class GracefulShutdownService : IDisposable
         try
         {
             _logger.LogDebug("Executing shutdown handler: {HandlerName}", handler.Name);
-            
+
             var timeout = handler.Timeout ?? _configuration.HandlerTimeout;
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout);
-            
+
             await handler.ShutdownAsync(timeoutCts.Token);
-            
+
             _logger.LogDebug("Handler {HandlerName} completed successfully", handler.Name);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -247,7 +254,7 @@ public sealed class GracefulShutdownService : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Handler {HandlerName} failed during shutdown", handler.Name);
-            
+
             if (_configuration.FailFastOnHandlerError)
             {
                 throw;
@@ -258,10 +265,10 @@ public sealed class GracefulShutdownService : IDisposable
     private void OnProcessExit(object? sender, EventArgs e)
     {
         _logger.LogInformation("Process exit detected, initiating graceful shutdown");
-        
+
         // Use a synchronous version for process exit since we can't await
         var shutdownTask = InitiateShutdownAsync("Process exit");
-        
+
         try
         {
             shutdownTask.Wait(_configuration.ShutdownTimeout);
@@ -275,10 +282,10 @@ public sealed class GracefulShutdownService : IDisposable
     private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
     {
         _logger.LogInformation("Console cancel key pressed (Ctrl+C), initiating graceful shutdown");
-        
+
         // Cancel the default behavior to allow graceful shutdown
         e.Cancel = true;
-        
+
         // Initiate shutdown in background
         _ = Task.Run(async () =>
         {
@@ -337,14 +344,17 @@ public sealed class GracefulShutdownService : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
             // Unregister from process events
             AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
             Console.CancelKeyPress -= OnCancelKeyPress;
-            
+
             // Dispose shutdown handlers
             lock (_lock)
             {
@@ -361,9 +371,9 @@ public sealed class GracefulShutdownService : IDisposable
                 }
                 _shutdownHandlers.Clear();
             }
-            
+
             _shutdownCancellation?.Dispose();
-            
+
             _logger.LogInformation("Graceful shutdown service disposed");
         }
         catch (Exception ex)
@@ -386,27 +396,27 @@ public sealed class ShutdownConfiguration
     /// Gets or sets the maximum time to wait for all shutdown handlers to complete.
     /// </summary>
     public TimeSpan ShutdownTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    
+
     /// <summary>
     /// Gets or sets the timeout for individual shutdown handlers.
     /// </summary>
     public TimeSpan HandlerTimeout { get; set; } = TimeSpan.FromSeconds(10);
-    
+
     /// <summary>
     /// Gets or sets the delay between executing different priority groups.
     /// </summary>
     public TimeSpan InterGroupDelay { get; set; } = TimeSpan.FromMilliseconds(100);
-    
+
     /// <summary>
     /// Gets or sets whether to fail fast if any handler encounters an error.
     /// </summary>
     public bool FailFastOnHandlerError { get; set; } = false;
-    
+
     /// <summary>
     /// Gets or sets whether to automatically register for process exit events.
     /// </summary>
     public bool RegisterProcessExitHandler { get; set; } = true;
-    
+
     /// <summary>
     /// Gets or sets whether to automatically register for console cancel events.
     /// </summary>
@@ -422,17 +432,17 @@ public interface IShutdownHandler
     /// Gets the name of the shutdown handler for logging purposes.
     /// </summary>
     string Name { get; }
-    
+
     /// <summary>
     /// Gets the priority of this handler. Higher priority handlers are executed first.
     /// </summary>
     ShutdownPriority Priority { get; }
-    
+
     /// <summary>
     /// Gets the timeout for this specific handler, or null to use the default.
     /// </summary>
     TimeSpan? Timeout { get; }
-    
+
     /// <summary>
     /// Performs shutdown operations for this component.
     /// </summary>
@@ -448,17 +458,17 @@ public enum ShutdownPriority
     /// Low priority - cleanup tasks that can be safely interrupted.
     /// </summary>
     Low = 0,
-    
+
     /// <summary>
     /// Normal priority - standard cleanup operations.
     /// </summary>
     Normal = 1,
-    
+
     /// <summary>
     /// High priority - critical shutdown operations that must complete.
     /// </summary>
     High = 2,
-    
+
     /// <summary>
     /// Critical priority - essential operations that must complete for data integrity.
     /// </summary>
@@ -474,32 +484,32 @@ public sealed class ShutdownResult
     /// Gets whether the shutdown completed successfully.
     /// </summary>
     public bool Success { get; set; }
-    
+
     /// <summary>
     /// Gets the total number of shutdown handlers.
     /// </summary>
     public int TotalHandlers { get; set; }
-    
+
     /// <summary>
     /// Gets the number of handlers that completed successfully.
     /// </summary>
     public int CompletedHandlers { get; set; }
-    
+
     /// <summary>
     /// Gets the names of handlers that failed.
     /// </summary>
     public string[] FailedHandlers { get; set; } = Array.Empty<string>();
-    
+
     /// <summary>
     /// Gets the total duration of the shutdown process.
     /// </summary>
     public TimeSpan Duration { get; set; }
-    
+
     /// <summary>
     /// Gets the reason for the shutdown.
     /// </summary>
     public string Reason { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Gets the error message if shutdown failed.
     /// </summary>
@@ -513,7 +523,7 @@ public sealed class ShutdownInitiatedEventArgs : EventArgs
 {
     public string Reason { get; }
     public DateTimeOffset Timestamp { get; }
-    
+
     public ShutdownInitiatedEventArgs(string reason)
     {
         Reason = reason;
@@ -527,7 +537,7 @@ public sealed class ShutdownInitiatedEventArgs : EventArgs
 public sealed class ShutdownCompletedEventArgs : EventArgs
 {
     public ShutdownResult Result { get; }
-    
+
     public ShutdownCompletedEventArgs(ShutdownResult result)
     {
         Result = result;
@@ -580,15 +590,15 @@ public sealed class PluginManagerShutdownHandler : IShutdownHandler
     public async Task ShutdownAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Shutting down plugin manager");
-        
+
         try
         {
             var plugins = _pluginManager.GetAllPlugins();
             _logger.LogInformation("Unloading {PluginCount} plugins", plugins.Count);
-            
+
             var unloadTasks = plugins.Select(plugin => _pluginManager.UnloadPluginAsync(plugin)).ToArray();
             await Task.WhenAll(unloadTasks);
-            
+
             _logger.LogInformation("All plugins unloaded successfully");
         }
         catch (Exception ex)
@@ -612,7 +622,7 @@ public static class GracefulShutdownExtensions
         var handler = new PluginManagerShutdownHandler(pluginManager, logger);
         shutdownService.RegisterShutdownHandler(handler);
     }
-    
+
     /// <summary>
     /// Registers a disposable object for shutdown cleanup.
     /// </summary>
@@ -624,7 +634,7 @@ public static class GracefulShutdownExtensions
             return Task.CompletedTask;
         }, priority);
     }
-    
+
     /// <summary>
     /// Registers an async disposable object for shutdown cleanup.
     /// </summary>

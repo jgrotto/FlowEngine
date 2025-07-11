@@ -77,7 +77,7 @@ internal class InputContext : IInputContext
     public object Current()
     {
         var result = new Dictionary<string, object?>();
-        
+
         for (int i = 0; i < _schema.ColumnCount; i++)
         {
             var column = _schema.Columns[i];
@@ -85,7 +85,7 @@ internal class InputContext : IInputContext
             var fieldValue = _currentRow[i];
             result[fieldName] = fieldValue;
         }
-        
+
         return result;
     }
 
@@ -95,11 +95,11 @@ internal class InputContext : IInputContext
     public object Schema()
     {
         var fields = new List<object>();
-        
+
         for (int i = 0; i < _schema.ColumnCount; i++)
         {
             var column = _schema.Columns[i];
-            
+
             fields.Add(new
             {
                 Name = column.Name,
@@ -108,7 +108,7 @@ internal class InputContext : IInputContext
                 Index = i
             });
         }
-        
+
         return new
         {
             Fields = fields,
@@ -123,8 +123,10 @@ internal class InputContext : IInputContext
     {
         var fieldIndex = _schema.GetIndex(fieldName);
         if (fieldIndex == -1)
+        {
             return null;
-            
+        }
+
         return _currentRow[fieldIndex];
     }
 }
@@ -151,8 +153,10 @@ internal class OutputContext : IOutputContext
     {
         var fieldIndex = _outputSchema.GetIndex(name);
         if (fieldIndex == -1)
+        {
             throw new InvalidOperationException($"Field '{name}' not found in output schema");
-            
+        }
+
         _modifications[name] = value;
     }
 
@@ -195,7 +199,7 @@ internal class ValidationContext : IValidationContext
     public bool Required(params string[] fieldNames)
     {
         bool allValid = true;
-        
+
         foreach (var fieldName in fieldNames)
         {
             var fieldIndex = _schema.GetIndex(fieldName);
@@ -205,7 +209,7 @@ internal class ValidationContext : IValidationContext
                 allValid = false;
                 continue;
             }
-            
+
             var value = _currentRow[fieldIndex];
             if (value == null)
             {
@@ -213,7 +217,7 @@ internal class ValidationContext : IValidationContext
                 allValid = false;
             }
         }
-        
+
         return allValid;
     }
 
@@ -301,14 +305,20 @@ internal class UtilityContext : IUtilityContext
     public string Format(object value, string format)
     {
         if (value == null)
+        {
             return string.Empty;
-            
+        }
+
         if (value is DateTime dateTime)
+        {
             return dateTime.ToString(format);
-            
+        }
+
         if (value is decimal || value is double || value is float)
+        {
             return string.Format($"{{0:{format}}}", value);
-            
+        }
+
         return value.ToString() ?? string.Empty;
     }
 }

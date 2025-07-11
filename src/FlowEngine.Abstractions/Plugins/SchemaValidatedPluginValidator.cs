@@ -24,12 +24,18 @@ public abstract class SchemaValidatedPluginValidator<TConfig> : IPluginValidator
     {
         get
         {
-            if (_cachedSchema != null) return _cachedSchema;
-            
+            if (_cachedSchema != null)
+            {
+                return _cachedSchema;
+            }
+
             lock (_schemaLock)
             {
-                if (_cachedSchema != null) return _cachedSchema;
-                
+                if (_cachedSchema != null)
+                {
+                    return _cachedSchema;
+                }
+
                 var schemaJson = GetSchemaJson();
                 _cachedSchema = JsonSchema.FromJsonAsync(schemaJson).GetAwaiter().GetResult();
                 return _cachedSchema;
@@ -124,13 +130,13 @@ public abstract class SchemaValidatedPluginValidator<TConfig> : IPluginValidator
         {
             // Convert configuration to dictionary for JSON Schema validation
             var configDict = ConfigurationToDictionary(configuration);
-            
+
             // Convert dictionary to JSON for validation
             var configJson = System.Text.Json.JsonSerializer.Serialize(configDict);
-            
+
             // Validate against JSON Schema
             var validationErrors = ConfigurationSchema.Validate(configJson);
-            
+
             foreach (var error in validationErrors)
             {
                 errors.Add(new ValidationError
@@ -180,7 +186,7 @@ public abstract class SchemaValidatedPluginValidator<TConfig> : IPluginValidator
             if (property.CanRead)
             {
                 var value = property.GetValue(configuration);
-                
+
                 // Convert complex objects to JSON-serializable forms
                 if (value != null)
                 {
@@ -212,10 +218,10 @@ public abstract class SchemaValidatedPluginValidator<TConfig> : IPluginValidator
     private static bool IsJsonSerializable(object value)
     {
         var type = value.GetType();
-        return type.IsPrimitive || 
-               type == typeof(string) || 
-               type == typeof(DateTime) || 
-               type == typeof(DateTimeOffset) || 
+        return type.IsPrimitive ||
+               type == typeof(string) ||
+               type == typeof(DateTime) ||
+               type == typeof(DateTimeOffset) ||
                type == typeof(decimal) ||
                type == typeof(Guid) ||
                type.IsEnum;
@@ -250,7 +256,7 @@ public abstract class SchemaValidatedPluginValidator<TConfig> : IPluginValidator
     {
         // Check that schema has sequential field indexes for ArrayRow optimization
         var issues = new List<OptimizationIssue>();
-        
+
         for (int i = 0; i < schema.Columns.Length; i++)
         {
             var column = schema.Columns[i];
@@ -266,7 +272,7 @@ public abstract class SchemaValidatedPluginValidator<TConfig> : IPluginValidator
             }
         }
 
-        return issues.Any() 
+        return issues.Any()
             ? OptimizationValidationResult.Failure(issues.ToArray())
             : OptimizationValidationResult.Success();
     }
@@ -282,11 +288,11 @@ public abstract class SchemaValidatedPluginValidator<TConfig> : IPluginValidator
     public virtual ComprehensiveValidationResult ValidateComprehensive(IPluginConfiguration configuration)
     {
         var configValidation = ValidateConfiguration(configuration);
-        
+
         // Calculate confidence score based on validation results
-        var confidenceScore = configValidation.IsValid ? 100 : 
+        var confidenceScore = configValidation.IsValid ? 100 :
             Math.Max(0, 100 - (configValidation.Errors.Count(e => e.Severity == ValidationSeverity.Error) * 50));
-        
+
         return configValidation.IsValid
             ? ComprehensiveValidationResult.Success(configValidation, confidenceScore)
             : ComprehensiveValidationResult.Failure(configValidation, confidenceScore);

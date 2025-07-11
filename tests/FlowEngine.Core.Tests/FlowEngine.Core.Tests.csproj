@@ -23,7 +23,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowEngine.Core\FlowEngine.Core.csproj" />
-    <ProjectReference Include="..\..\plugins\TemplatePlugin\TemplatePlugin.csproj" />
   </ItemGroup>
 
 </Project>

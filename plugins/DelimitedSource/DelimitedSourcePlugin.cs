@@ -62,7 +62,7 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
 
     public event EventHandler<PluginStateChangedEventArgs>? StateChanged;
 
-    public async Task<PluginInitializationResult> InitializeAsync(
+    public Task<PluginInitializationResult> InitializeAsync(
         IPluginConfiguration configuration,
         CancellationToken cancellationToken = default)
     {
@@ -70,61 +70,61 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
 
         if (configuration is not DelimitedSourceConfiguration sourceConfig)
         {
-            return new PluginInitializationResult
+            return Task.FromResult(new PluginInitializationResult
             {
                 Success = false,
                 Message = $"Expected DelimitedSourceConfiguration, got {configuration?.GetType().Name ?? "null"}",
                 InitializationTime = TimeSpan.Zero,
                 Errors = ImmutableArray.Create("Invalid configuration type")
-            };
+            });
         }
 
         // Validate file exists and is accessible
         if (!File.Exists(sourceConfig.FilePath))
         {
-            return new PluginInitializationResult
+            return Task.FromResult(new PluginInitializationResult
             {
                 Success = false,
                 Message = $"File not found: {sourceConfig.FilePath}",
                 InitializationTime = TimeSpan.Zero,
                 Errors = ImmutableArray.Create("File does not exist")
-            };
+            });
         }
 
         try
         {
             // Test file access
             using var stream = File.OpenRead(sourceConfig.FilePath);
-            
+
             // Validate encoding
             System.Text.Encoding.GetEncoding(sourceConfig.Encoding);
         }
         catch (Exception ex)
         {
-            return new PluginInitializationResult
+            return Task.FromResult(new PluginInitializationResult
             {
                 Success = false,
                 Message = $"File access error: {ex.Message}",
                 InitializationTime = TimeSpan.Zero,
                 Errors = ImmutableArray.Create(ex.Message)
-            };
+            });
         }
 
         var oldState = _state;
         _configuration = sourceConfig;
         _state = PluginState.Initialized;
-        
+
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
 
-        _logger.LogInformation("DelimitedSource plugin initialized successfully for file: {FilePath}", 
+        _logger.LogInformation("DelimitedSource plugin initialized successfully for file: {FilePath}",
             sourceConfig.FilePath);
 
-        return new PluginInitializationResult
+        return Task.FromResult(new PluginInitializationResult
         {
             Success = true,
             Message = "Plugin initialized successfully",
             InitializationTime = TimeSpan.FromMilliseconds(50)
-        };
+        });
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -132,12 +132,14 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
         _logger.LogInformation("Starting DelimitedSource plugin");
 
         if (_state != PluginState.Initialized)
+        {
             throw new InvalidOperationException($"Plugin must be initialized before starting. Current state: {_state}");
+        }
 
         var oldState = _state;
         _state = PluginState.Running;
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
-        
+
         _logger.LogInformation("DelimitedSource plugin started successfully");
 
         return Task.CompletedTask;
@@ -146,11 +148,11 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Stopping DelimitedSource plugin");
-        
+
         var oldState = _state;
         _state = PluginState.Stopped;
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
-        
+
         _logger.LogInformation("DelimitedSource plugin stopped successfully");
 
         return Task.CompletedTask;
@@ -252,16 +254,20 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
     public async IAsyncEnumerable<IChunk> ProduceAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (_state != PluginState.Running)
+        {
             throw new PluginExecutionException($"Plugin must be running to produce data. Current state: {_state}");
+        }
 
         if (_configuration == null)
+        {
             throw new PluginExecutionException("Plugin not configured");
+        }
 
         _logger.LogInformation("ProduceAsync: Starting data production from file: {FilePath}", _configuration.FilePath);
 
         var sourceService = GetSourceService();
         IDataset dataset;
-        
+
         try
         {
             _logger.LogDebug("ProduceAsync: Calling ReadFileAsync");
@@ -278,7 +284,7 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
         {
             // Use the dataset's chunk iterator directly with our configured chunk size
             var chunkingOptions = new ChunkingOptions { PreferredChunkSize = _configuration.ChunkSize };
-            
+
             _logger.LogDebug("ProduceAsync: Starting chunk iteration");
             var chunkCount = 0;
             await foreach (var chunk in dataset.GetChunksAsync(chunkingOptions, cancellationToken))
@@ -301,12 +307,16 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _logger.LogInformation("Disposing DelimitedSource plugin");
 
         if (_state == PluginState.Running)
+        {
             StopAsync().GetAwaiter().GetResult();
+        }
 
         var oldState = _state;
         _disposed = true;
@@ -320,11 +330,11 @@ public sealed class DelimitedSourcePlugin : ISourcePlugin
     public DelimitedSourceService GetSourceService()
     {
         return new DelimitedSourceService(
-            this, 
-            _logger, 
-            _schemaFactory, 
-            _arrayRowFactory, 
-            _chunkFactory, 
+            this,
+            _logger,
+            _schemaFactory,
+            _arrayRowFactory,
+            _chunkFactory,
             _datasetFactory,
             _dataTypeService,
             _memoryManager,

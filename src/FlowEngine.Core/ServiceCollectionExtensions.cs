@@ -37,9 +37,10 @@ public static class ServiceCollectionExtensions
         // Register Core infrastructure services
         services.TryAddSingleton<Abstractions.Execution.IDagAnalyzer, Execution.DagAnalyzer>();
         services.TryAddSingleton<FlowEngineCoordinator>();
-        
+
         // Register configuration services
         services.TryAddSingleton<IPluginConfigurationMapper, PluginConfigurationMapper>();
+        services.TryAddSingleton<IPluginTypeResolver, PluginTypeResolver>();
 
         // Register JavaScript script engine services
         services.TryAddSingleton<IScriptEngineService, JintScriptEngineService>();

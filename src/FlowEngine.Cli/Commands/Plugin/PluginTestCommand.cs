@@ -50,7 +50,7 @@ public class PluginTestCommand : BaseCommand
                 Console.WriteLine($"Total execution time: {testResults.TotalTime.TotalMilliseconds:F0}ms");
                 Console.WriteLine($"Average per iteration: {testResults.AverageTime.TotalMilliseconds:F1}ms");
                 Console.WriteLine($"Rows processed: {testResults.RowsProcessed:N0}");
-                
+
                 if (testResults.RowsProcessed > 0 && testResults.TotalTime.TotalSeconds > 0)
                 {
                     var throughput = testResults.RowsProcessed / testResults.TotalTime.TotalSeconds;
@@ -123,7 +123,7 @@ public class PluginTestCommand : BaseCommand
             }
 
             var dllFiles = Directory.GetFiles(binPath, "*.dll", SearchOption.AllDirectories)
-                .Where(f => !Path.GetFileName(f).StartsWith("FlowEngine.") && 
+                .Where(f => !Path.GetFileName(f).StartsWith("FlowEngine.") &&
                            !Path.GetFileName(f).StartsWith("Microsoft.") &&
                            !Path.GetFileName(f).StartsWith("System."))
                 .ToArray();
@@ -135,7 +135,7 @@ public class PluginTestCommand : BaseCommand
 
             // Setup FlowEngine services
             var services = new ServiceCollection();
-            services.AddLogging(builder => 
+            services.AddLogging(builder =>
             {
                 builder.AddConsole();
                 builder.SetMinimumLevel(verbose ? LogLevel.Debug : LogLevel.Warning);
@@ -161,7 +161,7 @@ public class PluginTestCommand : BaseCommand
                     // Find plugin types in assembly
                     var assembly = System.Reflection.Assembly.LoadFrom(dllFile);
                     var pluginTypes = assembly.GetTypes()
-                        .Where(t => t.IsClass && !t.IsAbstract && 
+                        .Where(t => t.IsClass && !t.IsAbstract &&
                                    typeof(IPlugin).IsAssignableFrom(t))
                         .ToArray();
 
@@ -174,7 +174,7 @@ public class PluginTestCommand : BaseCommand
 
                         // Load plugin
                         var plugin = await pluginLoader.LoadPluginAsync<IPlugin>(dllFile, pluginType.FullName!);
-                        
+
                         // Initialize plugin with test configuration
                         await InitializePluginForTestingAsync(plugin, verbose);
 
@@ -266,9 +266,12 @@ public class PluginTestCommand : BaseCommand
             {
                 rowsProcessed += chunk.RowCount;
                 chunkCount++;
-                
+
                 // Limit chunks per iteration for testing
-                if (chunkCount >= 3) break;
+                if (chunkCount >= 3)
+                {
+                    break;
+                }
             }
         }
 
@@ -357,7 +360,7 @@ public class PluginTestCommand : BaseCommand
             new ColumnDefinition { Name = "Value", DataType = typeof(double), IsNullable = true },
             new ColumnDefinition { Name = "Timestamp", DataType = typeof(DateTime), IsNullable = false }
         };
-        
+
         var schemaFactory = serviceProvider.GetRequiredService<ISchemaFactory>();
         return schemaFactory.CreateSchema(columns);
     }
@@ -368,7 +371,7 @@ public class PluginTestCommand : BaseCommand
         var random = new Random(42); // Fixed seed for consistent tests
 
         var arrayRowFactory = serviceProvider.GetRequiredService<IArrayRowFactory>();
-        
+
         for (int i = 0; i < count; i++)
         {
             var values = new object?[]
@@ -452,7 +455,7 @@ public class PluginTestCommand : BaseCommand
             return false;
         }
     }
-    
+
     /// <summary>
     /// Helper method to create an async enumerable from a single chunk.
     /// </summary>

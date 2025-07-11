@@ -39,10 +39,12 @@ public class JintScriptEngineService : IScriptEngineService
     public async Task<CompiledScript> CompileAsync(string script, ScriptOptions options)
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(JintScriptEngineService));
+        }
 
         var scriptHash = ComputeScriptHash(script);
-        
+
         // Check cache first if caching is enabled
         if (options.EnableCaching && _scriptCache.TryGetValue(scriptHash, out var cachedScript))
         {
@@ -56,14 +58,14 @@ public class JintScriptEngineService : IScriptEngineService
 
         // Compile the script
         var stopwatch = Stopwatch.StartNew();
-        
+
         try
         {
             var compiledScript = new CompiledScript(scriptHash, script);
-            
+
             // Validate script contains required process function
             await ValidateScriptAsync(script);
-            
+
             // Pre-compile script for validation
             var engine = _enginePool.Get();
             try
@@ -80,9 +82,9 @@ public class JintScriptEngineService : IScriptEngineService
             {
                 _enginePool.Return(engine);
             }
-            
+
             stopwatch.Stop();
-            
+
             // Update statistics
             lock (_statsLock)
             {
@@ -90,15 +92,15 @@ public class JintScriptEngineService : IScriptEngineService
                 _stats.TotalCompilationTime = _stats.TotalCompilationTime.Add(stopwatch.Elapsed);
                 _stats.CacheMisses++;
             }
-            
+
             // Cache the compiled script if caching is enabled
             if (options.EnableCaching)
             {
                 _scriptCache.TryAdd(scriptHash, compiledScript);
-                _logger.LogDebug("Compiled and cached script with hash: {ScriptHash} in {ElapsedMs}ms", 
+                _logger.LogDebug("Compiled and cached script with hash: {ScriptHash} in {ElapsedMs}ms",
                     scriptHash, stopwatch.ElapsedMilliseconds);
             }
-            
+
             return compiledScript;
         }
         catch (Exception ex)
@@ -114,31 +116,33 @@ public class JintScriptEngineService : IScriptEngineService
     public async Task<ScriptResult> ExecuteAsync(CompiledScript compiledScript, IJavaScriptContext context)
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(JintScriptEngineService));
+        }
 
         var stopwatch = Stopwatch.StartNew();
         var engine = _enginePool.Get();
-        
+
         try
         {
             // Set up context objects in JavaScript engine
             engine.SetValue("context", context);
-            
+
             // Execute the script
             engine.Execute(compiledScript.Source);
-            
+
             // Check that process function exists
             var processFunction = engine.GetValue("process");
             if (processFunction.IsUndefined() || !processFunction.IsObject())
             {
                 return ScriptResult.CreateError("Script must define a process(context) function");
             }
-            
+
             // Execute the process function
             var result = await ExecuteWithTimeoutAsync(engine, "process(context)");
-            
+
             stopwatch.Stop();
-            
+
             // Update statistics
             lock (_statsLock)
             {
@@ -146,16 +150,16 @@ public class JintScriptEngineService : IScriptEngineService
                 _stats.TotalExecutionTime = _stats.TotalExecutionTime.Add(stopwatch.Elapsed);
                 _stats.MemoryUsage = GC.GetTotalMemory(false);
             }
-            
+
             _logger.LogTrace("Script executed in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
-            
+
             // Convert result to CLR type
             var clrResult = ConvertJsValueToClr(result);
             return ScriptResult.CreateSuccess(clrResult);
         }
         catch (JavaScriptException ex)
         {
-            _logger.LogError(ex, "JavaScript execution error in script {ScriptId}: {ErrorMessage}", 
+            _logger.LogError(ex, "JavaScript execution error in script {ScriptId}: {ErrorMessage}",
                 compiledScript.ScriptId, ex.Message);
             return ScriptResult.CreateError($"JavaScript execution failed: {ex.Message}", ex);
         }
@@ -209,7 +213,7 @@ public class JintScriptEngineService : IScriptEngineService
     {
         var timeout = TimeSpan.FromSeconds(5); // TODO: Get from options
         using var cts = new CancellationTokenSource(timeout);
-        
+
         try
         {
             return await Task.Run(() =>
@@ -230,32 +234,42 @@ public class JintScriptEngineService : IScriptEngineService
     private object? ConvertJsValueToClr(JsValue jsValue)
     {
         if (jsValue.IsNull() || jsValue.IsUndefined())
+        {
             return null;
+        }
 
         if (jsValue.IsString())
+        {
             return jsValue.AsString();
-        
+        }
+
         if (jsValue.IsBoolean())
+        {
             return jsValue.AsBoolean();
-        
+        }
+
         if (jsValue.IsNumber())
+        {
             return jsValue.AsNumber();
-        
+        }
+
         if (jsValue.IsDate())
+        {
             return jsValue.AsDate().ToDateTime();
+        }
 
         if (jsValue.IsObject())
         {
             var jsObject = jsValue.AsObject();
             var result = new Dictionary<string, object?>();
-            
+
             foreach (var property in jsObject.GetOwnProperties())
             {
                 var key = property.Key.AsString();
                 var value = property.Value.Value;
                 result[key] = ConvertJsValueToClr(value);
             }
-            
+
             return result;
         }
 
@@ -271,7 +285,7 @@ public class JintScriptEngineService : IScriptEngineService
         {
             throw new InvalidOperationException("Script must contain a process(context) function");
         }
-        
+
         await Task.CompletedTask;
     }
 
@@ -291,17 +305,19 @@ public class JintScriptEngineService : IScriptEngineService
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _disposed = true;
-        
+
         // Dispose cached scripts
         foreach (var script in _scriptCache.Values)
         {
             script.Dispose();
         }
         _scriptCache.Clear();
-        
+
         _logger.LogInformation("JintScriptEngineService disposed. Final stats - Compiled: {Compiled}, Executed: {Executed}, Cache hits: {CacheHits}",
             _stats.ScriptsCompiled, _stats.ScriptsExecuted, _stats.CacheHits);
     }

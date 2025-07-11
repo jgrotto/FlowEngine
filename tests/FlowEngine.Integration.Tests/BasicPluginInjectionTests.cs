@@ -31,7 +31,7 @@ public class BasicPluginInjectionTests : IDisposable
 
         // Configure service provider with FlowEngine services
         var services = new ServiceCollection();
-        services.AddLogging(builder => 
+        services.AddLogging(builder =>
         {
             builder.AddConsole();
             builder.SetMinimumLevel(LogLevel.Information);
@@ -47,7 +47,7 @@ public class BasicPluginInjectionTests : IDisposable
         // Get paths to delimited plugin assemblies
         _delimitedSourceAssemblyPath = typeof(DelimitedSourceService).Assembly.Location;
         _delimitedSinkAssemblyPath = typeof(DelimitedSinkService).Assembly.Location;
-        
+
         _output.WriteLine($"Test setup complete. Source assembly: {Path.GetFileName(_delimitedSourceAssemblyPath)}");
         _output.WriteLine($"Test setup complete. Sink assembly: {Path.GetFileName(_delimitedSinkAssemblyPath)}");
     }
@@ -96,12 +96,12 @@ public class BasicPluginInjectionTests : IDisposable
 
         // Assert - Verify initialization was attempted and we got a response
         Assert.NotNull(initResult);
-        
+
         // Note: Plugin may fail initialization due to missing dependencies in test environment
         // The important thing is that the plugin loading and initialization API works
         _output.WriteLine($"Plugin initialization result: {initResult.Success}");
         _output.WriteLine($"Plugin state: {plugin.State}");
-        
+
         if (initResult.Success && plugin.State == PluginState.Initialized)
         {
             var delimitedConfig = plugin.Configuration as DelimitedSourceConfiguration;
@@ -167,8 +167,8 @@ public class BasicPluginInjectionTests : IDisposable
 
         // Assert
         Assert.NotEmpty(discoveredPlugins);
-        
-        var delimitedPlugin = discoveredPlugins.FirstOrDefault(p => 
+
+        var delimitedPlugin = discoveredPlugins.FirstOrDefault(p =>
             p.Manifest.Id == "DelimitedSource.DelimitedSourceService");
 
         Assert.NotNull(delimitedPlugin);
@@ -206,7 +206,7 @@ public class BasicPluginInjectionTests : IDisposable
         Assert.NotNull(plugin);
         Assert.IsAssignableFrom<IPlugin>(plugin);
         Assert.NotNull(initResult);
-        
+
         // Note: Plugin may fail initialization due to missing dependencies in test environment
         // The important thing is that the plugin loading and initialization API works
         _output.WriteLine($"Transform plugin validation successful:");
@@ -261,7 +261,7 @@ public class BasicPluginInjectionTests : IDisposable
             {
                 // Create a new service provider for this concurrent operation
                 var services = new ServiceCollection();
-                services.AddLogging(builder => 
+                services.AddLogging(builder =>
                 {
                     builder.AddConsole();
                     builder.SetMinimumLevel(LogLevel.Information);
@@ -270,7 +270,7 @@ public class BasicPluginInjectionTests : IDisposable
 
                 using var serviceProvider = services.BuildServiceProvider();
                 var pluginLoader = serviceProvider.GetRequiredService<IPluginLoader>();
-                
+
                 return await pluginLoader.LoadPluginAsync<IPlugin>(
                     _delimitedSourceAssemblyPath,
                     typeof(DelimitedSourceService).FullName!);
@@ -360,7 +360,7 @@ public class BasicPluginInjectionTests : IDisposable
 
         // Create separate service provider for the second load to avoid "already loaded" error
         var services = new ServiceCollection();
-        services.AddLogging(builder => 
+        services.AddLogging(builder =>
         {
             builder.AddConsole();
             builder.SetMinimumLevel(LogLevel.Information);
@@ -369,7 +369,7 @@ public class BasicPluginInjectionTests : IDisposable
 
         using var serviceProvider2 = services.BuildServiceProvider();
         var pluginLoader2 = serviceProvider2.GetRequiredService<IPluginLoader>();
-        
+
         var sinkPlugin = await pluginLoader2.LoadPluginAsync<IPlugin>(
             _delimitedSinkAssemblyPath,
             typeof(DelimitedSinkService).FullName!);
@@ -379,7 +379,7 @@ public class BasicPluginInjectionTests : IDisposable
         Assert.NotNull(sinkPlugin);
         Assert.IsAssignableFrom<IPlugin>(sourcePlugin);
         Assert.IsAssignableFrom<IPlugin>(sinkPlugin);
-        
+
         // Verify they are separate instances with different IDs
         Assert.NotEqual(sourcePlugin.Id, sinkPlugin.Id);
 

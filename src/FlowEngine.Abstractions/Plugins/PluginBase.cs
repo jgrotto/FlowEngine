@@ -61,7 +61,7 @@ public abstract class PluginBase : IPlugin
                 previousState = _state;
                 _state = value;
             }
-            
+
             if (previousState != value)
             {
                 OnStateChanged(previousState, value);
@@ -90,7 +90,7 @@ public abstract class PluginBase : IPlugin
     public virtual async Task<PluginInitializationResult> InitializeAsync(IPluginConfiguration configuration, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Created)
         {
             return new PluginInitializationResult
@@ -106,9 +106,9 @@ public abstract class PluginBase : IPlugin
         try
         {
             _logger.LogDebug("Initializing plugin {PluginName} with configuration", Name);
-            
+
             var result = await InitializeInternalAsync(configuration, cancellationToken);
-            
+
             if (result.Success)
             {
                 Configuration = configuration;
@@ -120,14 +120,14 @@ public abstract class PluginBase : IPlugin
                 State = PluginState.Failed;
                 _logger.LogError("Plugin {PluginName} initialization failed: {Message}", Name, result.Message);
             }
-            
+
             return result with { InitializationTime = stopwatch.Elapsed };
         }
         catch (Exception ex)
         {
             State = PluginState.Failed;
             _logger.LogError(ex, "Plugin {PluginName} initialization failed with exception", Name);
-            
+
             return new PluginInitializationResult
             {
                 Success = false,
@@ -142,7 +142,7 @@ public abstract class PluginBase : IPlugin
     public virtual async Task StartAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Initialized)
         {
             throw new InvalidOperationException($"Plugin must be initialized before starting. Current state: {State}");
@@ -151,9 +151,9 @@ public abstract class PluginBase : IPlugin
         try
         {
             _logger.LogDebug("Starting plugin {PluginName}", Name);
-            
+
             await StartInternalAsync(cancellationToken);
-            
+
             State = PluginState.Running;
             _logger.LogInformation("Plugin {PluginName} started successfully", Name);
         }
@@ -169,7 +169,7 @@ public abstract class PluginBase : IPlugin
     public virtual async Task StopAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (State != PluginState.Running)
         {
             _logger.LogWarning("Plugin {PluginName} is not running (state: {State})", Name, State);
@@ -179,9 +179,9 @@ public abstract class PluginBase : IPlugin
         try
         {
             _logger.LogDebug("Stopping plugin {PluginName}", Name);
-            
+
             await StopInternalAsync(cancellationToken);
-            
+
             State = PluginState.Stopped;
             _logger.LogInformation("Plugin {PluginName} stopped successfully", Name);
         }
@@ -197,7 +197,7 @@ public abstract class PluginBase : IPlugin
     public virtual async Task<HotSwapResult> HotSwapAsync(IPluginConfiguration newConfiguration, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         if (!SupportsHotSwapping)
         {
             return new HotSwapResult
@@ -213,9 +213,9 @@ public abstract class PluginBase : IPlugin
         try
         {
             _logger.LogDebug("Performing hot-swap for plugin {PluginName}", Name);
-            
+
             var result = await HotSwapInternalAsync(newConfiguration, cancellationToken);
-            
+
             if (result.Success)
             {
                 Configuration = newConfiguration;
@@ -225,13 +225,13 @@ public abstract class PluginBase : IPlugin
             {
                 _logger.LogError("Plugin {PluginName} hot-swap failed: {Message}", Name, result.Message);
             }
-            
+
             return result with { SwapTime = stopwatch.Elapsed };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Plugin {PluginName} hot-swap failed with exception", Name);
-            
+
             return new HotSwapResult
             {
                 Success = false,
@@ -246,7 +246,7 @@ public abstract class PluginBase : IPlugin
     public virtual async Task<IEnumerable<HealthCheck>> HealthCheckAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         var healthChecks = new List<HealthCheck>
         {
             new HealthCheck

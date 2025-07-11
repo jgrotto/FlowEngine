@@ -16,15 +16,15 @@ public sealed class DelimitedSinkConfiguration : IPluginConfiguration
     public string Encoding { get; init; } = "UTF-8";
     public string LineEnding { get; init; } = "System";
     public bool AppendMode { get; init; } = false;
-    
+
     // Performance settings
     public int BufferSize { get; init; } = 65536;
     public int FlushInterval { get; init; } = 1000;
-    
+
     // File handling
     public bool CreateDirectories { get; init; } = true;
     public bool OverwriteExisting { get; init; } = true;
-    
+
     // Schema and mapping
     public ISchema? InputSchema { get; init; }
     public IReadOnlyList<ColumnMapping>? ColumnMappings { get; init; }
@@ -53,14 +53,18 @@ public sealed class DelimitedSinkConfiguration : IPluginConfiguration
     public int GetInputFieldIndex(string fieldName)
     {
         if (_inputFieldIndexes.TryGetValue(fieldName, out var index))
+        {
             return index;
-        
+        }
+
         // Try to get from input schema if available
         if (InputSchema != null)
         {
             var schemaIndex = InputSchema.GetIndex(fieldName);
             if (schemaIndex >= 0)
+            {
                 return schemaIndex;
+            }
         }
 
         throw new ArgumentException($"Field '{fieldName}' not found in input schema", nameof(fieldName));
@@ -80,7 +84,9 @@ public sealed class DelimitedSinkConfiguration : IPluginConfiguration
             foreach (var column in InputSchema.Columns)
             {
                 if (inputSchema.GetIndex(column.Name) < 0)
+                {
                     return false;
+                }
             }
         }
 
@@ -91,10 +97,14 @@ public sealed class DelimitedSinkConfiguration : IPluginConfiguration
     public T GetProperty<T>(string key)
     {
         if (!_properties.TryGetValue(key, out var value))
+        {
             throw new KeyNotFoundException($"Property '{key}' not found");
+        }
 
         if (value is T typedValue)
+        {
             return typedValue;
+        }
 
         return (T)Convert.ChangeType(value, typeof(T));
     }
@@ -103,7 +113,9 @@ public sealed class DelimitedSinkConfiguration : IPluginConfiguration
     {
         value = default;
         if (!_properties.TryGetValue(key, out var objectValue))
+        {
             return false;
+        }
 
         try
         {

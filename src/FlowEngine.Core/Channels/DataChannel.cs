@@ -115,13 +115,15 @@ public sealed class DataChannel<T> : IDataChannel<T>
         try
         {
             enumerator = _channel.Reader.ReadAllAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
-            
+
             while (true)
             {
                 try
                 {
                     if (!await enumerator.MoveNextAsync())
+                    {
                         break;
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -181,7 +183,9 @@ public sealed class DataChannel<T> : IDataChannel<T>
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
+        {
             return;
+        }
 
         try
         {
@@ -233,7 +237,7 @@ public sealed class DataChannel<T> : IDataChannel<T>
                 {
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                     cts.CancelAfter(_configuration.Timeout);
-                    
+
                     await _channel.Writer.WaitToWriteAsync(cts.Token);
                     var success = _channel.Writer.TryWrite(item);
                     if (success)
@@ -250,10 +254,10 @@ public sealed class DataChannel<T> : IDataChannel<T>
                 }
 
             case ChannelFullMode.ThrowException:
-                throw new ChannelException($"Channel {Id} is full and cannot accept more items") 
-                { 
-                    ChannelId = Id, 
-                    ChannelStatus = Status 
+                throw new ChannelException($"Channel {Id} is full and cannot accept more items")
+                {
+                    ChannelId = Id,
+                    ChannelStatus = Status
                 };
 
             case ChannelFullMode.DropOldest:
@@ -305,7 +309,9 @@ public sealed class DataChannel<T> : IDataChannel<T>
         lock (_statusLock)
         {
             if (_status == newStatus)
+            {
                 return;
+            }
 
             oldStatus = _status;
             _status = newStatus;
@@ -324,7 +330,9 @@ public sealed class DataChannel<T> : IDataChannel<T>
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(DataChannel<T>));
+        }
     }
 }
 

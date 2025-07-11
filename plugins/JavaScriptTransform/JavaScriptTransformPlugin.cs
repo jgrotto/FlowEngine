@@ -18,7 +18,7 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
     private readonly IScriptEngineService _scriptEngine;
     private readonly IJavaScriptContextService _contextService;
     private readonly ILogger<JavaScriptTransformPlugin> _logger;
-    
+
     private CompiledScript? _compiledScript;
     private ISchema? _outputSchema;
     private ISchema? _inputSchema;
@@ -50,10 +50,10 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
     public override string Author => "FlowEngine Team";
     public override string PluginType => "Transform";
     public override bool SupportsHotSwapping => false;
-    public override IPluginConfiguration Configuration 
-    { 
-        get => _configuration ?? throw new InvalidOperationException("Plugin not initialized"); 
-        protected set => _configuration = (JavaScriptTransformConfiguration)value; 
+    public override IPluginConfiguration Configuration
+    {
+        get => _configuration ?? throw new InvalidOperationException("Plugin not initialized");
+        protected set => _configuration = (JavaScriptTransformConfiguration)value;
     }
 
     /// <summary>
@@ -156,7 +156,7 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
     protected override async Task StopInternalAsync(CancellationToken cancellationToken)
     {
         _performanceTimer.Stop();
-        
+
         if (_configuration?.Performance.EnableMonitoring == true && _processedRows > 0)
         {
             var throughput = _processedRows / _performanceTimer.Elapsed.TotalSeconds;
@@ -188,9 +188,9 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
             try
             {
                 _logger.LogInformation("Disposing JavaScript Transform plugin");
-                
+
                 _compiledScript?.Dispose();
-                
+
                 // Get statistics from Core service
                 var stats = _scriptEngine.GetStats();
                 _logger.LogInformation(
@@ -206,7 +206,7 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
                 _logger.LogError(ex, "Error during JavaScript Transform plugin disposal");
             }
         }
-        
+
         base.Dispose(disposing);
     }
 
@@ -237,7 +237,7 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
     /// <summary>
     /// Flushes any remaining data for stateful transforms.
     /// </summary>
-    public async IAsyncEnumerable<IChunk> FlushAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<IChunk> FlushAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // This transform is stateless, so nothing to flush
         yield break;
@@ -254,13 +254,13 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
         {
             // Get statistics from Core service
             var stats = _scriptEngine.GetStats();
-            
+
             // Check performance metrics
             if (_configuration?.Performance.EnableMonitoring == true && _processedRows > 100)
             {
                 var currentThroughput = _processedRows / _performanceTimer.Elapsed.TotalSeconds;
                 var targetThroughput = _configuration.Performance.TargetThroughput;
-                
+
                 if (currentThroughput < targetThroughput * 0.8) // 80% of target
                 {
                     healthChecks.Add(new HealthCheck
@@ -324,7 +324,9 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
     private async Task<IChunk> TransformChunkAsync(IChunk chunk, CancellationToken cancellationToken)
     {
         if (_compiledScript == null || _outputSchema == null)
+        {
             throw new InvalidOperationException("Plugin not properly initialized");
+        }
 
         var transformedRows = new List<ArrayRow>();
         var routingResults = new Dictionary<string, List<IArrayRow>>();
@@ -333,19 +335,19 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
         for (int i = 0; i < rows.Length; i++)
         {
             var row = rows[i];
-            
+
             // Create processing state for routing
             var processingState = new ProcessingState
             {
                 RoutingResults = routingResults
             };
-            
+
             // Create JavaScript context using Core service
             var context = _contextService.CreateContext(row, _inputSchema!, _outputSchema, processingState);
-            
+
             // Execute JavaScript transformation using Core service
             var result = await _scriptEngine.ExecuteAsync(_compiledScript, context);
-            
+
             // Check if the script executed successfully
             if (result.Success)
             {
@@ -356,13 +358,15 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
                     var transformedRow = context.Output.GetResultRow();
                     transformedRows.Add((ArrayRow)transformedRow);
                 }
-                
+
                 // Handle routing targets
                 foreach (var target in context.Route.GetTargets())
                 {
                     if (!routingResults.ContainsKey(target.QueueName))
+                    {
                         routingResults[target.QueueName] = new List<IArrayRow>();
-                        
+                    }
+
                     var rowToRoute = target.Mode == RoutingMode.Copy ? row : row;
                     routingResults[target.QueueName].Add(rowToRoute);
                 }
@@ -372,23 +376,23 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
                 _logger.LogError("JavaScript execution failed for row {RowIndex}: {ErrorMessage}", i, result.ErrorMessage);
                 // Continue processing other rows even if one fails
             }
-            
+
             IncrementProcessedRows();
         }
 
         // Create new chunk with transformed rows using output schema
         IChunk newChunk = new Chunk(_outputSchema, transformedRows, chunk.Metadata);
-        
+
         // Add routing results to chunk metadata if any
         if (routingResults.Count > 0)
         {
-            var metadata = chunk.Metadata != null 
+            var metadata = chunk.Metadata != null
                 ? new Dictionary<string, object>(chunk.Metadata)
                 : new Dictionary<string, object>();
             metadata["RoutingResults"] = routingResults;
             newChunk = newChunk.WithMetadata(metadata);
         }
-        
+
         return newChunk;
     }
 
@@ -398,7 +402,7 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
     private async Task<ISchema> CreateOutputSchemaAsync(OutputSchemaConfiguration outputConfig)
     {
         var columns = new List<ColumnDefinition>();
-        
+
         for (int i = 0; i < outputConfig.Fields.Count; i++)
         {
             var field = outputConfig.Fields[i];
@@ -428,7 +432,7 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
 
         // Create schema using FlowEngine's static factory method
         var schema = Schema.GetOrCreate(columns);
-        
+
         await Task.CompletedTask;
         return schema;
     }

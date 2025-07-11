@@ -33,7 +33,9 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
     public async Task<IReadOnlyCollection<DiscoveredPlugin>> DiscoverPluginsAsync(string directoryPath, bool includeSubdirectories = true)
     {
         if (string.IsNullOrWhiteSpace(directoryPath))
+        {
             throw new ArgumentException("Directory path cannot be null or empty", nameof(directoryPath));
+        }
 
         if (!Directory.Exists(directoryPath))
         {
@@ -57,7 +59,7 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
                     if (plugin != null)
                     {
                         discoveredPlugins.Add(plugin);
-                        _logger.LogDebug("Discovered plugin from manifest: {PluginName} at {Path}", 
+                        _logger.LogDebug("Discovered plugin from manifest: {PluginName} at {Path}",
                             plugin.Manifest.Name, plugin.DirectoryPath);
                     }
                 }
@@ -76,9 +78,9 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
                 .Select(g => g.OrderByDescending(p => p.HasManifest).First())
                 .ToList();
 
-            _logger.LogInformation("Discovered {TotalCount} plugins in directory: {DirectoryPath} ({UniqueCount} unique)", 
+            _logger.LogInformation("Discovered {TotalCount} plugins in directory: {DirectoryPath} ({UniqueCount} unique)",
                 discoveredPlugins.Count, directoryPath, uniquePlugins.Count);
-            
+
             return uniquePlugins.AsReadOnly();
         }
         catch (Exception ex)
@@ -109,7 +111,7 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
             .Select(g => g.OrderByDescending(p => p.HasManifest).First())
             .ToList();
 
-        _logger.LogInformation("Discovered {TotalCount} plugins across {DirectoryCount} directories ({UniqueCount} unique)", 
+        _logger.LogInformation("Discovered {TotalCount} plugins across {DirectoryCount} directories ({UniqueCount} unique)",
             allPlugins.Count, directories.Count, uniquePlugins.Count);
 
         return uniquePlugins.AsReadOnly();
@@ -119,7 +121,9 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
     public async Task<DiscoveredPlugin?> DiscoverPluginFromManifestAsync(string manifestFilePath)
     {
         if (string.IsNullOrWhiteSpace(manifestFilePath))
+        {
             throw new ArgumentException("Manifest file path cannot be null or empty", nameof(manifestFilePath));
+        }
 
         if (!File.Exists(manifestFilePath))
         {
@@ -144,7 +148,7 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
 
             if (!File.Exists(assemblyPath))
             {
-                _logger.LogWarning("Plugin assembly not found: {AssemblyPath} (specified in {ManifestPath})", 
+                _logger.LogWarning("Plugin assembly not found: {AssemblyPath} (specified in {ManifestPath})",
                     assemblyPath, manifestFilePath);
                 return null;
             }
@@ -272,20 +276,22 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
 
         // Get assembly paths that are already covered by manifest-based plugins
         var manifestedAssemblies = new HashSet<string>(
-            existingPlugins.Select(p => Path.GetFullPath(p.AssemblyPath)), 
+            existingPlugins.Select(p => Path.GetFullPath(p.AssemblyPath)),
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var assemblyFile in assemblyFiles)
         {
             var fullAssemblyPath = Path.GetFullPath(assemblyFile);
             if (manifestedAssemblies.Contains(fullAssemblyPath))
+            {
                 continue; // Skip assemblies already discovered via manifest
+            }
 
             try
             {
                 // Scan assembly for plugin types
                 _pluginRegistry.ScanAssemblyFile(assemblyFile);
-                
+
                 // Get plugin types from this assembly
                 var assemblyPluginTypes = _pluginRegistry.GetPluginTypes()
                     .Where(pt => string.Equals(pt.AssemblyPath, fullAssemblyPath, StringComparison.OrdinalIgnoreCase))
@@ -308,7 +314,7 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
                     };
 
                     existingPlugins.Add(discoveredPlugin);
-                    _logger.LogDebug("Discovered assembly-based plugin: {PluginName} in {AssemblyPath}", 
+                    _logger.LogDebug("Discovered assembly-based plugin: {PluginName} in {AssemblyPath}",
                         pluginType.FriendlyName, assemblyFile);
                 }
             }
@@ -333,8 +339,8 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
             Version = data.Version ?? "1.0.0",
             Description = data.Description,
             Author = data.Author,
-            Category = Enum.TryParse<PluginCategory>(data.Category, true, out var category) 
-                ? category 
+            Category = Enum.TryParse<PluginCategory>(data.Category, true, out var category)
+                ? category
                 : PluginCategory.Other,
             AssemblyFileName = data.AssemblyFileName ?? throw new InvalidOperationException("Assembly file name is required"),
             PluginTypeName = data.PluginTypeName ?? throw new InvalidOperationException("Plugin type name is required"),
@@ -386,7 +392,7 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
         // For now, just check if the dependency is a known plugin type
         // In a full implementation, this would check version compatibility
         var isKnownPlugin = _pluginRegistry.IsPluginTypeRegistered(dependency.Name);
-        
+
         if (isKnownPlugin)
         {
             var pluginType = _pluginRegistry.GetPluginType(dependency.Name);
@@ -404,7 +410,7 @@ public sealed class PluginDiscoveryService : IPluginDiscoveryService
         {
             var assemblyName = new AssemblyName(dependency.Name);
             var assembly = Assembly.Load(assemblyName);
-            
+
             return Task.FromResult(new DependencyValidationResult
             {
                 Dependency = dependency,

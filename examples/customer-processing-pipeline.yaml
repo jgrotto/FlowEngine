@@ -12,7 +12,7 @@ pipeline:
         FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers.csv"
         HasHeaders: true
         Delimiter: ","
-        ChunkSize: 1000
+        ChunkSize: 5000
         Encoding: "UTF-8"
         InferSchema: false
         OutputSchema:
@@ -167,7 +167,7 @@ pipeline:
                   return false; // Skip row on error
               }
           }
-        ChunkSize: 1000
+        ChunkSize: 5000
         TimeoutSeconds: 30
         
     # Sink: Write processed data to CSV file

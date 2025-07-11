@@ -46,7 +46,7 @@ public sealed class DiagnosticCollector : IDisposable
     public async Task<DiagnosticSnapshot> CollectSnapshotAsync(string? reason = null)
     {
         var stopwatch = Stopwatch.StartNew();
-        
+
         try
         {
             _logger.LogInformation("Collecting diagnostic snapshot. Reason: {Reason}", reason ?? "Manual");
@@ -75,7 +75,7 @@ public sealed class DiagnosticCollector : IDisposable
                 ["CollectionDuration"] = snapshot.CollectionDuration.TotalMilliseconds
             });
 
-            _logger.LogInformation("Diagnostic snapshot collected in {Duration}ms. ID: {SnapshotId}", 
+            _logger.LogInformation("Diagnostic snapshot collected in {Duration}ms. ID: {SnapshotId}",
                 stopwatch.ElapsedMilliseconds, snapshot.Id);
 
             return snapshot;
@@ -83,7 +83,7 @@ public sealed class DiagnosticCollector : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error collecting diagnostic snapshot");
-            
+
             return new DiagnosticSnapshot
             {
                 Id = Guid.NewGuid(),
@@ -101,7 +101,9 @@ public sealed class DiagnosticCollector : IDisposable
     public void RecordEvent(string category, string message, Dictionary<string, object>? data = null)
     {
         if (!Configuration.EnableEventRecording)
+        {
             return;
+        }
 
         var diagnosticEvent = new DiagnosticEvent
         {
@@ -165,7 +167,7 @@ public sealed class DiagnosticCollector : IDisposable
         try
         {
             var exportSnapshot = snapshot ?? await CollectSnapshotAsync("Export");
-            
+
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true,
@@ -186,13 +188,13 @@ public sealed class DiagnosticCollector : IDisposable
 
     #region Private Collection Methods
 
-    private async Task<SystemDiagnosticInfo> CollectSystemInfoAsync()
+    private Task<SystemDiagnosticInfo> CollectSystemInfoAsync()
     {
         try
         {
             var process = Process.GetCurrentProcess();
-            
-            return new SystemDiagnosticInfo
+
+            return Task.FromResult(new SystemDiagnosticInfo
             {
                 MachineName = Environment.MachineName,
                 ProcessorCount = Environment.ProcessorCount,
@@ -206,22 +208,22 @@ public sealed class DiagnosticCollector : IDisposable
                 UserName = Environment.UserName,
                 CommandLine = Environment.CommandLine,
                 CurrentDirectory = Environment.CurrentDirectory
-            };
+            });
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error collecting system info");
-            return new SystemDiagnosticInfo { ErrorMessage = ex.Message };
+            return Task.FromResult(new SystemDiagnosticInfo { ErrorMessage = ex.Message });
         }
     }
 
-    private async Task<PerformanceDiagnosticInfo> CollectPerformanceMetricsAsync()
+    private Task<PerformanceDiagnosticInfo> CollectPerformanceMetricsAsync()
     {
         try
         {
             var process = Process.GetCurrentProcess();
-            
-            return new PerformanceDiagnosticInfo
+
+            return Task.FromResult(new PerformanceDiagnosticInfo
             {
                 CpuTime = process.TotalProcessorTime,
                 WorkingSet = process.WorkingSet64,
@@ -233,30 +235,30 @@ public sealed class DiagnosticCollector : IDisposable
                 Gen0Collections = GC.CollectionCount(0),
                 Gen1Collections = GC.CollectionCount(1),
                 Gen2Collections = GC.CollectionCount(2)
-            };
+            });
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error collecting performance metrics");
-            return new PerformanceDiagnosticInfo { ErrorMessage = ex.Message };
+            return Task.FromResult(new PerformanceDiagnosticInfo { ErrorMessage = ex.Message });
         }
     }
 
-    private async Task<PluginDiagnosticInfo> CollectPluginDiagnosticsAsync()
+    private Task<PluginDiagnosticInfo> CollectPluginDiagnosticsAsync()
     {
         try
         {
             if (_pluginManager == null)
             {
-                return new PluginDiagnosticInfo
+                return Task.FromResult(new PluginDiagnosticInfo
                 {
                     Message = "Plugin manager not available"
-                };
+                });
             }
 
             var loadedPlugins = _pluginManager.GetAllPlugins();
             var pluginInfo = _pluginManager.GetPluginInfo();
-            
+
             var pluginDetails = pluginInfo.Select(p => new PluginDetail
             {
                 Name = p.Id,
@@ -268,18 +270,18 @@ public sealed class DiagnosticCollector : IDisposable
                 ErrorMessage = p.Status == PluginStatus.Faulted ? "Plugin is in faulted state" : null
             }).ToArray();
 
-            return new PluginDiagnosticInfo
+            return Task.FromResult(new PluginDiagnosticInfo
             {
                 LoadedPluginCount = loadedPlugins.Count,
                 TotalPluginCount = pluginInfo.Count,
                 FailedPluginCount = pluginInfo.Count(p => p.Status == PluginStatus.Faulted),
                 PluginDetails = pluginDetails
-            };
+            });
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error collecting plugin diagnostics");
-            return new PluginDiagnosticInfo { ErrorMessage = ex.Message };
+            return Task.FromResult(new PluginDiagnosticInfo { ErrorMessage = ex.Message });
         }
     }
 
@@ -289,7 +291,7 @@ public sealed class DiagnosticCollector : IDisposable
         {
             var process = Process.GetCurrentProcess();
             var threads = process.Threads.Cast<ProcessThread>().ToArray();
-            
+
             ThreadPool.GetAvailableThreads(out var availableWorkerThreads, out var availableCompletionPortThreads);
             ThreadPool.GetMaxThreads(out var maxWorkerThreads, out var maxCompletionPortThreads);
 
@@ -383,7 +385,9 @@ public sealed class DiagnosticCollector : IDisposable
         try
         {
             if (_healthCheckService == null)
+            {
                 return null;
+            }
 
             return await _healthCheckService.CheckSystemHealthAsync();
         }
@@ -398,7 +402,10 @@ public sealed class DiagnosticCollector : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
@@ -406,7 +413,7 @@ public sealed class DiagnosticCollector : IDisposable
             {
                 _eventHistory.Clear();
             }
-            
+
             _logger.LogInformation("Diagnostic collector disposed");
         }
         catch (Exception ex)
@@ -429,22 +436,22 @@ public sealed class DiagnosticConfiguration
     /// Gets or sets whether to record diagnostic events.
     /// </summary>
     public bool EnableEventRecording { get; set; } = true;
-    
+
     /// <summary>
     /// Gets or sets the maximum number of events to keep in history per category.
     /// </summary>
     public int MaxEventHistorySize { get; set; } = 1000;
-    
+
     /// <summary>
     /// Gets or sets whether to include environment variables in diagnostics.
     /// </summary>
     public bool IncludeEnvironmentVariables { get; set; } = false;
-    
+
     /// <summary>
     /// Gets or sets whether to include sensitive data in diagnostics.
     /// </summary>
     public bool IncludeSensitiveData { get; set; } = false;
-    
+
     /// <summary>
     /// Gets or sets the timeout for diagnostic collection operations.
     /// </summary>

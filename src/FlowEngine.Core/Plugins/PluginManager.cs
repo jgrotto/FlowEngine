@@ -30,12 +30,13 @@ public sealed class PluginManager : IPluginManager
     /// <param name="pluginRegistry">Plugin registry for type discovery</param>
     /// <param name="logger">Logger for plugin operations</param>
     /// <param name="discoveryService">Optional plugin discovery service for enhanced plugin discovery</param>
-    public PluginManager(IPluginLoader pluginLoader, IPluginRegistry pluginRegistry, ILogger<PluginManager> logger, IPluginDiscoveryService? discoveryService = null, IPluginConfigurationMapper? configurationMapper = null)
+    /// <param name="configurationMapper">Plugin configuration mapper for strongly-typed configuration</param>
+    public PluginManager(IPluginLoader pluginLoader, IPluginRegistry pluginRegistry, ILogger<PluginManager> logger, IPluginConfigurationMapper configurationMapper, IPluginDiscoveryService? discoveryService = null)
     {
         _pluginLoader = pluginLoader ?? throw new ArgumentNullException(nameof(pluginLoader));
         _pluginRegistry = pluginRegistry ?? throw new ArgumentNullException(nameof(pluginRegistry));
         _discoveryService = discoveryService;
-        _configurationMapper = configurationMapper ?? new PluginConfigurationMapper(Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<PluginConfigurationMapper>());
+        _configurationMapper = configurationMapper ?? throw new ArgumentNullException(nameof(configurationMapper));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         // Subscribe to loader events
@@ -50,20 +51,28 @@ public sealed class PluginManager : IPluginManager
         ThrowIfDisposed();
 
         if (definition == null)
+        {
             throw new ArgumentNullException(nameof(definition));
+        }
 
         if (string.IsNullOrWhiteSpace(definition.Name))
+        {
             throw new ArgumentException("Plugin definition must have a name", nameof(definition));
+        }
 
         if (string.IsNullOrWhiteSpace(definition.Type))
+        {
             throw new ArgumentException("Plugin definition must have a type", nameof(definition));
+        }
 
         _logger.LogInformation("Loading plugin '{PluginName}' of type '{PluginType}'", definition.Name, definition.Type);
 
         lock (_loadLock)
         {
             if (_loadedPlugins.ContainsKey(definition.Name))
+            {
                 throw new PluginLoadException($"Plugin '{definition.Name}' is already loaded");
+            }
         }
 
         try
@@ -83,18 +92,18 @@ public sealed class PluginManager : IPluginManager
             {
                 // Plugin type found in registry - use registry information
                 plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
-                    pluginTypeInfo.AssemblyPath, 
+                    pluginTypeInfo.AssemblyPath,
                     pluginTypeInfo.TypeName,
                     PluginIsolationLevel.Shared);
             }
             else if (!string.IsNullOrWhiteSpace(definition.AssemblyPath))
             {
                 // Plugin type not in registry but assembly path provided - load directly
-                _logger.LogInformation("Plugin type '{PluginType}' not found in registry, loading directly from assembly '{AssemblyPath}'", 
+                _logger.LogInformation("Plugin type '{PluginType}' not found in registry, loading directly from assembly '{AssemblyPath}'",
                     definition.Type, definition.AssemblyPath);
-                
+
                 plugin = await _pluginLoader.LoadPluginAsync<IPlugin>(
-                    definition.AssemblyPath, 
+                    definition.AssemblyPath,
                     definition.Type,
                     PluginIsolationLevel.Shared);
             }
@@ -136,14 +145,18 @@ public sealed class PluginManager : IPluginManager
         ThrowIfDisposed();
 
         if (plugin == null)
+        {
             throw new ArgumentNullException(nameof(plugin));
+        }
 
         LoadedPluginEntry? entry = null;
         lock (_loadLock)
         {
             entry = _loadedPlugins.Values.FirstOrDefault(e => ReferenceEquals(e.Plugin, plugin));
             if (entry != null)
+            {
                 _loadedPlugins.TryRemove(entry.Name, out _);
+            }
         }
 
         if (entry == null)
@@ -171,7 +184,9 @@ public sealed class PluginManager : IPluginManager
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(name))
+        {
             return null;
+        }
 
         lock (_loadLock)
         {
@@ -219,31 +234,37 @@ public sealed class PluginManager : IPluginManager
         ThrowIfDisposed();
 
         if (definition == null)
-            return ValidationResult.Failure(new ValidationError 
-            { 
-                Code = "NULL_DEFINITION", 
+        {
+            return ValidationResult.Failure(new ValidationError
+            {
+                Code = "NULL_DEFINITION",
                 Message = "Plugin definition cannot be null",
-                Severity = ValidationSeverity.Error 
+                Severity = ValidationSeverity.Error
             });
+        }
 
         var errors = new List<ValidationError>();
 
         // Validate required fields
         if (string.IsNullOrWhiteSpace(definition.Name))
-            errors.Add(new ValidationError 
-            { 
-                Code = "MISSING_NAME", 
+        {
+            errors.Add(new ValidationError
+            {
+                Code = "MISSING_NAME",
                 Message = "Plugin name is required",
-                Severity = ValidationSeverity.Error 
+                Severity = ValidationSeverity.Error
             });
+        }
 
         if (string.IsNullOrWhiteSpace(definition.Type))
-            errors.Add(new ValidationError 
-            { 
-                Code = "MISSING_TYPE", 
+        {
+            errors.Add(new ValidationError
+            {
+                Code = "MISSING_TYPE",
                 Message = "Plugin type is required",
-                Severity = ValidationSeverity.Error 
+                Severity = ValidationSeverity.Error
             });
+        }
 
         // Check if plugin type exists
         if (!string.IsNullOrWhiteSpace(definition.Type))
@@ -254,18 +275,20 @@ public sealed class PluginManager : IPluginManager
                 // Try to scan for the plugin type
                 await ScanForPluginType(definition.Type);
                 pluginTypeInfo = _pluginRegistry.GetPluginType(definition.Type);
-                
+
                 if (pluginTypeInfo == null)
-                    errors.Add(new ValidationError 
-                    { 
-                        Code = "TYPE_NOT_FOUND", 
+                {
+                    errors.Add(new ValidationError
+                    {
+                        Code = "TYPE_NOT_FOUND",
                         Message = $"Plugin type '{definition.Type}' not found",
-                        Severity = ValidationSeverity.Error 
+                        Severity = ValidationSeverity.Error
                     });
+                }
             }
         }
 
-        return errors.Count > 0 
+        return errors.Count > 0
             ? ValidationResult.Failure(errors.ToArray())
             : ValidationResult.Success();
     }
@@ -276,7 +299,9 @@ public sealed class PluginManager : IPluginManager
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(name))
+        {
             throw new ArgumentException("Plugin name cannot be null or empty", nameof(name));
+        }
 
         // Unload existing plugin if it exists
         var existingPlugin = GetPlugin(name);
@@ -313,7 +338,7 @@ public sealed class PluginManager : IPluginManager
         {
             _logger.LogInformation("Starting enhanced plugin discovery across default directories");
             var plugins = await _discoveryService.DiscoverPluginsAsync();
-            
+
             _logger.LogInformation("Discovered {Count} plugins with enhanced discovery", plugins.Count);
             return plugins;
         }
@@ -330,7 +355,9 @@ public sealed class PluginManager : IPluginManager
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(directoryPath))
+        {
             throw new ArgumentException("Directory path cannot be null or empty", nameof(directoryPath));
+        }
 
         if (_discoveryService == null)
         {
@@ -342,7 +369,7 @@ public sealed class PluginManager : IPluginManager
         {
             _logger.LogInformation("Starting enhanced plugin discovery in directory: {DirectoryPath}", directoryPath);
             var plugins = await _discoveryService.DiscoverPluginsAsync(directoryPath, includeSubdirectories);
-            
+
             _logger.LogInformation("Discovered {Count} plugins in directory: {DirectoryPath}", plugins.Count, directoryPath);
             return plugins;
         }
@@ -357,13 +384,15 @@ public sealed class PluginManager : IPluginManager
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         try
         {
             // Unload all plugins
             var tasks = new List<Task>();
-            
+
             lock (_loadLock)
             {
                 foreach (var entry in _loadedPlugins.Values)
@@ -375,7 +404,9 @@ public sealed class PluginManager : IPluginManager
 
             // Wait for all plugins to unload (with timeout)
             if (tasks.Count > 0)
+            {
                 Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(10));
+            }
 
             // Unsubscribe from events
             _pluginLoader.PluginLoaded -= OnPluginLoaded;
@@ -400,17 +431,17 @@ public sealed class PluginManager : IPluginManager
         {
             // Create configuration for the plugin
             var configuration = await CreatePluginConfigurationAsync(definition);
-            
+
             // Initialize the plugin
             var result = await plugin.InitializeAsync(configuration);
-            
+
             if (!result.Success)
             {
                 var errors = string.Join(", ", result.Errors);
                 throw new PluginLoadException($"Plugin initialization failed: {result.Message}. Errors: {errors}");
             }
 
-            _logger.LogDebug("Plugin '{PluginName}' initialized successfully in {InitTime}ms", 
+            _logger.LogDebug("Plugin '{PluginName}' initialized successfully in {InitTime}ms",
                 definition.Name, result.InitializationTime.TotalMilliseconds);
         }
         catch (Exception ex)
@@ -426,77 +457,6 @@ public sealed class PluginManager : IPluginManager
         return await _configurationMapper.CreateConfigurationAsync(definition);
     }
 
-    private Task<Abstractions.Plugins.IPluginConfiguration> CreateTemplatePluginConfigurationAsync(IPluginDefinition definition)
-    {
-        var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for TemplatePlugin");
-        var assembly = System.Reflection.Assembly.LoadFrom(assemblyPath);
-        var configType = assembly.GetType("TemplatePlugin.TemplatePluginConfiguration");
-        
-        if (configType == null)
-            throw new PluginLoadException("TemplatePluginConfiguration type not found in plugin assembly");
-
-        try
-        {
-            // Extract configuration values from YAML with proper type conversion
-            var config = definition.Configuration ?? (IReadOnlyDictionary<string, object>)new Dictionary<string, object>();
-            
-            var rowCount = ExtractConfigValue<int>(config, "RowCount", 1000);
-            var batchSize = ExtractConfigValue<int>(config, "BatchSize", 100);
-            var dataType = ExtractConfigValue<string>(config, "DataType", "Customer");
-            
-            // Validate configuration values
-            if (rowCount < 1 || rowCount > 5_000_000)
-                throw new PluginLoadException($"RowCount must be between 1 and 5,000,000, got: {rowCount}");
-                
-            if (batchSize < 1 || batchSize > 50_000)
-                throw new PluginLoadException($"BatchSize must be between 1 and 50,000, got: {batchSize}");
-                
-            if (string.IsNullOrWhiteSpace(dataType))
-                throw new PluginLoadException("DataType cannot be null or empty");
-
-            // Create configuration instance using reflection with proper property initialization
-            var configInstance = Activator.CreateInstance(configType, new object[0]);
-            if (configInstance == null)
-                throw new PluginLoadException("Failed to create TemplatePluginConfiguration instance");
-
-            // Since TemplatePluginConfiguration properties are init-only, we need to use reflection
-            // to set the values after construction, or create a new instance with the values
-            var properties = configType.GetProperties()
-                .Where(p => p.CanWrite || (p.SetMethod?.IsPublic == true))
-                .ToArray();
-
-            // Try to find the properties and set them via reflection
-            var rowCountProp = configType.GetProperty("RowCount");
-            var batchSizeProp = configType.GetProperty("BatchSize");
-            var dataTypeProp = configType.GetProperty("DataType");
-
-            // For init-only properties, we need to use a different approach
-            // Create a new instance using object initializer syntax via compiled expression
-            // or use unsafe reflection to set init properties
-            
-            // Alternative: Create new instance with computed values using Activator and property setting
-            var constructor = configType.GetConstructor(Type.EmptyTypes);
-            if (constructor != null)
-            {
-                configInstance = constructor.Invoke(null);
-                
-                // Use reflection to set init-only properties (this works for init accessors)
-                SetInitProperty(configInstance, "RowCount", rowCount);
-                SetInitProperty(configInstance, "BatchSize", batchSize);
-                SetInitProperty(configInstance, "DataType", dataType);
-            }
-
-            _logger.LogInformation("✅ Successfully bound YAML configuration values to TemplatePluginConfiguration: RowCount={RowCount}, BatchSize={BatchSize}, DataType={DataType}", 
-                rowCount, batchSize, dataType);
-
-            return Task.FromResult((Abstractions.Plugins.IPluginConfiguration)configInstance);
-        }
-        catch (Exception ex) when (!(ex is PluginLoadException))
-        {
-            _logger.LogError(ex, "Failed to bind configuration for TemplatePlugin");
-            throw new PluginLoadException($"Configuration binding failed: {ex.Message}", ex);
-        }
-    }
 
     /// <summary>
     /// Extracts and converts a configuration value from the YAML configuration dictionary.
@@ -509,7 +469,9 @@ public sealed class PluginManager : IPluginManager
     private static T ExtractConfigValue<T>(IReadOnlyDictionary<string, object> config, string key, T defaultValue)
     {
         if (!config.TryGetValue(key, out var value))
+        {
             return defaultValue;
+        }
 
         try
         {
@@ -540,20 +502,22 @@ public sealed class PluginManager : IPluginManager
     {
         var property = instance.GetType().GetProperty(propertyName);
         if (property == null)
+        {
             throw new PluginLoadException($"Property '{propertyName}' not found on configuration type");
+        }
 
         if (!property.CanWrite && property.SetMethod?.IsPublic != true)
         {
             // For init-only properties, we need to use the backing field or reflection tricks
-            var backingField = instance.GetType().GetField($"<{propertyName}>k__BackingField", 
+            var backingField = instance.GetType().GetField($"<{propertyName}>k__BackingField",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            
+
             if (backingField != null)
             {
                 backingField.SetValue(instance, value);
                 return;
             }
-            
+
             // Try alternative approach - use the init setter via reflection
             var setMethod = property.GetSetMethod(true); // Get non-public setter
             if (setMethod != null)
@@ -561,7 +525,7 @@ public sealed class PluginManager : IPluginManager
                 setMethod.Invoke(instance, new[] { value });
                 return;
             }
-            
+
             throw new PluginLoadException($"Unable to set init-only property '{propertyName}' on configuration type");
         }
         else
@@ -577,14 +541,14 @@ public sealed class PluginManager : IPluginManager
         {
             // Try scanning common plugin directories
             var pluginDirectories = GetPluginDirectories();
-            
+
             foreach (var directory in pluginDirectories)
             {
                 if (Directory.Exists(directory))
                 {
                     _logger.LogDebug("Scanning directory '{Directory}' for plugin type '{TypeName}'", directory, typeName);
                     await _pluginRegistry.ScanDirectoryAsync(directory);
-                    
+
                     // Check if we found the type
                     if (_pluginRegistry.GetPluginType(typeName) != null)
                     {
@@ -607,7 +571,7 @@ public sealed class PluginManager : IPluginManager
         return new[]
         {
             Path.Combine(appDirectory, "plugins"),
-            Path.Combine(appDirectory, "Plugins"), 
+            Path.Combine(appDirectory, "Plugins"),
             Path.Combine(appDirectory, "..", "plugins"),
             appDirectory // Current directory as fallback
         };
@@ -721,7 +685,7 @@ public sealed class PluginManager : IPluginManager
                 discoveredPlugins.Add(discoveredPlugin);
             }
 
-            _logger.LogDebug("Basic discovery found {Count} plugins in directory: {DirectoryPath}", 
+            _logger.LogDebug("Basic discovery found {Count} plugins in directory: {DirectoryPath}",
                 discoveredPlugins.Count, directoryPath);
         }
         catch (Exception ex)
@@ -735,7 +699,9 @@ public sealed class PluginManager : IPluginManager
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(PluginManager));
+        }
     }
 }
 

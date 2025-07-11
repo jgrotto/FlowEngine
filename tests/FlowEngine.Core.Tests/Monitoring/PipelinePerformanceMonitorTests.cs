@@ -7,7 +7,7 @@ public class PipelinePerformanceMonitorTests : IDisposable
 {
     private readonly ChannelTelemetry _channelTelemetry;
     private readonly PipelinePerformanceMonitor _monitor;
-    
+
     public PipelinePerformanceMonitorTests()
     {
         _channelTelemetry = new ChannelTelemetry();
@@ -73,7 +73,7 @@ public class PipelinePerformanceMonitorTests : IDisposable
         Assert.NotNull(report.BottleneckAnalysis);
         Assert.NotNull(report.ResourceUsage);
         Assert.NotNull(report.Recommendations);
-        
+
         Assert.Equal(2, report.PluginMetrics.Count);
         Assert.Contains("Plugin1", report.PluginMetrics.Keys);
         Assert.Contains("Plugin2", report.PluginMetrics.Keys);
@@ -85,10 +85,10 @@ public class PipelinePerformanceMonitorTests : IDisposable
         // Arrange
         var alertsRaised = new List<PerformanceAlertEventArgs>();
         _monitor.PerformanceAlert += (sender, args) => alertsRaised.Add(args);
-        
+
         // Act - Record high memory usage
         _monitor.RecordPluginExecution("MemoryHog", TimeSpan.FromMilliseconds(50), 100, 600_000_000); // 600MB
-        
+
         // Wait for analysis timer to trigger
         Thread.Sleep(6000); // Wait longer than 5-second analysis interval
 
@@ -120,7 +120,7 @@ public class PipelinePerformanceMonitorTests : IDisposable
         Assert.Equal(3, metrics.TotalExecutions);
         Assert.Equal(TimeSpan.FromMilliseconds(600), metrics.TotalProcessingTime);
         Assert.Equal(TimeSpan.FromMilliseconds(300), metrics.MaxExecutionTime);
-        
+
         // Average should be calculated (200ms)
         Assert.True(metrics.AverageExecutionTime.TotalMilliseconds > 150);
         Assert.True(metrics.AverageExecutionTime.TotalMilliseconds < 250);

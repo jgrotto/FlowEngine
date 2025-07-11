@@ -51,7 +51,7 @@ public class PluginBenchmarkCommand : BaseCommand
             if (benchmarkResults.Success)
             {
                 WriteSuccess("Benchmark completed successfully!");
-                
+
                 Console.WriteLine();
                 Console.WriteLine($"Plugin: {benchmarkResults.PluginName}");
                 Console.WriteLine($"Total iterations: {benchmarkResults.TotalIterations:N0}");
@@ -59,12 +59,12 @@ public class PluginBenchmarkCommand : BaseCommand
                 Console.WriteLine($"Average per iteration: {benchmarkResults.AverageIterationTime.TotalMilliseconds:F2}ms");
                 Console.WriteLine($"Rows processed: {benchmarkResults.RowsProcessed:N0}");
                 Console.WriteLine($"Memory allocated: {benchmarkResults.MemoryAllocated:N0} bytes");
-                
+
                 if (benchmarkResults.RowsProcessed > 0 && benchmarkResults.TotalTime.TotalSeconds > 0)
                 {
                     var throughput = benchmarkResults.RowsProcessed / benchmarkResults.TotalTime.TotalSeconds;
                     Console.WriteLine($"Throughput: {throughput:N0} rows/sec");
-                    
+
                     // Performance assessment
                     Console.WriteLine();
                     if (throughput >= 200000)
@@ -87,10 +87,10 @@ public class PluginBenchmarkCommand : BaseCommand
 
                 Console.WriteLine();
                 Console.WriteLine("Memory efficiency:");
-                var memoryPerRow = benchmarkResults.RowsProcessed > 0 ? 
+                var memoryPerRow = benchmarkResults.RowsProcessed > 0 ?
                     (double)benchmarkResults.MemoryAllocated / benchmarkResults.RowsProcessed : 0;
                 Console.WriteLine($"Memory per row: {memoryPerRow:F0} bytes");
-                
+
                 if (memoryPerRow < 100)
                 {
                     WriteSuccess("🔋 Excellent memory efficiency");
@@ -159,7 +159,7 @@ public class PluginBenchmarkCommand : BaseCommand
             }
 
             var dllFiles = Directory.GetFiles(binPath, "*.dll", SearchOption.AllDirectories)
-                .Where(f => !Path.GetFileName(f).StartsWith("FlowEngine.") && 
+                .Where(f => !Path.GetFileName(f).StartsWith("FlowEngine.") &&
                            !Path.GetFileName(f).StartsWith("Microsoft.") &&
                            !Path.GetFileName(f).StartsWith("System."))
                 .ToArray();
@@ -171,7 +171,7 @@ public class PluginBenchmarkCommand : BaseCommand
 
             // Setup FlowEngine services
             var services = new ServiceCollection();
-            services.AddLogging(builder => 
+            services.AddLogging(builder =>
             {
                 builder.AddConsole();
                 builder.SetMinimumLevel(LogLevel.Error); // Minimize logging during benchmarks
@@ -197,7 +197,7 @@ public class PluginBenchmarkCommand : BaseCommand
                     // Find plugin types in assembly
                     var assembly = System.Reflection.Assembly.LoadFrom(dllFile);
                     var pluginTypes = assembly.GetTypes()
-                        .Where(t => t.IsClass && !t.IsAbstract && 
+                        .Where(t => t.IsClass && !t.IsAbstract &&
                                    typeof(IPlugin).IsAssignableFrom(t))
                         .ToArray();
 
@@ -210,7 +210,7 @@ public class PluginBenchmarkCommand : BaseCommand
 
                         // Load plugin
                         var plugin = await pluginLoader.LoadPluginAsync<IPlugin>(dllFile, pluginType.FullName!);
-                        
+
                         // Initialize plugin
                         await InitializePluginForBenchmarkAsync(plugin, verbose);
 
@@ -328,9 +328,12 @@ public class PluginBenchmarkCommand : BaseCommand
             {
                 rowsProcessed += chunk.RowCount;
                 chunkCount++;
-                
+
                 // Limit chunks per iteration for consistent benchmarking
-                if (chunkCount >= 5) break;
+                if (chunkCount >= 5)
+                {
+                    break;
+                }
             }
         }
 
@@ -404,7 +407,7 @@ public class PluginBenchmarkCommand : BaseCommand
             new ColumnDefinition { Name = "Tags", DataType = typeof(string), IsNullable = true },
             new ColumnDefinition { Name = "Score", DataType = typeof(double), IsNullable = true }
         };
-        
+
         var schemaFactory = serviceProvider.GetRequiredService<ISchemaFactory>();
         return schemaFactory.CreateSchema(columns);
     }
@@ -418,7 +421,7 @@ public class PluginBenchmarkCommand : BaseCommand
         var tags = new[] { "premium", "standard", "vip", "trial", "beta" };
 
         var arrayRowFactory = serviceProvider.GetRequiredService<IArrayRowFactory>();
-        
+
         for (int i = 0; i < count; i++)
         {
             var name = names[i % names.Length];
@@ -459,28 +462,28 @@ public class PluginBenchmarkCommand : BaseCommand
         public string? ErrorMessage { get; init; }
 
         public static BenchmarkResult Succeeded(string pluginName, int totalIterations, TimeSpan totalTime, TimeSpan averageTime, long rowsProcessed, long memoryAllocated) =>
-            new() 
-            { 
-                Success = true, 
+            new()
+            {
+                Success = true,
                 PluginName = pluginName,
                 TotalIterations = totalIterations,
-                TotalTime = totalTime, 
-                AverageIterationTime = averageTime, 
+                TotalTime = totalTime,
+                AverageIterationTime = averageTime,
                 RowsProcessed = rowsProcessed,
                 MemoryAllocated = memoryAllocated
             };
 
         public static BenchmarkResult Failed(string errorMessage) =>
-            new() 
-            { 
-                Success = false, 
+            new()
+            {
+                Success = false,
                 PluginName = string.Empty,
                 TotalIterations = 0,
-                TotalTime = TimeSpan.Zero, 
-                AverageIterationTime = TimeSpan.Zero, 
+                TotalTime = TimeSpan.Zero,
+                AverageIterationTime = TimeSpan.Zero,
                 RowsProcessed = 0,
                 MemoryAllocated = 0,
-                ErrorMessage = errorMessage 
+                ErrorMessage = errorMessage
             };
     }
 
@@ -538,7 +541,7 @@ public class PluginBenchmarkCommand : BaseCommand
             return false;
         }
     }
-    
+
     /// <summary>
     /// Helper method to create an async enumerable from a single chunk.
     /// </summary>

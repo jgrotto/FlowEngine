@@ -75,7 +75,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
     public async Task<PipelineExecutionResult> ExecuteAsync(IPipelineConfiguration configuration, CancellationToken cancellationToken = default)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         ThrowIfDisposed();
 
@@ -83,7 +85,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
         lock (_statusLock)
         {
             if (_status == PipelineExecutionStatus.Running)
+            {
                 throw new PipelineExecutionException("Pipeline is already running");
+            }
         }
 
         _currentConfiguration = configuration;
@@ -198,7 +202,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
     public async Task<PipelineValidationResult> ValidatePipelineAsync(IPipelineConfiguration configuration)
     {
         if (configuration == null)
+        {
             throw new ArgumentNullException(nameof(configuration));
+        }
 
         ThrowIfDisposed();
 
@@ -209,10 +215,14 @@ public sealed class PipelineExecutor : IPipelineExecutor
 
             // Validate basic configuration
             if (string.IsNullOrWhiteSpace(configuration.Name))
+            {
                 errors.Add("Pipeline name is required");
+            }
 
             if (configuration.Plugins.Count == 0)
+            {
                 errors.Add("Pipeline must contain at least one plugin");
+            }
 
             // Validate DAG structure
             var dagValidation = _dagAnalyzer.ValidateDag(configuration);
@@ -220,7 +230,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
             warnings.AddRange(dagValidation.Warnings);
 
             if (errors.Count > 0)
+            {
                 return PipelineValidationResult.Failure(errors.ToArray());
+            }
 
             // Get execution order and schema flow
             var dagAnalysis = _dagAnalyzer.AnalyzePipeline(configuration);
@@ -242,7 +254,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
         lock (_statusLock)
         {
             if (_status != PipelineExecutionStatus.Running)
+            {
                 return;
+            }
         }
 
         SetStatus(PipelineExecutionStatus.Paused);
@@ -257,7 +271,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
         lock (_statusLock)
         {
             if (_status != PipelineExecutionStatus.Paused)
+            {
                 return;
+            }
         }
 
         SetStatus(PipelineExecutionStatus.Running);
@@ -273,7 +289,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
 
         lock (_statusLock)
         {
-            if (_status == PipelineExecutionStatus.Idle || 
+            if (_status == PipelineExecutionStatus.Idle ||
                 _status == PipelineExecutionStatus.Completed ||
                 _status == PipelineExecutionStatus.Failed ||
                 _status == PipelineExecutionStatus.Cancelled)
@@ -309,7 +325,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
+        {
             return;
+        }
 
         try
         {
@@ -380,15 +398,17 @@ public sealed class PipelineExecutor : IPipelineExecutor
     private async Task SetupSchemasAsync(IPipelineConfiguration configuration, IReadOnlyList<string> executionOrder, CancellationToken cancellationToken)
     {
         var schemaMap = new Dictionary<string, ISchema>();
-        
+
         // Process plugins in execution order to propagate schemas
         foreach (var pluginName in executionOrder)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             if (!_loadedPlugins.TryGetValue(pluginName, out var plugin))
+            {
                 continue;
-                
+            }
+
             switch (plugin)
             {
                 case ISourcePlugin sourcePlugin:
@@ -398,7 +418,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
                         schemaMap[pluginName] = sourcePlugin.OutputSchema;
                     }
                     break;
-                    
+
                 case ITransformPlugin transformPlugin:
                     // Transform plugins need input schema and define output schema
                     var inputSchema = GetInputSchemaForPlugin(pluginName, configuration, schemaMap);
@@ -410,13 +430,13 @@ public sealed class PipelineExecutor : IPipelineExecutor
                         {
                             throw new PipelineExecutionException($"Schema validation failed for transform plugin '{pluginName}': {string.Join(", ", validationResult.Errors)}");
                         }
-                        
+
                         // Set schema if plugin supports it
                         if (transformPlugin is ISchemaAwarePlugin schemaAware)
                         {
                             await schemaAware.SetSchemaAsync(inputSchema, cancellationToken);
                         }
-                        
+
                         // Record output schema
                         if (transformPlugin.OutputSchema != null)
                         {
@@ -424,7 +444,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
                         }
                     }
                     break;
-                    
+
                 case ISinkPlugin sinkPlugin:
                     // Sink plugins need input schema
                     var sinkInputSchema = GetInputSchemaForPlugin(pluginName, configuration, schemaMap);
@@ -440,7 +460,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
             }
         }
     }
-    
+
     private ISchema? GetInputSchemaForPlugin(string pluginName, IPipelineConfiguration configuration, Dictionary<string, ISchema> schemaMap)
     {
         // Find the connection that provides input to this plugin
@@ -449,7 +469,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
         {
             return inputSchema;
         }
-        
+
         return null;
     }
 
@@ -503,7 +523,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
             {
                 backgroundTasks.Add(ExecuteSinkPluginDirectAsync(plugin, name, cancellationToken));
             }
-            
+
             foreach (var (name, plugin) in transformPlugins)
             {
                 backgroundTasks.Add(ExecuteTransformPluginDirectAsync(plugin, name, cancellationToken));
@@ -512,7 +532,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
             // 2. Start upstream plugins in foreground (drive the pipeline)
             using var completionCts = new CancellationTokenSource();
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, completionCts.Token);
-            
+
             foreach (var (name, plugin) in sourcePlugins)
             {
                 await ExecuteSourcePluginDirectAsync(plugin, name, linkedCts.Token);
@@ -520,7 +540,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
 
             // 3. Signal completion to downstream plugins and wait for cleanup
             completionCts.Cancel(); // Signal downstream plugins to complete
-            
+
             // Give downstream plugins a moment to finish processing
             try
             {
@@ -627,7 +647,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
         {
             // Find output channels for this source plugin
             var outputChannels = GetOutputChannelsForPlugin(pluginName);
-            
+
             // Execute source plugin and send data to output channels
             await foreach (var chunk in sourcePlugin.ProduceAsync(cancellationToken))
             {
@@ -821,7 +841,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
         lock (_statusLock)
         {
             if (_status == newStatus)
+            {
                 return;
+            }
 
             oldStatus = _status;
             _status = newStatus;
@@ -845,44 +867,46 @@ public sealed class PipelineExecutor : IPipelineExecutor
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(PipelineExecutor));
+        }
     }
 
     private IList<IDataChannel<IChunk>> GetOutputChannelsForPlugin(string pluginName)
     {
         var outputChannels = new List<IDataChannel<IChunk>>();
-        
+
         foreach (var kvp in _channels)
         {
             var channelId = kvp.Key;
             var channel = kvp.Value;
-            
+
             // Channel ID format is "FromPlugin→ToPlugin"
             if (channelId.StartsWith($"{pluginName}→"))
             {
                 outputChannels.Add(channel);
             }
         }
-        
+
         return outputChannels;
     }
 
     private IList<IDataChannel<IChunk>> GetInputChannelsForPlugin(string pluginName)
     {
         var inputChannels = new List<IDataChannel<IChunk>>();
-        
+
         foreach (var kvp in _channels)
         {
             var channelId = kvp.Key;
             var channel = kvp.Value;
-            
+
             // Channel ID format is "FromPlugin→ToPlugin"
             if (channelId.EndsWith($"→{pluginName}"))
             {
                 inputChannels.Add(channel);
             }
         }
-        
+
         return inputChannels;
     }
 
@@ -892,7 +916,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
         {
             yield break;
         }
-        
+
         if (inputChannels.Count == 1)
         {
             // Single input channel - direct enumeration
@@ -1038,7 +1062,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
     private async Task ProcessChunkThroughDownstreamAsync(IChunk chunk, (string pluginName, IPlugin plugin) downstream, CancellationToken cancellationToken)
     {
         var (pluginName, plugin) = downstream;
-        
+
         switch (plugin)
         {
             case ITransformPlugin transformPlugin:
@@ -1058,10 +1082,10 @@ public sealed class PipelineExecutor : IPipelineExecutor
     private async Task ProcessChunkThroughTransformAsync(IChunk chunk, ITransformPlugin transformPlugin, string pluginName, CancellationToken cancellationToken)
     {
         var metrics = _pluginMetrics[pluginName];
-        
+
         // Create single-chunk input
         var inputChunks = SingleChunkAsyncEnumerable(chunk, cancellationToken);
-        
+
         // Transform and continue to next downstream plugin
         await foreach (var outputChunk in transformPlugin.TransformAsync(inputChunks, cancellationToken))
         {
@@ -1083,14 +1107,14 @@ public sealed class PipelineExecutor : IPipelineExecutor
     private async Task ProcessChunkThroughSinkAsync(IChunk chunk, ISinkPlugin sinkPlugin, string pluginName, CancellationToken cancellationToken)
     {
         var metrics = _pluginMetrics[pluginName];
-        
+
         // Update metrics for the chunk being processed
         metrics.ChunksProcessed++;
         metrics.RowsProcessed += chunk.RowCount;
-        
+
         // Create single-chunk input
         var inputChunks = SingleChunkAsyncEnumerable(chunk, cancellationToken);
-        
+
         // Consume the chunk directly
         await sinkPlugin.ConsumeAsync(inputChunks, cancellationToken);
     }
@@ -1102,8 +1126,9 @@ public sealed class PipelineExecutor : IPipelineExecutor
     {
         cancellationToken.ThrowIfCancellationRequested();
         yield return chunk;
+        await Task.CompletedTask; // Satisfy async requirement
     }
-    
+
 }
 
 /// <summary>

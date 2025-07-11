@@ -16,7 +16,7 @@ public sealed class PluginConfigurationMapping
     /// <summary>
     /// Gets or sets the factory function for creating configuration instances.
     /// </summary>
-    public Func<IPluginDefinition, Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration>> CreateConfigurationAsync { get; set; } = 
+    public Func<IPluginDefinition, Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration>> CreateConfigurationAsync { get; set; } =
         definition => Task.FromException<FlowEngine.Abstractions.Plugins.IPluginConfiguration>(new NotImplementedException("Configuration mapping not implemented"));
 
     /// <summary>

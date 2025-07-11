@@ -24,7 +24,7 @@ public interface ISinkPlugin : IPlugin
     /// <returns>Task representing the consumption operation</returns>
     /// <exception cref="PluginExecutionException">Thrown when consumption fails</exception>
     Task ConsumeAsync(
-        IAsyncEnumerable<IChunk> input, 
+        IAsyncEnumerable<IChunk> input,
         CancellationToken cancellationToken = default);
 
     /// <summary>

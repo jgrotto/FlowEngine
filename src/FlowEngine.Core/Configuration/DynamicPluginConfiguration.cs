@@ -75,7 +75,9 @@ public sealed class DynamicPluginConfiguration : FlowEngine.Abstractions.Plugins
     {
         // Try to get from original configuration first
         if (Properties.TryGetValue(key, out var value) && value is T typed)
+        {
             return typed;
+        }
 
         // Try to get from configuration instance via reflection
         try
@@ -85,7 +87,9 @@ public sealed class DynamicPluginConfiguration : FlowEngine.Abstractions.Plugins
             {
                 var propertyValue = property.GetValue(_configurationInstance);
                 if (propertyValue is T propertyTyped)
+                {
                     return propertyTyped;
+                }
             }
         }
         catch
@@ -138,7 +142,9 @@ public sealed class DynamicPluginConfiguration : FlowEngine.Abstractions.Plugins
     private ISchema? ConvertSchemaDefinition(ISchemaDefinition? schemaDefinition)
     {
         if (schemaDefinition == null)
+        {
             return null;
+        }
 
         // For now, return null as schema conversion is not fully implemented
         // TODO: Implement proper schema conversion from ISchemaDefinition to ISchema

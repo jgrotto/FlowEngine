@@ -22,7 +22,7 @@ public class PluginDiscoveryServiceTests : IDisposable
         _mockRegistry = Substitute.For<IPluginRegistry>();
         _mockLogger = Substitute.For<ILogger<PluginDiscoveryService>>();
         _discoveryService = new PluginDiscoveryService(_mockRegistry, _mockLogger);
-        
+
         // Create temporary test directory
         _testDirectory = Path.Combine(Path.GetTempPath(), "FlowEngineTests", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_testDirectory);
@@ -67,7 +67,7 @@ public class PluginDiscoveryServiceTests : IDisposable
 
         var manifestPath = Path.Combine(pluginDirectory, "plugin.json");
         var assemblyPath = Path.Combine(pluginDirectory, "TestPlugin.dll");
-        
+
         await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(manifest));
         await File.WriteAllTextAsync(assemblyPath, "fake dll content"); // Create fake assembly file
 
@@ -95,7 +95,7 @@ public class PluginDiscoveryServiceTests : IDisposable
         // Assert
         Assert.Single(result);
         var discoveredPlugin = result.First();
-        
+
         Assert.Equal("TestPlugin", discoveredPlugin.Manifest.Id);
         Assert.Equal("Test Plugin", discoveredPlugin.Manifest.Name);
         Assert.Equal("1.0.0", discoveredPlugin.Manifest.Version);
@@ -108,7 +108,7 @@ public class PluginDiscoveryServiceTests : IDisposable
         Assert.True(discoveredPlugin.HasManifest);
         Assert.Equal(assemblyPath, discoveredPlugin.AssemblyPath);
         Assert.Equal(manifestPath, discoveredPlugin.ManifestFilePath);
-        
+
         // Verify dependencies
         Assert.Single(discoveredPlugin.Manifest.Dependencies);
         var dependency = discoveredPlugin.Manifest.Dependencies.First();
@@ -120,7 +120,7 @@ public class PluginDiscoveryServiceTests : IDisposable
         Assert.Equal(2, discoveredPlugin.Manifest.SupportedInputSchemas.Count);
         Assert.Contains("Customer", discoveredPlugin.Manifest.SupportedInputSchemas);
         Assert.Contains("Employee", discoveredPlugin.Manifest.SupportedInputSchemas);
-        
+
         Assert.Single(discoveredPlugin.Manifest.SupportedOutputSchemas);
         Assert.Contains("ProcessedCustomer", discoveredPlugin.Manifest.SupportedOutputSchemas);
     }
@@ -249,7 +249,7 @@ public class PluginDiscoveryServiceTests : IDisposable
         // Assert
         Assert.Single(result);
         var discoveredPlugin = result.First();
-        
+
         Assert.Equal("NoManifestPlugin.PluginClass", discoveredPlugin.Manifest.Id); // Uses type name as ID
         Assert.Equal("No Manifest Plugin", discoveredPlugin.Manifest.Name);
         Assert.Equal(PluginCategory.Source, discoveredPlugin.Manifest.Category);
@@ -266,7 +266,7 @@ public class PluginDiscoveryServiceTests : IDisposable
 
         // Assert
         Assert.NotEmpty(directories);
-        
+
         // Should contain common plugin directory patterns
         var dirList = directories.ToList();
         Assert.Contains(dirList, d => d.Contains("plugins") || d.Contains("Plugins"));

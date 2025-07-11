@@ -30,7 +30,7 @@ public sealed class ArrayRow : IArrayRow
         if (values.Length != schema.ColumnCount)
         {
             throw new ArgumentException(
-                $"Values array length ({values.Length}) must match schema column count ({schema.ColumnCount})", 
+                $"Values array length ({values.Length}) must match schema column count ({schema.ColumnCount})",
                 nameof(values));
         }
 
@@ -76,8 +76,10 @@ public sealed class ArrayRow : IArrayRow
         get
         {
             if ((uint)index >= (uint)_values.Length)
+            {
                 throw new ArgumentOutOfRangeException(nameof(index), index, "Index is out of range");
-            
+            }
+
             return _values[index];
         }
     }
@@ -89,7 +91,9 @@ public sealed class ArrayRow : IArrayRow
 
         var index = _schema.GetIndex(columnName);
         if (index < 0)
+        {
             throw new ArgumentException($"Column '{columnName}' does not exist in the schema", nameof(columnName));
+        }
 
         return With(index, value);
     }
@@ -99,10 +103,12 @@ public sealed class ArrayRow : IArrayRow
     public IArrayRow With(int index, object? value)
     {
         if ((uint)index >= (uint)_values.Length)
+        {
             throw new ArgumentOutOfRangeException(nameof(index), index, "Index is out of range");
+        }
 
         // If the value is the same, return this instance (optimization)
-        if (ReferenceEquals(_values[index], value) || 
+        if (ReferenceEquals(_values[index], value) ||
             (_values[index]?.Equals(value) == true))
         {
             return this;
@@ -122,7 +128,9 @@ public sealed class ArrayRow : IArrayRow
         ArgumentNullException.ThrowIfNull(updates);
 
         if (updates.Count == 0)
+        {
             return this;
+        }
 
         // Validate all column names first
         var indexUpdates = new Dictionary<int, object?>(updates.Count);
@@ -130,8 +138,10 @@ public sealed class ArrayRow : IArrayRow
         {
             var index = _schema.GetIndex(kvp.Key);
             if (index < 0)
+            {
                 throw new ArgumentException($"Column '{kvp.Key}' does not exist in the schema", nameof(updates));
-            
+            }
+
             indexUpdates[index] = kvp.Value;
         }
 
@@ -139,7 +149,7 @@ public sealed class ArrayRow : IArrayRow
         bool hasChanges = false;
         foreach (var kvp in indexUpdates)
         {
-            if (!ReferenceEquals(_values[kvp.Key], kvp.Value) && 
+            if (!ReferenceEquals(_values[kvp.Key], kvp.Value) &&
                 !(_values[kvp.Key]?.Equals(kvp.Value) == true))
             {
                 hasChanges = true;
@@ -148,12 +158,14 @@ public sealed class ArrayRow : IArrayRow
         }
 
         if (!hasChanges)
+        {
             return this;
+        }
 
         // Create new array with all updates
         var newValues = new object?[_values.Length];
         Array.Copy(_values, newValues, _values.Length);
-        
+
         foreach (var kvp in indexUpdates)
         {
             newValues[kvp.Key] = kvp.Value;
@@ -238,7 +250,9 @@ public sealed class ArrayRow : IArrayRow
     public bool Equals(IArrayRow? other)
     {
         if (other is not ArrayRow otherRow)
+        {
             return false;
+        }
 
         return ReferenceEquals(this, otherRow) ||
                (_hashCode == otherRow._hashCode &&
@@ -257,7 +271,7 @@ public sealed class ArrayRow : IArrayRow
     {
         var columns = _schema.Columns;
         var pairs = new string[columns.Length];
-        
+
         for (int i = 0; i < columns.Length; i++)
         {
             pairs[i] = $"{columns[i].Name}={_values[i]?.ToString() ?? "null"}";
@@ -278,7 +292,7 @@ public sealed class ArrayRow : IArrayRow
         ArgumentNullException.ThrowIfNull(data);
 
         var values = new object?[schema.ColumnCount];
-        
+
         for (int i = 0; i < schema.Columns.Length; i++)
         {
             var column = schema.Columns[i];
@@ -296,7 +310,7 @@ public sealed class ArrayRow : IArrayRow
     public static ArrayRow Empty(ISchema schema)
     {
         ArgumentNullException.ThrowIfNull(schema);
-        
+
         var values = new object?[schema.ColumnCount];
         return new ArrayRow(schema, values);
     }
@@ -307,12 +321,12 @@ public sealed class ArrayRow : IArrayRow
         {
             int hash = 17;
             hash = hash * 31 + _schema.GetHashCode();
-            
+
             foreach (var value in _values)
             {
                 hash = hash * 31 + (value?.GetHashCode() ?? 0);
             }
-            
+
             return hash;
         }
     }

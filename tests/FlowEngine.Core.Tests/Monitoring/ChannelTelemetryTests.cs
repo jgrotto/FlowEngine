@@ -10,7 +10,7 @@ public class ChannelTelemetryTests : IDisposable
 {
     private readonly ChannelTelemetry _telemetry;
     private readonly Schema _testSchema;
-    
+
     public ChannelTelemetryTests()
     {
         _telemetry = new ChannelTelemetry();

@@ -38,17 +38,17 @@ public class CompiledScript : IDisposable
     /// Gets the unique identifier for this compiled script.
     /// </summary>
     public string ScriptId { get; }
-    
+
     /// <summary>
     /// Gets the original JavaScript source code.
     /// </summary>
     public string Source { get; }
-    
+
     /// <summary>
     /// Gets the UTC timestamp when this script was compiled.
     /// </summary>
     public DateTime CompiledAt { get; }
-    
+
     /// <summary>
     /// Gets or sets the prepared script instance for optimization.
     /// </summary>
@@ -85,17 +85,17 @@ public class ScriptResult
     /// Gets a value indicating whether the script execution was successful.
     /// </summary>
     public bool Success { get; init; }
-    
+
     /// <summary>
     /// Gets the return value from the script execution.
     /// </summary>
     public object? ReturnValue { get; init; }
-    
+
     /// <summary>
     /// Gets the error message if the script execution failed.
     /// </summary>
     public string? ErrorMessage { get; init; }
-    
+
     /// <summary>
     /// Gets the exception that caused the script execution to fail.
     /// </summary>
@@ -135,17 +135,17 @@ public class ScriptOptions
     /// Gets or sets the maximum execution time for the script.
     /// </summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(5);
-    
+
     /// <summary>
     /// Gets or sets the maximum memory limit for script execution in bytes.
     /// </summary>
     public long MemoryLimit { get; init; } = 10 * 1024 * 1024; // 10MB
-    
+
     /// <summary>
     /// Gets or sets a value indicating whether script caching is enabled.
     /// </summary>
     public bool EnableCaching { get; init; } = true;
-    
+
     /// <summary>
     /// Gets or sets a value indicating whether debugging is enabled.
     /// </summary>
@@ -161,42 +161,42 @@ public class ScriptEngineStats
     /// Gets the total number of scripts compiled.
     /// </summary>
     public int ScriptsCompiled { get; internal set; }
-    
+
     /// <summary>
     /// Gets the total number of scripts executed.
     /// </summary>
     public int ScriptsExecuted { get; internal set; }
-    
+
     /// <summary>
     /// Gets the total time spent on script compilation.
     /// </summary>
     public TimeSpan TotalCompilationTime { get; internal set; }
-    
+
     /// <summary>
     /// Gets the total time spent on script execution.
     /// </summary>
     public TimeSpan TotalExecutionTime { get; internal set; }
-    
+
     /// <summary>
     /// Gets the current memory usage in bytes.
     /// </summary>
     public long MemoryUsage { get; internal set; }
-    
+
     /// <summary>
     /// Gets the number of cache hits.
     /// </summary>
     public int CacheHits { get; internal set; }
-    
+
     /// <summary>
     /// Gets the number of cache misses.
     /// </summary>
     public int CacheMisses { get; internal set; }
-    
+
     /// <summary>
     /// Gets the size of the engine pool.
     /// </summary>
     public int EnginePoolSize { get; internal set; }
-    
+
     /// <summary>
     /// Gets the number of active engines in the pool.
     /// </summary>

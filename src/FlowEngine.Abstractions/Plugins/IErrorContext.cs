@@ -193,7 +193,9 @@ public sealed class ErrorContextBuilder : IErrorContextBuilder
     public IErrorContextBuilder WithProperty(string key, object value)
     {
         if (string.IsNullOrWhiteSpace(key))
+        {
             throw new ArgumentException("Property key cannot be null or empty", nameof(key));
+        }
 
         _properties[key] = value;
         return this;
@@ -203,7 +205,9 @@ public sealed class ErrorContextBuilder : IErrorContextBuilder
     public IErrorContextBuilder WithProperties(IReadOnlyDictionary<string, object> properties)
     {
         if (properties == null)
+        {
             throw new ArgumentNullException(nameof(properties));
+        }
 
         foreach (var kvp in properties)
         {

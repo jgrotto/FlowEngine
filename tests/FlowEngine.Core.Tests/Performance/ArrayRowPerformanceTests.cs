@@ -20,7 +20,7 @@ public class ArrayRowPerformanceTests
     public ArrayRowPerformanceTests(ITestOutputHelper output)
     {
         _output = output;
-        
+
         // Create a test schema with multiple columns for performance testing
         var columns = new[]
         {
@@ -35,11 +35,11 @@ public class ArrayRowPerformanceTests
             new ColumnDefinition { Name = "UpdatedDate", DataType = typeof(DateTime), IsNullable = true },
             new ColumnDefinition { Name = "IsActive", DataType = typeof(bool), IsNullable = false }
         };
-        
+
         _performanceSchema = new Schema(columns);
-        
+
         // Create a test row with realistic data
-        var values = new object?[] 
+        var values = new object?[]
         {
             1001,
             12345,
@@ -52,7 +52,7 @@ public class ArrayRowPerformanceTests
             new DateTime(2024, 6, 20),
             true
         };
-        
+
         _testRow = new ArrayRow(_performanceSchema, values);
     }
 
@@ -62,7 +62,7 @@ public class ArrayRowPerformanceTests
         // Arrange
         const int iterations = 1_000_000;
         const double targetNanoseconds = 25.0; // Realistic target with FrozenDictionary lookup
-        
+
         // Warm up JIT
         for (int i = 0; i < 10_000; i++)
         {
@@ -76,24 +76,24 @@ public class ArrayRowPerformanceTests
 
         // Measure performance
         var stopwatch = Stopwatch.StartNew();
-        
+
         for (int i = 0; i < iterations; i++)
         {
             _ = _testRow["CustomerId"];
         }
-        
+
         stopwatch.Stop();
 
         // Calculate nanoseconds per operation
         var nanosPerOp = (stopwatch.Elapsed.TotalNanoseconds) / iterations;
-        
+
         _output.WriteLine($"Field access by name: {nanosPerOp:F2}ns per operation");
         _output.WriteLine($"Target: <{targetNanoseconds}ns per operation");
         _output.WriteLine($"Total iterations: {iterations:N0}");
         _output.WriteLine($"Total time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
-        
+
         // Assert performance requirement
-        Assert.True(nanosPerOp < targetNanoseconds, 
+        Assert.True(nanosPerOp < targetNanoseconds,
             $"Field access performance {nanosPerOp:F2}ns exceeds target of {targetNanoseconds}ns");
     }
 
@@ -103,7 +103,7 @@ public class ArrayRowPerformanceTests
         // Arrange
         const int iterations = 1_000_000;
         const int customerIdIndex = 1; // Index of CustomerId column
-        
+
         // Warm up JIT
         for (int i = 0; i < 10_000; i++)
         {
@@ -117,23 +117,23 @@ public class ArrayRowPerformanceTests
 
         // Measure performance
         var stopwatch = Stopwatch.StartNew();
-        
+
         for (int i = 0; i < iterations; i++)
         {
             _ = _testRow[customerIdIndex];
         }
-        
+
         stopwatch.Stop();
 
         // Calculate nanoseconds per operation
         var nanosPerOp = (stopwatch.Elapsed.TotalNanoseconds) / iterations;
-        
+
         _output.WriteLine($"Field access by index: {nanosPerOp:F2}ns per operation");
         _output.WriteLine($"Total iterations: {iterations:N0}");
         _output.WriteLine($"Total time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
-        
+
         // Index access should be faster than name access
-        Assert.True(nanosPerOp < 10.0, 
+        Assert.True(nanosPerOp < 10.0,
             $"Index access performance {nanosPerOp:F2}ns should be under 10ns");
     }
 
@@ -143,7 +143,7 @@ public class ArrayRowPerformanceTests
         // Arrange
         const int iterations = 100_000;
         const double targetNanoseconds = 800.0; // Based on actual array copy + object allocation performance
-        
+
         // Warm up JIT
         for (int i = 0; i < 1_000; i++)
         {
@@ -157,24 +157,24 @@ public class ArrayRowPerformanceTests
 
         // Measure transformation performance
         var stopwatch = Stopwatch.StartNew();
-        
+
         for (int i = 0; i < iterations; i++)
         {
             _ = _testRow.With("Status", $"Updated_{i % 100}");
         }
-        
+
         stopwatch.Stop();
 
         // Calculate nanoseconds per operation
         var nanosPerOp = (stopwatch.Elapsed.TotalNanoseconds) / iterations;
-        
+
         _output.WriteLine($"Row transformation: {nanosPerOp:F2}ns per operation");
         _output.WriteLine($"Target: <{targetNanoseconds}ns per operation");
         _output.WriteLine($"Total iterations: {iterations:N0}");
         _output.WriteLine($"Total time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
-        
+
         // Assert reasonable transformation performance
-        Assert.True(nanosPerOp < targetNanoseconds, 
+        Assert.True(nanosPerOp < targetNanoseconds,
             $"Row transformation performance {nanosPerOp:F2}ns exceeds target of {targetNanoseconds}ns");
     }
 
@@ -184,7 +184,7 @@ public class ArrayRowPerformanceTests
         // Arrange
         const int iterations = 1_000_000;
         const double targetNanoseconds = 20.0; // Schema lookup with FrozenDictionary (realistic for hash lookup)
-        
+
         // Warm up JIT
         for (int i = 0; i < 10_000; i++)
         {
@@ -198,24 +198,24 @@ public class ArrayRowPerformanceTests
 
         // Measure schema index lookup performance
         var stopwatch = Stopwatch.StartNew();
-        
+
         for (int i = 0; i < iterations; i++)
         {
             _ = _performanceSchema.GetIndex("CustomerId");
         }
-        
+
         stopwatch.Stop();
 
         // Calculate nanoseconds per operation
         var nanosPerOp = (stopwatch.Elapsed.TotalNanoseconds) / iterations;
-        
+
         _output.WriteLine($"Schema index lookup: {nanosPerOp:F2}ns per operation");
         _output.WriteLine($"Target: <{targetNanoseconds}ns per operation");
         _output.WriteLine($"Total iterations: {iterations:N0}");
         _output.WriteLine($"Total time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
-        
+
         // Schema lookups should be extremely fast
-        Assert.True(nanosPerOp < targetNanoseconds, 
+        Assert.True(nanosPerOp < targetNanoseconds,
             $"Schema lookup performance {nanosPerOp:F2}ns exceeds target of {targetNanoseconds}ns");
     }
 
@@ -225,11 +225,11 @@ public class ArrayRowPerformanceTests
         // Arrange
         const int rowCount = 10_000;
         const double targetRowsPerSecond = 200_000; // 200K rows/sec from CLAUDE.md
-        
+
         var rows = new ArrayRow[rowCount];
         for (int i = 0; i < rowCount; i++)
         {
-            var values = new object?[] 
+            var values = new object?[]
             {
                 1000 + i,
                 12000 + i,
@@ -258,7 +258,7 @@ public class ArrayRowPerformanceTests
 
         // Measure bulk processing performance
         var stopwatch = Stopwatch.StartNew();
-        
+
         long totalFieldAccesses = 0;
         for (int i = 0; i < rowCount; i++)
         {
@@ -269,21 +269,21 @@ public class ArrayRowPerformanceTests
             _ = row["Status"];
             totalFieldAccesses += 4;
         }
-        
+
         stopwatch.Stop();
 
         // Calculate throughput
         var rowsPerSecond = rowCount / stopwatch.Elapsed.TotalSeconds;
         var fieldAccessesPerSecond = totalFieldAccesses / stopwatch.Elapsed.TotalSeconds;
-        
+
         _output.WriteLine($"Bulk processing throughput: {rowsPerSecond:F0} rows/sec");
         _output.WriteLine($"Field access throughput: {fieldAccessesPerSecond:F0} accesses/sec");
         _output.WriteLine($"Target: >{targetRowsPerSecond:F0} rows/sec");
         _output.WriteLine($"Total rows processed: {rowCount:N0}");
         _output.WriteLine($"Total time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
-        
+
         // Assert throughput target
-        Assert.True(rowsPerSecond > targetRowsPerSecond, 
+        Assert.True(rowsPerSecond > targetRowsPerSecond,
             $"Bulk processing throughput {rowsPerSecond:F0} rows/sec is below target of {targetRowsPerSecond:F0} rows/sec");
     }
 }

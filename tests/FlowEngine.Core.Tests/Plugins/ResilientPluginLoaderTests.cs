@@ -77,7 +77,9 @@ public class ResilientPluginLoaderTests : IDisposable
         finally
         {
             if (File.Exists(assemblyPath))
+            {
                 File.Delete(assemblyPath);
+            }
         }
     }
 
@@ -118,7 +120,9 @@ public class ResilientPluginLoaderTests : IDisposable
         finally
         {
             if (File.Exists(assemblyPath))
+            {
                 File.Delete(assemblyPath);
+            }
         }
     }
 
@@ -151,7 +155,9 @@ public class ResilientPluginLoaderTests : IDisposable
         finally
         {
             if (File.Exists(assemblyPath))
+            {
                 File.Delete(assemblyPath);
+            }
         }
     }
 
@@ -198,13 +204,13 @@ public class ResilientPluginLoaderTests : IDisposable
     public void Constructor_NullArguments_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => 
+        Assert.Throws<ArgumentNullException>(() =>
             new ResilientPluginLoader(null!, _mockRetryPolicy, _mockLogger));
-        
-        Assert.Throws<ArgumentNullException>(() => 
+
+        Assert.Throws<ArgumentNullException>(() =>
             new ResilientPluginLoader(_mockBaseLoader, null!, _mockLogger));
-        
-        Assert.Throws<ArgumentNullException>(() => 
+
+        Assert.Throws<ArgumentNullException>(() =>
             new ResilientPluginLoader(_mockBaseLoader, _mockRetryPolicy, null!));
     }
 
@@ -231,7 +237,7 @@ public class ResilientPluginLoaderTests : IDisposable
             Status = PluginStatus.Loaded
         };
         var mockPlugin = Substitute.For<IPlugin>();
-        
+
         _mockBaseLoader.PluginLoaded += Raise.EventWith(new PluginLoadedEventArgs(mockPluginInfo, mockPlugin));
         _mockBaseLoader.PluginUnloaded += Raise.EventWith(new PluginUnloadedEventArgs(mockPluginInfo));
         _mockBaseLoader.PluginLoadFailed += Raise.EventWith(new PluginLoadFailedEventArgs("test-assembly", "test-type", new Exception("test")));
@@ -280,7 +286,9 @@ public class ResilientPluginLoaderTests : IDisposable
         finally
         {
             if (File.Exists(assemblyPath))
+            {
                 File.Delete(assemblyPath);
+            }
         }
     }
 

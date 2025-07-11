@@ -1,5 +1,6 @@
 using FlowEngine.Abstractions;
 using FlowEngine.Abstractions.Configuration;
+using FlowEngine.Abstractions.Plugins;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -20,6 +21,38 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     internal PipelineConfiguration(PipelineConfigurationData data)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
+
+        // Initialize plugins without type resolution (will be resolved later)
+        Plugins = _data.Pipeline?.Plugins?.Select(p => new PluginConfiguration(p)).ToArray() ?? Array.Empty<IPluginDefinition>();
+    }
+
+    /// <summary>
+    /// Initializes plugin type resolution using the provided resolver.
+    /// </summary>
+    /// <param name="typeResolver">Plugin type resolver service</param>
+    internal async Task InitializePluginTypesAsync(IPluginTypeResolver typeResolver)
+    {
+        if (_data.Pipeline?.Plugins == null || _data.Pipeline.Plugins.Count == 0)
+        {
+            return;
+        }
+
+        var resolvedPlugins = new List<IPluginDefinition>();
+
+        foreach (var pluginData in _data.Pipeline.Plugins)
+        {
+            PluginTypeResolution? resolution = null;
+
+            // Try to resolve the type if it looks like a short name
+            if (!string.IsNullOrEmpty(pluginData.Type) && !pluginData.Type.Contains('.'))
+            {
+                resolution = await typeResolver.ResolveTypeAsync(pluginData.Type);
+            }
+
+            resolvedPlugins.Add(new PluginConfiguration(pluginData, resolution));
+        }
+
+        Plugins = resolvedPlugins.AsReadOnly();
     }
 
     /// <inheritdoc />
@@ -32,8 +65,7 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     public string? Description => _data.Pipeline?.Description;
 
     /// <inheritdoc />
-    public IReadOnlyList<IPluginDefinition> Plugins =>
-        _data.Pipeline?.Plugins?.Select(p => new PluginConfiguration(p)).ToArray() ?? Array.Empty<IPluginDefinition>();
+    public IReadOnlyList<IPluginDefinition> Plugins { get; private set; } = Array.Empty<IPluginDefinition>();
 
     /// <inheritdoc />
     public IReadOnlyList<IConnectionConfiguration> Connections =>
@@ -53,25 +85,36 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
 
         // Validate required fields
         if (string.IsNullOrWhiteSpace(Name))
+        {
             errors.Add("Pipeline name is required");
+        }
 
         if (Plugins.Count == 0)
+        {
             errors.Add("Pipeline must contain at least one plugin");
+        }
 
         // Validate plugin names are unique
         var pluginNames = Plugins.Select(p => p.Name).ToList();
         var duplicateNames = pluginNames.GroupBy(n => n).Where(g => g.Count() > 1).Select(g => g.Key);
         foreach (var name in duplicateNames)
+        {
             errors.Add($"Duplicate plugin name: {name}");
+        }
 
         // Validate connections reference existing plugins
         var pluginNameSet = new HashSet<string>(pluginNames);
         foreach (var connection in Connections)
         {
             if (!pluginNameSet.Contains(connection.From))
+            {
                 errors.Add($"Connection references unknown source plugin: {connection.From}");
+            }
+
             if (!pluginNameSet.Contains(connection.To))
+            {
                 errors.Add($"Connection references unknown destination plugin: {connection.To}");
+            }
         }
 
         // Validate schema configurations
@@ -85,9 +128,9 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
             }
         }
 
-        return errors.Count > 0 
+        return errors.Count > 0
             ? ConfigurationValidationResult.Failure(errors.ToArray())
-            : warnings.Count > 0 
+            : warnings.Count > 0
                 ? ConfigurationValidationResult.SuccessWithWarnings(warnings.ToArray())
                 : ConfigurationValidationResult.Success();
     }
@@ -100,10 +143,22 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     /// <exception cref="ConfigurationException">Thrown when loading or parsing fails</exception>
     public static async Task<IPipelineConfiguration> LoadFromFileAsync(string filePath)
     {
+        return await LoadFromFileAsync(filePath, null);
+    }
+
+    /// <summary>
+    /// Loads a pipeline configuration from a YAML file with automatic plugin type resolution.
+    /// </summary>
+    /// <param name="filePath">Path to the YAML configuration file</param>
+    /// <param name="typeResolver">Optional plugin type resolver for short name resolution</param>
+    /// <returns>Loaded pipeline configuration</returns>
+    /// <exception cref="ConfigurationException">Thrown when loading or parsing fails</exception>
+    public static async Task<IPipelineConfiguration> LoadFromFileAsync(string filePath, IPluginTypeResolver? typeResolver)
+    {
         try
         {
             var yamlContent = await File.ReadAllTextAsync(filePath);
-            return LoadFromYaml(yamlContent);
+            return LoadFromYaml(yamlContent, typeResolver);
         }
         catch (Exception ex) when (!(ex is ConfigurationException))
         {
@@ -119,6 +174,18 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     /// <exception cref="ConfigurationException">Thrown when parsing fails</exception>
     public static IPipelineConfiguration LoadFromYaml(string yamlContent)
     {
+        return LoadFromYaml(yamlContent, null);
+    }
+
+    /// <summary>
+    /// Loads a pipeline configuration from YAML content with automatic plugin type resolution.
+    /// </summary>
+    /// <param name="yamlContent">YAML configuration content</param>
+    /// <param name="typeResolver">Optional plugin type resolver for short name resolution</param>
+    /// <returns>Loaded pipeline configuration</returns>
+    /// <exception cref="ConfigurationException">Thrown when parsing fails</exception>
+    public static IPipelineConfiguration LoadFromYaml(string yamlContent, IPluginTypeResolver? typeResolver)
+    {
         try
         {
             var deserializer = new DeserializerBuilder()
@@ -127,6 +194,13 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
 
             var data = deserializer.Deserialize<PipelineConfigurationData>(yamlContent);
             var config = new PipelineConfiguration(data);
+
+            // Resolve plugin types if resolver is provided
+            if (typeResolver != null)
+            {
+                var task = config.InitializePluginTypesAsync(typeResolver);
+                task.Wait(); // Synchronous wait for now, could be made async in the future
+            }
 
             // Validate the configuration
             var validation = config.Validate();

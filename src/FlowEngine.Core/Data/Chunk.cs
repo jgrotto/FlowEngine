@@ -92,7 +92,7 @@ public sealed class Chunk : IChunk
         get
         {
             ThrowIfDisposed();
-            
+
             if ((uint)index >= (uint)_rows.Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(index), index, "Index is out of range");
@@ -121,23 +121,23 @@ public sealed class Chunk : IChunk
         get
         {
             ThrowIfDisposed();
-            
+
             // Rough estimation: object overhead + array + row references + metadata
             const int objectOverhead = 24; // Approximate object overhead on 64-bit
             const int referenceSize = 8;   // 64-bit reference size
-            
+
             long size = objectOverhead; // This object
             size += _rows.Length * referenceSize; // Array of row references
-            
+
             // Add estimated row sizes (simplified - actual implementation might be more sophisticated)
             size += _rows.Length * (_schema.ColumnCount * referenceSize + objectOverhead);
-            
+
             // Add metadata size if present
             if (_metadata != null)
             {
                 size += _metadata.Count * (referenceSize * 2 + objectOverhead); // Key-value pairs
             }
-            
+
             return size;
         }
     }
@@ -157,8 +157,8 @@ public sealed class Chunk : IChunk
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var combinedMetadata = _metadata == null 
-            ? metadata 
+        var combinedMetadata = _metadata == null
+            ? metadata
             : new Dictionary<string, object>(_metadata).Concat(metadata).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
         return new Chunk(_schema, _rows, combinedMetadata, skipValidation: true);
@@ -168,7 +168,7 @@ public sealed class Chunk : IChunk
     public IEnumerable<IArrayRow> GetRows()
     {
         ThrowIfDisposed();
-        
+
         // Return a copy to prevent modification during enumeration
         for (int i = 0; i < _rows.Length; i++)
         {
@@ -237,7 +237,7 @@ public sealed class Chunk : IChunk
     public IEnumerable<IChunk> Split(int chunkSize)
     {
         ThrowIfDisposed();
-        
+
         if (chunkSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be positive");

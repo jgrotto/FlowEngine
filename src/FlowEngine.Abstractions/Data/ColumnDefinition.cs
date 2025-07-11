@@ -64,13 +64,19 @@ public sealed record ColumnDefinition
     public bool IsValid()
     {
         if (string.IsNullOrWhiteSpace(Name))
+        {
             return false;
+        }
 
         if (Index < 0)
+        {
             return false;
+        }
 
         if (DataType == null)
+        {
             return false;
+        }
 
         return true;
     }

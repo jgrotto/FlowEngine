@@ -35,7 +35,7 @@ public sealed class StructuredLogger : IDisposable
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _configuration = configuration ?? new StructuredLoggingConfiguration();
-        
+
         // Add default context
         AddContext("MachineName", Environment.MachineName);
         AddContext("ProcessId", Environment.ProcessId);
@@ -48,7 +48,9 @@ public sealed class StructuredLogger : IDisposable
     public void AddContext(string key, object value)
     {
         if (string.IsNullOrEmpty(key))
+        {
             throw new ArgumentException("Key cannot be null or empty", nameof(key));
+        }
 
         lock (_lock)
         {
@@ -62,7 +64,9 @@ public sealed class StructuredLogger : IDisposable
     public void RemoveContext(string key)
     {
         if (string.IsNullOrEmpty(key))
+        {
             return;
+        }
 
         lock (_lock)
         {
@@ -91,14 +95,14 @@ public sealed class StructuredLogger : IDisposable
             }
         }
 
-        LogStructured(logLevel, "Performance metric recorded for operation {Operation} in {Duration}ms", 
+        LogStructured(logLevel, "Performance metric recorded for operation {Operation} in {Duration}ms",
             perfData, operation, duration.TotalMilliseconds);
     }
 
     /// <summary>
     /// Logs plugin-related structured information.
     /// </summary>
-    public void LogPlugin(LogLevel logLevel, string message, string pluginName, string? assemblyPath = null, 
+    public void LogPlugin(LogLevel logLevel, string message, string pluginName, string? assemblyPath = null,
         string? typeName = null, Dictionary<string, object>? additionalData = null)
     {
         var pluginData = new Dictionary<string, object>
@@ -114,7 +118,9 @@ public sealed class StructuredLogger : IDisposable
         }
 
         if (!string.IsNullOrEmpty(typeName))
+        {
             pluginData["type_name"] = typeName;
+        }
 
         if (additionalData != null)
         {
@@ -130,7 +136,7 @@ public sealed class StructuredLogger : IDisposable
     /// <summary>
     /// Logs data processing structured information.
     /// </summary>
-    public void LogDataProcessing(LogLevel logLevel, string message, int? rowCount = null, int? columnCount = null, 
+    public void LogDataProcessing(LogLevel logLevel, string message, int? rowCount = null, int? columnCount = null,
         string? schemaName = null, TimeSpan? processingTime = null, Dictionary<string, object>? additionalData = null)
     {
         var dataData = new Dictionary<string, object>
@@ -139,15 +145,24 @@ public sealed class StructuredLogger : IDisposable
         };
 
         if (rowCount.HasValue)
+        {
             dataData["row_count"] = rowCount.Value;
+        }
+
         if (columnCount.HasValue)
+        {
             dataData["column_count"] = columnCount.Value;
+        }
+
         if (!string.IsNullOrEmpty(schemaName))
+        {
             dataData["schema_name"] = schemaName;
+        }
+
         if (processingTime.HasValue)
         {
             dataData["processing_time_ms"] = processingTime.Value.TotalMilliseconds;
-            dataData["rows_per_second"] = rowCount.HasValue && processingTime.Value.TotalSeconds > 0 
+            dataData["rows_per_second"] = rowCount.HasValue && processingTime.Value.TotalSeconds > 0
                 ? rowCount.Value / processingTime.Value.TotalSeconds : 0;
         }
 
@@ -165,7 +180,7 @@ public sealed class StructuredLogger : IDisposable
     /// <summary>
     /// Logs memory-related structured information.
     /// </summary>
-    public void LogMemory(LogLevel logLevel, string message, long? memoryUsed = null, long? memoryRequested = null, 
+    public void LogMemory(LogLevel logLevel, string message, long? memoryUsed = null, long? memoryRequested = null,
         double? memoryPressure = null, Dictionary<string, object>? additionalData = null)
     {
         var memoryData = new Dictionary<string, object>
@@ -176,11 +191,19 @@ public sealed class StructuredLogger : IDisposable
         };
 
         if (memoryUsed.HasValue)
+        {
             memoryData["memory_used_mb"] = memoryUsed.Value / (1024.0 * 1024.0);
+        }
+
         if (memoryRequested.HasValue)
+        {
             memoryData["memory_requested_mb"] = memoryRequested.Value / (1024.0 * 1024.0);
+        }
+
         if (memoryPressure.HasValue)
+        {
             memoryData["memory_pressure"] = memoryPressure.Value;
+        }
 
         if (additionalData != null)
         {
@@ -233,7 +256,9 @@ public sealed class StructuredLogger : IDisposable
     public void LogStructured(LogLevel logLevel, string message, Dictionary<string, object>? data = null, params object[] args)
     {
         if (!_logger.IsEnabled(logLevel))
+        {
             return;
+        }
 
         var enrichedData = new Dictionary<string, object>();
 
@@ -249,7 +274,7 @@ public sealed class StructuredLogger : IDisposable
         // Add runtime context
         enrichedData["timestamp"] = DateTimeOffset.UtcNow;
         enrichedData["log_level"] = logLevel.ToString();
-        
+
         // Add activity context if available
         var activity = Activity.Current;
         if (activity != null)
@@ -257,7 +282,7 @@ public sealed class StructuredLogger : IDisposable
             enrichedData["activity_id"] = activity.Id;
             enrichedData["trace_id"] = activity.TraceId.ToString();
             enrichedData["span_id"] = activity.SpanId.ToString();
-            
+
             // Add activity tags
             foreach (var tag in activity.Tags.Take(_configuration.MaxActivityTags))
             {
@@ -276,7 +301,7 @@ public sealed class StructuredLogger : IDisposable
 
         // Use log scope for structured data
         using var scope = _logger.BeginScope(enrichedData);
-        
+
         if (args.Length > 0 && args[0] is Exception exception)
         {
             _logger.Log(logLevel, exception, message, args.Skip(1).ToArray());
@@ -307,7 +332,7 @@ public sealed class StructuredLogger : IDisposable
     public StructuredLogger CreateChildLogger(string contextKey, object contextValue)
     {
         var childLogger = new StructuredLogger(_logger, _configuration);
-        
+
         // Copy existing context
         lock (_lock)
         {
@@ -316,17 +341,19 @@ public sealed class StructuredLogger : IDisposable
                 childLogger.AddContext(kvp.Key, kvp.Value);
             }
         }
-        
+
         // Add new context
         childLogger.AddContext(contextKey, contextValue);
-        
+
         return childLogger;
     }
 
     private void WriteToStructuredFile(LogLevel logLevel, string message, Dictionary<string, object> data)
     {
         if (string.IsNullOrEmpty(_configuration.StructuredLogFilePath))
+        {
             return;
+        }
 
         try
         {
@@ -356,7 +383,10 @@ public sealed class StructuredLogger : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
@@ -381,22 +411,22 @@ public sealed class StructuredLoggingConfiguration
     /// Gets or sets whether to enable structured file output.
     /// </summary>
     public bool EnableStructuredFileOutput { get; set; } = false;
-    
+
     /// <summary>
     /// Gets or sets the file path for structured log output.
     /// </summary>
     public string? StructuredLogFilePath { get; set; }
-    
+
     /// <summary>
     /// Gets or sets the maximum number of activity tags to include.
     /// </summary>
     public int MaxActivityTags { get; set; } = 10;
-    
+
     /// <summary>
     /// Gets or sets whether to include sensitive data in logs.
     /// </summary>
     public bool IncludeSensitiveData { get; set; } = false;
-    
+
     /// <summary>
     /// Gets or sets the maximum size of structured data to log.
     /// </summary>
@@ -445,7 +475,10 @@ public sealed class PerformanceScope : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
@@ -512,7 +545,7 @@ public static class StructuredLoggerExtensions
     /// </summary>
     public static void LogPluginLoading(this StructuredLogger logger, string pluginName, string assemblyPath, string typeName)
     {
-        logger.LogPlugin(LogLevel.Information, "Loading plugin {PluginName} from {AssemblyPath}", 
+        logger.LogPlugin(LogLevel.Information, "Loading plugin {PluginName} from {AssemblyPath}",
             pluginName, assemblyPath, typeName, new Dictionary<string, object>
             {
                 ["event"] = "plugin_loading"
@@ -524,7 +557,7 @@ public static class StructuredLoggerExtensions
     /// </summary>
     public static void LogPluginLoaded(this StructuredLogger logger, string pluginName, TimeSpan loadTime)
     {
-        logger.LogPlugin(LogLevel.Information, "Plugin {PluginName} loaded successfully in {LoadTime}ms", 
+        logger.LogPlugin(LogLevel.Information, "Plugin {PluginName} loaded successfully in {LoadTime}ms",
             pluginName, additionalData: new Dictionary<string, object>
             {
                 ["event"] = "plugin_loaded",

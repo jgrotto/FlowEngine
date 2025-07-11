@@ -10,20 +10,22 @@ namespace FlowEngine.Core.Configuration;
 internal sealed class PluginConfiguration : IPluginDefinition
 {
     private readonly PluginData _data;
+    private readonly PluginTypeResolution? _typeResolution;
 
-    public PluginConfiguration(PluginData data)
+    public PluginConfiguration(PluginData data, PluginTypeResolution? typeResolution = null)
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
+        _typeResolution = typeResolution;
     }
 
     /// <inheritdoc />
     public string Name => _data.Name ?? throw new InvalidOperationException("Plugin name is required");
 
     /// <inheritdoc />
-    public string Type => _data.Type ?? throw new InvalidOperationException("Plugin type is required");
+    public string Type => _typeResolution?.FullTypeName ?? _data.Type ?? throw new InvalidOperationException("Plugin type is required");
 
     /// <inheritdoc />
-    public string? AssemblyPath => _data.Assembly;
+    public string? AssemblyPath => _typeResolution?.AssemblyPath ?? _data.Assembly;
 
     /// <inheritdoc />
     public ISchemaDefinition? InputSchema => null; // TODO: Implement schema parsing
@@ -32,7 +34,7 @@ internal sealed class PluginConfiguration : IPluginDefinition
     public ISchemaDefinition? OutputSchema => null; // TODO: Implement schema parsing
 
     /// <inheritdoc />
-    public IReadOnlyDictionary<string, object> Configuration => 
+    public IReadOnlyDictionary<string, object> Configuration =>
         _data.Config ?? (IReadOnlyDictionary<string, object>)new Dictionary<string, object>();
 
     /// <inheritdoc />
@@ -45,6 +47,6 @@ internal sealed class PluginConfiguration : IPluginDefinition
     public string? Assembly => _data.Assembly;
     public ISchemaConfiguration? Schema => _data.Schema != null ? new SchemaConfiguration(_data.Schema) : null;
     public IReadOnlyDictionary<string, object> Config => Configuration;
-    public IResourceLimits? ResourceLimits => 
+    public IResourceLimits? ResourceLimits =>
         _data.ResourceLimits != null ? new ResourceLimits(_data.ResourceLimits) : null;
 }

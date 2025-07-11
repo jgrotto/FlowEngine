@@ -27,15 +27,15 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public void RecordWrite(string channelName, int chunkSize, int queueDepth)
     {
         ThrowIfDisposed();
-        
+
         var stats = GetOrCreateChannelStats(channelName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordWrite(chunkSize, queueDepth);
         }
-        
-        _logger.LogDebug("Recorded write to channel {Channel}: {ChunkSize} rows, queue depth {QueueDepth}", 
+
+        _logger.LogDebug("Recorded write to channel {Channel}: {ChunkSize} rows, queue depth {QueueDepth}",
             channelName, chunkSize, queueDepth);
     }
 
@@ -43,15 +43,15 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public void RecordRead(string channelName, int chunkSize, TimeSpan waitTime)
     {
         ThrowIfDisposed();
-        
+
         var stats = GetOrCreateChannelStats(channelName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordRead(chunkSize, waitTime);
         }
-        
-        _logger.LogDebug("Recorded read from channel {Channel}: {ChunkSize} rows, wait time {WaitTime}ms", 
+
+        _logger.LogDebug("Recorded read from channel {Channel}: {ChunkSize} rows, wait time {WaitTime}ms",
             channelName, chunkSize, waitTime.TotalMilliseconds);
     }
 
@@ -59,15 +59,15 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public void RecordBackpressure(string channelName, int queueDepth, TimeSpan waitTime)
     {
         ThrowIfDisposed();
-        
+
         var stats = GetOrCreateChannelStats(channelName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordBackpressure(queueDepth, waitTime);
         }
-        
-        _logger.LogWarning("Recorded backpressure on channel {Channel}: queue depth {QueueDepth}, wait time {WaitTime}ms", 
+
+        _logger.LogWarning("Recorded backpressure on channel {Channel}: queue depth {QueueDepth}, wait time {WaitTime}ms",
             channelName, queueDepth, waitTime.TotalMilliseconds);
     }
 
@@ -75,15 +75,15 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public void RecordTimeout(string channelName, string operation, TimeSpan timeout)
     {
         ThrowIfDisposed();
-        
+
         var stats = GetOrCreateChannelStats(channelName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordTimeout(operation);
         }
-        
-        _logger.LogError("Recorded timeout on channel {Channel}: {Operation} operation, timeout {Timeout}ms", 
+
+        _logger.LogError("Recorded timeout on channel {Channel}: {Operation} operation, timeout {Timeout}ms",
             channelName, operation, timeout.TotalMilliseconds);
     }
 
@@ -91,16 +91,16 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public void RecordBufferUtilization(string channelName, int bufferSize, int usedSize)
     {
         ThrowIfDisposed();
-        
+
         var stats = GetOrCreateChannelStats(channelName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordBufferUtilization(bufferSize, usedSize);
         }
-        
+
         var utilization = bufferSize > 0 ? (double)usedSize / bufferSize * 100 : 0;
-        _logger.LogDebug("Recorded buffer utilization for channel {Channel}: {Utilization:F1}% ({Used}/{Total})", 
+        _logger.LogDebug("Recorded buffer utilization for channel {Channel}: {Utilization:F1}% ({Used}/{Total})",
             channelName, utilization, usedSize, bufferSize);
     }
 
@@ -108,10 +108,12 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public ChannelTelemetryData? GetChannelTelemetry(string channelName)
     {
         ThrowIfDisposed();
-        
+
         if (!_channelStats.TryGetValue(channelName, out var stats))
+        {
             return null;
-            
+        }
+
         lock (stats.Lock)
         {
             return stats.ToTelemetryData();
@@ -122,9 +124,9 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public IReadOnlyDictionary<string, ChannelTelemetryData> GetAllChannelTelemetry()
     {
         ThrowIfDisposed();
-        
+
         var result = new Dictionary<string, ChannelTelemetryData>();
-        
+
         foreach (var kvp in _channelStats)
         {
             lock (kvp.Value.Lock)
@@ -132,7 +134,7 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
                 result[kvp.Key] = kvp.Value.ToTelemetryData();
             }
         }
-        
+
         return result;
     }
 
@@ -140,14 +142,14 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public void ResetChannelTelemetry(string channelName)
     {
         ThrowIfDisposed();
-        
+
         if (_channelStats.TryGetValue(channelName, out var stats))
         {
             lock (stats.Lock)
             {
                 stats.Reset();
             }
-            
+
             _logger.LogInformation("Reset telemetry for channel {Channel}", channelName);
         }
     }
@@ -156,19 +158,22 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public bool HasPerformanceIssues(string channelName)
     {
         ThrowIfDisposed();
-        
+
         var telemetry = GetChannelTelemetry(channelName);
-        if (telemetry == null) return false;
-        
+        if (telemetry == null)
+        {
+            return false;
+        }
+
         // Consider performance issues if:
         // 1. High backpressure events (>10% of operations)
         // 2. High buffer utilization (>90%)
         // 3. Frequent timeouts
         // 4. Low throughput with high wait times
-        
+
         var totalOps = telemetry.TotalChunksRead + telemetry.TotalChunksWritten;
         var backpressureRatio = totalOps > 0 ? (double)telemetry.TotalBackpressureEvents / totalOps : 0;
-        
+
         return backpressureRatio > 0.1 ||
                telemetry.CurrentBufferUtilization > 90 ||
                telemetry.TimeoutEvents > 0 ||
@@ -179,18 +184,21 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     public IReadOnlyList<string> GetPerformanceRecommendations(string channelName)
     {
         ThrowIfDisposed();
-        
+
         var telemetry = GetChannelTelemetry(channelName);
-        if (telemetry == null) return Array.Empty<string>();
-        
+        if (telemetry == null)
+        {
+            return Array.Empty<string>();
+        }
+
         var recommendations = new List<string>();
-        
+
         // High buffer utilization
         if (telemetry.CurrentBufferUtilization > 90)
         {
             recommendations.Add("Consider increasing buffer size to reduce backpressure");
         }
-        
+
         // High backpressure
         var totalOps = telemetry.TotalChunksRead + telemetry.TotalChunksWritten;
         var backpressureRatio = totalOps > 0 ? (double)telemetry.TotalBackpressureEvents / totalOps : 0;
@@ -198,13 +206,13 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
         {
             recommendations.Add("High backpressure detected - consider optimizing consumer performance");
         }
-        
+
         // Frequent timeouts
         if (telemetry.TimeoutEvents > 0)
         {
             recommendations.Add("Timeout events detected - consider increasing timeout duration or optimizing processing");
         }
-        
+
         // Imbalanced read/write rates
         var writeRate = telemetry.TotalChunksWritten;
         var readRate = telemetry.TotalChunksRead;
@@ -220,13 +228,13 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
                 recommendations.Add("Consumer is significantly faster than producer - consider optimizing producer or reducing consumer count");
             }
         }
-        
+
         // Low throughput with high wait times
         if (telemetry.AverageReadWaitTime.TotalMilliseconds > 100 && telemetry.CurrentThroughput < 1000)
         {
             recommendations.Add("Low throughput with high wait times - consider optimizing data flow or increasing parallelism");
         }
-        
+
         return recommendations;
     }
 
@@ -238,7 +246,9 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(ChannelTelemetry));
+        }
     }
 
     /// <inheritdoc />
@@ -246,7 +256,7 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     {
         if (!_disposed)
         {
-            _logger.LogInformation("Disposing ChannelTelemetry, tracked {ChannelCount} channels", 
+            _logger.LogInformation("Disposing ChannelTelemetry, tracked {ChannelCount} channels",
                 _channelStats.Count);
             _disposed = true;
         }
@@ -259,7 +269,7 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
     {
         public string ChannelName { get; }
         public object Lock { get; } = new();
-        
+
         private long _totalChunksWritten;
         private long _totalChunksRead;
         private long _totalRowsWritten;
@@ -292,10 +302,12 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
             _totalRowsWritten += chunkSize;
             _totalWriteSize += chunkSize;
             _currentQueueDepth = queueDepth;
-            
+
             if (queueDepth > _maxQueueDepth)
+            {
                 _maxQueueDepth = queueDepth;
-                
+            }
+
             _lastUpdated = DateTimeOffset.UtcNow;
         }
 
@@ -326,14 +338,14 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
         {
             _currentBufferSize = bufferSize;
             _currentUsedSize = usedSize;
-            
+
             if (bufferSize > 0)
             {
                 var utilization = (double)usedSize / bufferSize * 100;
                 _bufferUtilizationSum += utilization;
                 _bufferUtilizationSamples++;
             }
-            
+
             _lastUpdated = DateTimeOffset.UtcNow;
         }
 
@@ -361,12 +373,12 @@ public sealed class ChannelTelemetry : IChannelTelemetry, IDisposable
         {
             var averageWriteChunkSize = _totalChunksWritten > 0 ? (double)_totalWriteSize / _totalChunksWritten : 0;
             var averageReadChunkSize = _totalChunksRead > 0 ? (double)_totalReadSize / _totalChunksRead : 0;
-            var averageReadWaitTime = _totalChunksRead > 0 
+            var averageReadWaitTime = _totalChunksRead > 0
                 ? TimeSpan.FromTicks(_totalReadWaitTime.Ticks / _totalChunksRead)
                 : TimeSpan.Zero;
             var averageBufferUtilization = _bufferUtilizationSamples > 0 ? _bufferUtilizationSum / _bufferUtilizationSamples : 0;
             var currentBufferUtilization = _currentBufferSize > 0 ? (double)_currentUsedSize / _currentBufferSize * 100 : 0;
-            
+
             var elapsedTime = _lastUpdated - _startTime;
             var currentThroughput = elapsedTime.TotalSeconds > 0 ? _totalRowsRead / elapsedTime.TotalSeconds : 0;
             var averageThroughput = currentThroughput; // For now, same as current

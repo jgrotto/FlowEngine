@@ -32,14 +32,14 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _schemaFactory = schemaFactory ?? throw new ArgumentNullException(nameof(schemaFactory));
-        
+
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
             WriteIndented = true,
             AllowTrailingCommas = true
         };
-        
+
         // Register default mappings for known plugin types
         RegisterDefaultMappings();
     }
@@ -52,9 +52,11 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     public async Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateConfigurationAsync(IPluginDefinition definition)
     {
         if (definition == null)
+        {
             throw new ArgumentNullException(nameof(definition));
+        }
 
-        _logger.LogDebug("Creating configuration for plugin '{PluginName}' of type '{PluginType}'", 
+        _logger.LogDebug("Creating configuration for plugin '{PluginName}' of type '{PluginType}'",
             definition.Name, definition.Type);
 
         try
@@ -80,7 +82,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create configuration for plugin '{PluginName}' of type '{PluginType}'", 
+            _logger.LogError(ex, "Failed to create configuration for plugin '{PluginName}' of type '{PluginType}'",
                 definition.Name, definition.Type);
             throw new PluginLoadException($"Failed to create configuration: {ex.Message}", ex);
         }
@@ -94,10 +96,14 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     public void RegisterMapping(string pluginType, PluginConfigurationMapping mapping)
     {
         if (string.IsNullOrWhiteSpace(pluginType))
+        {
             throw new ArgumentException("Plugin type cannot be null or empty", nameof(pluginType));
-        
+        }
+
         if (mapping == null)
+        {
             throw new ArgumentNullException(nameof(mapping));
+        }
 
         _mappings.AddOrUpdate(pluginType, mapping, (key, oldValue) => mapping);
         _logger.LogInformation("Registered configuration mapping for plugin type '{PluginType}'", pluginType);
@@ -136,20 +142,22 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     /// <summary>
     /// Creates configuration for DelimitedSource plugin using its own configuration type.
     /// </summary>
-    private async Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateDelimitedSourceConfigurationAsync(IPluginDefinition definition)
+    private Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateDelimitedSourceConfigurationAsync(IPluginDefinition definition)
     {
         var config = definition.Configuration ?? new Dictionary<string, object>();
-        
+
         // Use reflection to create the plugin's own configuration type
         var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for DelimitedSource plugin");
         var assembly = Assembly.LoadFrom(assemblyPath);
         var configType = assembly.GetType("DelimitedSource.DelimitedSourceConfiguration");
-        
+
         if (configType == null)
+        {
             throw new PluginLoadException("DelimitedSourceConfiguration type not found in plugin assembly");
+        }
 
         // Extract configuration values
-        var filePath = ExtractConfigValue<string>(config, "FilePath") ?? 
+        var filePath = ExtractConfigValue<string>(config, "FilePath") ??
             throw new PluginLoadException("FilePath is required for DelimitedSource plugin");
         var hasHeaders = ExtractConfigValue<bool>(config, "HasHeaders", true);
         var delimiter = ExtractConfigValue<string>(config, "Delimiter", ",");
@@ -159,7 +167,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         var inferenceSampleRows = ExtractConfigValue<int>(config, "InferenceSampleRows", 100);
         var skipMalformedRows = ExtractConfigValue<bool>(config, "SkipMalformedRows", false);
         var maxErrors = ExtractConfigValue<int>(config, "MaxErrors", 0);
-        
+
         // Extract OutputSchema if provided
         ISchema? outputSchema = null;
         if (config.TryGetValue("OutputSchema", out var schemaConfig) && schemaConfig != null)
@@ -169,7 +177,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
 
         // Create instance using object initializer pattern via reflection
         var configInstance = Activator.CreateInstance(configType);
-        
+
         // Set properties using reflection
         SetInitProperty(configInstance, "FilePath", filePath);
         SetInitProperty(configInstance, "HasHeaders", hasHeaders);
@@ -180,33 +188,35 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         SetInitProperty(configInstance, "InferenceSampleRows", inferenceSampleRows);
         SetInitProperty(configInstance, "SkipMalformedRows", skipMalformedRows);
         SetInitProperty(configInstance, "MaxErrors", maxErrors);
-        
+
         // Set OutputSchema if provided
         if (outputSchema != null)
         {
             SetInitProperty(configInstance, "OutputSchema", outputSchema);
         }
-        
-        return (FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance;
+
+        return Task.FromResult((FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance);
     }
 
     /// <summary>
     /// Creates configuration for DelimitedSink plugin using its own configuration type.
     /// </summary>
-    private async Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateDelimitedSinkConfigurationAsync(IPluginDefinition definition)
+    private Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateDelimitedSinkConfigurationAsync(IPluginDefinition definition)
     {
         var config = definition.Configuration ?? new Dictionary<string, object>();
-        
+
         // Use reflection to create the plugin's own configuration type
         var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for DelimitedSink plugin");
         var assembly = Assembly.LoadFrom(assemblyPath);
         var configType = assembly.GetType("DelimitedSink.DelimitedSinkConfiguration");
-        
+
         if (configType == null)
+        {
             throw new PluginLoadException("DelimitedSinkConfiguration type not found in plugin assembly");
+        }
 
         // Extract configuration values
-        var filePath = ExtractConfigValue<string>(config, "FilePath") ?? 
+        var filePath = ExtractConfigValue<string>(config, "FilePath") ??
             throw new PluginLoadException("FilePath is required for DelimitedSink plugin");
         var includeHeaders = ExtractConfigValue<bool>(config, "HasHeaders", true); // Map HasHeaders to IncludeHeaders
         var delimiter = ExtractConfigValue<string>(config, "Delimiter", ",");
@@ -218,7 +228,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
 
         // Create instance using object initializer pattern via reflection
         var configInstance = Activator.CreateInstance(configType);
-        
+
         // Set properties using reflection (use correct property names from plugin)
         SetInitProperty(configInstance, "FilePath", filePath);
         SetInitProperty(configInstance, "IncludeHeaders", includeHeaders);
@@ -228,17 +238,17 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         SetInitProperty(configInstance, "FlushInterval", flushInterval);
         SetInitProperty(configInstance, "CreateDirectories", createDirectories);
         SetInitProperty(configInstance, "OverwriteExisting", overwriteExisting);
-        
-        return (FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance;
+
+        return Task.FromResult((FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance);
     }
 
     /// <summary>
     /// Creates configuration for JavaScriptTransform plugin using its own configuration type.
     /// </summary>
-    private async Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateJavaScriptTransformConfigurationAsync(IPluginDefinition definition)
+    private Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateJavaScriptTransformConfigurationAsync(IPluginDefinition definition)
     {
         var config = definition.Configuration ?? new Dictionary<string, object>();
-        
+
         // Use reflection to create the plugin's own configuration type
         var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for JavaScriptTransform plugin");
         var assembly = Assembly.LoadFrom(assemblyPath);
@@ -247,29 +257,31 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         var outputSchemaConfigType = assembly.GetType("JavaScriptTransform.OutputSchemaConfiguration");
         var outputFieldDefType = assembly.GetType("JavaScriptTransform.OutputFieldDefinition");
         var performanceConfigType = assembly.GetType("JavaScriptTransform.PerformanceConfiguration");
-        
+
         if (configType == null)
+        {
             throw new PluginLoadException("JavaScriptTransformConfiguration type not found in plugin assembly");
+        }
 
         // Extract configuration values
-        var script = ExtractConfigValue<string>(config, "Script") ?? 
+        var script = ExtractConfigValue<string>(config, "Script") ??
             throw new PluginLoadException("Script is required for JavaScriptTransform plugin");
         var timeoutSeconds = ExtractConfigValue<int>(config, "TimeoutSeconds", 30);
 
         // Create Engine configuration
         var engineConfig = Activator.CreateInstance(engineConfigType);
         SetInitProperty(engineConfig, "Timeout", timeoutSeconds * 1000); // Convert to milliseconds
-        
+
         // Create output schema configuration from YAML
         var outputSchemaConfig = Activator.CreateInstance(outputSchemaConfigType);
         var fieldsListType = typeof(List<>).MakeGenericType(outputFieldDefType);
         var fieldsList = Activator.CreateInstance(fieldsListType);
-        
+
         // Parse OutputSchema from YAML configuration if provided
         if (config.TryGetValue("OutputSchema", out var schemaConfig) && schemaConfig != null)
         {
             var schema = ParseSchemaFromConfig(schemaConfig);
-            
+
             // Convert schema columns to JavaScriptTransform output field definitions
             foreach (var column in schema.Columns)
             {
@@ -277,7 +289,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                 SetInitProperty(outputField, "Name", column.Name);
                 SetInitProperty(outputField, "Type", ConvertTypeToString(column.DataType));
                 SetInitProperty(outputField, "Required", !column.IsNullable);
-                
+
                 // Add the field to the list
                 var addMethod = fieldsListType.GetMethod("Add");
                 addMethod?.Invoke(fieldsList, new[] { outputField });
@@ -290,27 +302,27 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
             SetInitProperty(outputField, "Name", "result");
             SetInitProperty(outputField, "Type", "string");
             SetInitProperty(outputField, "Required", false);
-            
+
             // Add the field to the list
             var addMethod = fieldsListType.GetMethod("Add");
             addMethod?.Invoke(fieldsList, new[] { outputField });
         }
-        
+
         SetInitProperty(outputSchemaConfig, "Fields", fieldsList);
-        
+
         // Create Performance configuration
         var performanceConfig = Activator.CreateInstance(performanceConfigType);
-        
+
         // Create main configuration instance
         var configInstance = Activator.CreateInstance(configType);
-        
+
         // Set properties using reflection
         SetInitProperty(configInstance, "Script", script);
         SetInitProperty(configInstance, "Engine", engineConfig);
         SetInitProperty(configInstance, "OutputSchema", outputSchemaConfig);
         SetInitProperty(configInstance, "Performance", performanceConfig);
-        
-        return (FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance;
+
+        return Task.FromResult((FlowEngine.Abstractions.Plugins.IPluginConfiguration)configInstance);
     }
 
     // TemplatePlugin configuration method removed - will be handled by dynamic discovery fallback
@@ -322,15 +334,19 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     private async Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration?> DiscoverConfigurationTypeAsync(IPluginDefinition definition)
     {
         if (string.IsNullOrWhiteSpace(definition.AssemblyPath))
+        {
             return null;
+        }
 
         try
         {
             var assembly = Assembly.LoadFrom(definition.AssemblyPath);
             var pluginType = assembly.GetType(definition.Type);
-            
+
             if (pluginType == null)
+            {
                 return null;
+            }
 
             // Look for configuration type with common naming patterns
             var configTypeNames = new[]
@@ -345,9 +361,9 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                 var configType = assembly.GetType(configTypeName);
                 if (configType != null)
                 {
-                    _logger.LogDebug("Found configuration type '{ConfigType}' for plugin '{PluginType}'", 
+                    _logger.LogDebug("Found configuration type '{ConfigType}' for plugin '{PluginType}'",
                         configType.Name, definition.Type);
-                    
+
                     return await CreateDynamicConfigurationAsync(definition, configType);
                 }
             }
@@ -364,11 +380,11 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     /// <summary>
     /// Creates configuration dynamically using reflection.
     /// </summary>
-    private async Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateDynamicConfigurationAsync(IPluginDefinition definition, Type configType)
+    private Task<FlowEngine.Abstractions.Plugins.IPluginConfiguration> CreateDynamicConfigurationAsync(IPluginDefinition definition, Type configType)
     {
         var config = definition.Configuration ?? new Dictionary<string, object>();
         var configInstance = Activator.CreateInstance(configType);
-        
+
         // Map configuration properties using reflection
         foreach (var property in configType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
@@ -381,13 +397,13 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to set property '{PropertyName}' on configuration type '{ConfigType}'", 
+                    _logger.LogWarning(ex, "Failed to set property '{PropertyName}' on configuration type '{ConfigType}'",
                         property.Name, configType.Name);
                 }
             }
         }
 
-        return new DynamicPluginConfiguration(definition, configInstance);
+        return Task.FromResult<Abstractions.Plugins.IPluginConfiguration>(new DynamicPluginConfiguration(definition, configInstance));
     }
 
     /// <summary>
@@ -396,7 +412,9 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     private T? ExtractConfigValue<T>(IReadOnlyDictionary<string, object> config, string key, T? defaultValue = default)
     {
         if (!config.TryGetValue(key, out var value))
+        {
             return defaultValue;
+        }
 
         try
         {
@@ -404,7 +422,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to convert configuration value '{Key}' to type '{Type}', using default", 
+            _logger.LogWarning(ex, "Failed to convert configuration value '{Key}' to type '{Type}', using default",
                 key, typeof(T).Name);
             return defaultValue;
         }
@@ -416,28 +434,39 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     private object? ConvertValue(object? value, Type targetType)
     {
         if (value == null)
+        {
             return null;
+        }
 
         if (targetType.IsAssignableFrom(value.GetType()))
+        {
             return value;
+        }
 
         // Handle nullable types
         if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
             var underlyingType = Nullable.GetUnderlyingType(targetType);
             if (underlyingType != null)
+            {
                 return ConvertValue(value, underlyingType);
+            }
         }
 
         // Handle string conversion
         if (targetType == typeof(string))
+        {
             return value.ToString();
+        }
 
         // Handle enum conversion
         if (targetType.IsEnum)
         {
             if (value is string stringValue)
+            {
                 return Enum.Parse(targetType, stringValue, true);
+            }
+
             return Enum.ToObject(targetType, value);
         }
 
@@ -468,20 +497,22 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
     {
         var property = instance.GetType().GetProperty(propertyName);
         if (property == null)
+        {
             throw new PluginLoadException($"Property '{propertyName}' not found on configuration type");
+        }
 
         if (!property.CanWrite && property.SetMethod?.IsPublic != true)
         {
             // For init-only properties, we need to use the backing field or reflection tricks
-            var backingField = instance.GetType().GetField($"<{propertyName}>k__BackingField", 
+            var backingField = instance.GetType().GetField($"<{propertyName}>k__BackingField",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            
+
             if (backingField != null)
             {
                 backingField.SetValue(instance, value);
                 return;
             }
-            
+
             // Try alternative approach - use the init setter via reflection
             var setMethod = property.GetSetMethod(true); // Get non-public setter
             if (setMethod != null)
@@ -489,7 +520,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                 setMethod.Invoke(instance, new[] { value });
                 return;
             }
-            
+
             throw new PluginLoadException($"Unable to set init-only property '{propertyName}' on configuration type");
         }
         else
@@ -497,14 +528,14 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
             property.SetValue(instance, value);
         }
     }
-    
+
     /// <summary>
     /// Parses schema configuration from YAML into an ISchema object using the schema factory.
     /// </summary>
     private ISchema ParseSchemaFromConfig(object schemaConfig)
     {
         _logger.LogDebug("ParseSchemaFromConfig called with object type: {Type}", schemaConfig?.GetType().Name ?? "null");
-        
+
         // Handle different dictionary types from YAML parsing
         Dictionary<string, object> schemaDict;
         switch (schemaConfig)
@@ -527,20 +558,20 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                 }
                 break;
             default:
-                _logger.LogError("OutputSchema is not a dictionary. Actual type: {Type}, Value: {Value}", 
+                _logger.LogError("OutputSchema is not a dictionary. Actual type: {Type}, Value: {Value}",
                     schemaConfig?.GetType().Name ?? "null", schemaConfig?.ToString() ?? "null");
                 throw new PluginLoadException($"OutputSchema must be a dictionary, got: {schemaConfig?.GetType().Name ?? "null"}");
         }
-        
-        _logger.LogDebug("Schema dictionary has {Count} keys: {Keys}", 
+
+        _logger.LogDebug("Schema dictionary has {Count} keys: {Keys}",
             schemaDict.Count, string.Join(", ", schemaDict.Keys));
-        
+
         // Parse columns
         var columns = new List<ColumnDefinition>();
         if (schemaDict.TryGetValue("Columns", out var columnsObj))
         {
             _logger.LogDebug("Columns object type: {Type}", columnsObj?.GetType().Name ?? "null");
-            
+
             // Handle different list types from YAML parsing
             List<object> columnsList;
             switch (columnsObj)
@@ -559,13 +590,13 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                     _logger.LogError("Columns is not a list. Type: {Type}", columnsObj?.GetType().Name ?? "null");
                     throw new PluginLoadException($"Columns must be a list, got: {columnsObj?.GetType().Name ?? "null"}");
             }
-            
+
             _logger.LogDebug("Processing {Count} columns", columnsList.Count);
-            
+
             foreach (var columnObj in columnsList)
             {
                 _logger.LogDebug("Column object type: {Type}", columnObj?.GetType().Name ?? "null");
-                
+
                 // Convert column object to dictionary
                 Dictionary<string, object> columnDict;
                 switch (columnObj)
@@ -589,17 +620,17 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                         _logger.LogError("Column is not a dictionary. Type: {Type}", columnObj?.GetType().Name ?? "null");
                         continue; // Skip this column
                 }
-                
-                var columnName = ExtractConfigValue<string>(columnDict, "Name") ?? 
+
+                var columnName = ExtractConfigValue<string>(columnDict, "Name") ??
                     throw new PluginLoadException("Column Name is required");
-                var columnType = ExtractConfigValue<string>(columnDict, "Type") ?? 
+                var columnType = ExtractConfigValue<string>(columnDict, "Type") ??
                     throw new PluginLoadException("Column Type is required");
                 var index = ExtractConfigValue<int>(columnDict, "Index", 0);
                 var isNullable = ExtractConfigValue<bool>(columnDict, "IsNullable", false);
-                
-                _logger.LogDebug("Processing column: {Name}, Type: {Type}, Index: {Index}", 
+
+                _logger.LogDebug("Processing column: {Name}, Type: {Type}, Index: {Index}",
                     columnName, columnType, index);
-                
+
                 // Convert string type to .NET Type
                 var dataType = columnType.ToLowerInvariant() switch
                 {
@@ -610,7 +641,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
                     "datetime" => typeof(DateTime),
                     _ => throw new PluginLoadException($"Unsupported column type: {columnType}")
                 };
-                
+
                 columns.Add(new ColumnDefinition
                 {
                     Name = columnName,
@@ -624,13 +655,13 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         {
             _logger.LogWarning("No Columns found in schema dictionary");
         }
-        
+
         _logger.LogInformation("Created schema with {Count} columns", columns.Count);
-        
+
         // Use the schema factory to create the schema
         return _schemaFactory.CreateSchema(columns.ToArray());
     }
-    
+
     /// <summary>
     /// Converts .NET Type to string representation for JavaScriptTransform plugin.
     /// </summary>
@@ -640,7 +671,7 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
         {
             "string" => "string",
             "int32" => "integer",
-            "decimal" => "decimal", 
+            "decimal" => "decimal",
             "boolean" => "boolean",
             "datetime" => "datetime",
             _ => "string" // Default fallback

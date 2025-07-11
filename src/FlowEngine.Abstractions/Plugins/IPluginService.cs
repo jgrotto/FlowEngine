@@ -132,13 +132,13 @@ public sealed record ServiceMetrics
     /// <summary>
     /// Calculates the average processing time per chunk.
     /// </summary>
-    public TimeSpan AverageChunkProcessingTime => 
+    public TimeSpan AverageChunkProcessingTime =>
         TotalChunks > 0 ? TimeSpan.FromTicks(TotalProcessingTime.Ticks / TotalChunks) : TimeSpan.Zero;
 
     /// <summary>
     /// Calculates the throughput in rows per second.
     /// </summary>
-    public double RowsPerSecond => 
+    public double RowsPerSecond =>
         TotalProcessingTime.TotalSeconds > 0 ? TotalRows / TotalProcessingTime.TotalSeconds : 0.0;
 }
 

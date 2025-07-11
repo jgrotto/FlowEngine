@@ -114,9 +114,9 @@ public sealed record PluginValidationResult
     /// <summary>
     /// Creates a failed validation result.
     /// </summary>
-    public static PluginValidationResult Failure(params string[] errors) => new() 
-    { 
-        IsValid = false, 
+    public static PluginValidationResult Failure(params string[] errors) => new()
+    {
+        IsValid = false,
         Errors = errors.ToArray()
     };
 }

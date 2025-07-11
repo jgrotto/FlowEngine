@@ -26,7 +26,7 @@ public sealed class ConfigurationValidator : IDisposable
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Configuration = configuration ?? new ValidationConfiguration();
-        
+
         RegisterDefaultValidators();
         _logger.LogInformation("Configuration validator initialized with {ValidatorCount} validators", _validators.Count);
     }
@@ -45,7 +45,7 @@ public sealed class ConfigurationValidator : IDisposable
         var validationContext = new ValidationContext(configuration);
         var validationResults = new List<ValidationResult>();
         var warnings = new List<ConfigurationWarning>();
-        
+
         try
         {
             _logger.LogDebug("Validating configuration of type {ConfigurationType}", typeof(T).Name);
@@ -100,7 +100,7 @@ public sealed class ConfigurationValidator : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during configuration validation for type {ConfigurationType}", typeof(T).Name);
-            
+
             return ValidatorResult.CreateError($"Validation failed with exception: {ex.Message}", typeof(T).Name);
         }
     }
@@ -132,13 +132,13 @@ public sealed class ConfigurationValidator : IDisposable
                 {
                     property.SetValue(configuration, defaultValue);
                     defaultsApplied++;
-                    
-                    _logger.LogDebug("Applied default value for property {PropertyName}: {DefaultValue}", 
+
+                    _logger.LogDebug("Applied default value for property {PropertyName}: {DefaultValue}",
                         property.Name, defaultValue);
                 }
             }
 
-            _logger.LogInformation("Applied {DefaultsCount} default values to configuration of type {ConfigurationType}", 
+            _logger.LogInformation("Applied {DefaultsCount} default values to configuration of type {ConfigurationType}",
                 defaultsApplied, typeof(T).Name);
 
             return configuration;
@@ -235,7 +235,7 @@ public sealed class ConfigurationValidator : IDisposable
                     _logger.LogInformation("Configuration file {FilePath} not found, creating with defaults", filePath);
                     var defaultConfig = CreateWithDefaults<T>();
                     var validationResult = await ValidateAsync(defaultConfig);
-                    
+
                     return new ConfigurationLoadResult<T>
                     {
                         Configuration = defaultConfig,
@@ -252,7 +252,7 @@ public sealed class ConfigurationValidator : IDisposable
 
             var json = await File.ReadAllTextAsync(filePath);
             var result = await LoadAndValidateFromJsonAsync<T>(json, applyDefaults);
-            
+
             if (result.IsSuccess)
             {
                 _logger.LogInformation("Successfully loaded and validated configuration from file {FilePath}", filePath);
@@ -277,7 +277,9 @@ public sealed class ConfigurationValidator : IDisposable
     public void RegisterValidator<T>(IConfigurationValidator<T> validator) where T : class
     {
         if (validator == null)
+        {
             throw new ArgumentNullException(nameof(validator));
+        }
 
         lock (_lock)
         {
@@ -291,11 +293,11 @@ public sealed class ConfigurationValidator : IDisposable
     {
         // Register built-in validators for common configuration types
         // These would be implemented based on specific FlowEngine configuration types
-        
+
         _logger.LogDebug("Registered default configuration validators");
     }
 
-    private async Task<InternalValidatorResult> ValidateCrossFieldRulesAsync<T>(T configuration) where T : class
+    private Task<InternalValidatorResult> ValidateCrossFieldRulesAsync<T>(T configuration) where T : class
     {
         var errors = new List<ValidationResult>();
         var warnings = new List<ConfigurationWarning>();
@@ -305,7 +307,7 @@ public sealed class ConfigurationValidator : IDisposable
         {
             if (memoryConfig.MaxMemoryMB > 0 && memoryConfig.MaxMemoryMB < memoryConfig.InitialMemoryMB)
             {
-                errors.Add(new ValidationResult("MaxMemoryMB cannot be less than InitialMemoryMB", 
+                errors.Add(new ValidationResult("MaxMemoryMB cannot be less than InitialMemoryMB",
                     new[] { nameof(memoryConfig.MaxMemoryMB), nameof(memoryConfig.InitialMemoryMB) }));
             }
         }
@@ -323,15 +325,15 @@ public sealed class ConfigurationValidator : IDisposable
             }
         }
 
-        return new InternalValidatorResult
+        return Task.FromResult(new InternalValidatorResult
         {
             IsValid = !errors.Any(),
             Errors = errors,
             Warnings = warnings
-        };
+        });
     }
 
-    private async Task<InternalValidatorResult> ValidateEnvironmentalRequirementsAsync<T>(T configuration) where T : class
+    private Task<InternalValidatorResult> ValidateEnvironmentalRequirementsAsync<T>(T configuration) where T : class
     {
         var errors = new List<ValidationResult>();
         var warnings = new List<ConfigurationWarning>();
@@ -367,12 +369,12 @@ public sealed class ConfigurationValidator : IDisposable
             // Implementation would depend on specific network requirements
         }
 
-        return new InternalValidatorResult
+        return Task.FromResult(new InternalValidatorResult
         {
             IsValid = !errors.Any(),
             Errors = errors,
             Warnings = warnings
-        };
+        });
     }
 
     private (System.ComponentModel.DataAnnotations.ValidationResult? Error, ConfigurationWarning? Warning) ValidateFilePath(string path, string propertyName)
@@ -385,7 +387,7 @@ public sealed class ConfigurationValidator : IDisposable
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
                 return (new System.ComponentModel.DataAnnotations.ValidationResult(
-                    $"Directory does not exist for {propertyName}: {directory}", 
+                    $"Directory does not exist for {propertyName}: {directory}",
                     new[] { propertyName }), null);
             }
 
@@ -408,7 +410,7 @@ public sealed class ConfigurationValidator : IDisposable
         catch (Exception ex)
         {
             return (new System.ComponentModel.DataAnnotations.ValidationResult(
-                $"Invalid file path for {propertyName}: {ex.Message}", 
+                $"Invalid file path for {propertyName}: {ex.Message}",
                 new[] { propertyName }), null);
         }
     }
@@ -419,7 +421,7 @@ public sealed class ConfigurationValidator : IDisposable
         var defaultValueAttr = property.GetCustomAttributes(typeof(System.ComponentModel.DefaultValueAttribute), false)
                                       .Cast<System.ComponentModel.DefaultValueAttribute>()
                                       .FirstOrDefault();
-        
+
         if (defaultValueAttr != null)
         {
             return defaultValueAttr.Value;
@@ -462,7 +464,7 @@ public sealed class ConfigurationValidator : IDisposable
     private string DetermineErrorCode(System.ComponentModel.DataAnnotations.ValidationResult validationResult)
     {
         var message = validationResult.ErrorMessage ?? "";
-        
+
         return message.ToLowerInvariant() switch
         {
             var m when m.Contains("required") => "REQUIRED_FIELD",
@@ -478,7 +480,10 @@ public sealed class ConfigurationValidator : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
@@ -490,7 +495,7 @@ public sealed class ConfigurationValidator : IDisposable
                 }
                 _validators.Clear();
             }
-            
+
             _logger.LogInformation("Configuration validator disposed");
         }
         catch (Exception ex)
@@ -520,17 +525,17 @@ public sealed class ValidationConfiguration
     /// Gets or sets whether to validate environmental requirements (file paths, network connectivity, etc.).
     /// </summary>
     public bool ValidateEnvironmentalRequirements { get; set; } = true;
-    
+
     /// <summary>
     /// Gets or sets whether to automatically apply defaults for missing or invalid values.
     /// </summary>
     public bool AutoApplyDefaults { get; set; } = true;
-    
+
     /// <summary>
     /// Gets or sets the maximum validation timeout.
     /// </summary>
     public TimeSpan ValidationTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    
+
     /// <summary>
     /// Gets or sets whether to validate cross-field dependencies.
     /// </summary>
@@ -546,37 +551,37 @@ public sealed class ValidatorResult
     /// Gets whether the configuration is valid.
     /// </summary>
     public bool IsValid { get; set; }
-    
+
     /// <summary>
     /// Gets the type of configuration that was validated.
     /// </summary>
     public string ConfigurationType { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Gets the validation errors.
     /// </summary>
     public ConfigurationError[] Errors { get; set; } = Array.Empty<ConfigurationError>();
-    
+
     /// <summary>
     /// Gets the validation warnings.
     /// </summary>
     public ConfigurationWarning[] Warnings { get; set; } = Array.Empty<ConfigurationWarning>();
-    
+
     /// <summary>
     /// Gets the duration of the validation process.
     /// </summary>
     public TimeSpan ValidationDuration { get; set; }
-    
+
     /// <summary>
     /// Gets the timestamp when validation was performed.
     /// </summary>
     public DateTimeOffset ValidationTimestamp { get; set; }
-    
+
     /// <summary>
     /// Gets whether there are any warnings.
     /// </summary>
     public bool HasWarnings => Warnings.Any();
-    
+
     /// <summary>
     /// Gets a summary of the validation result.
     /// </summary>
@@ -611,22 +616,22 @@ public sealed class ConfigurationLoadResult<T> where T : class
     /// Gets the loaded configuration instance.
     /// </summary>
     public T? Configuration { get; set; }
-    
+
     /// <summary>
     /// Gets the validation result.
     /// </summary>
     public ValidatorResult? ValidatorResult { get; set; }
-    
+
     /// <summary>
     /// Gets whether the load operation was successful.
     /// </summary>
     public bool IsSuccess { get; set; }
-    
+
     /// <summary>
     /// Gets whether defaults were applied during loading.
     /// </summary>
     public bool LoadedFromDefaults { get; set; }
-    
+
     /// <summary>
     /// Gets the error message if loading failed.
     /// </summary>
@@ -651,12 +656,12 @@ public sealed class ConfigurationError
     /// Gets or sets the error message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Gets or sets the error code for programmatic handling.
     /// </summary>
     public string ErrorCode { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Gets or sets the names of the members that caused the error.
     /// </summary>
@@ -672,12 +677,12 @@ public sealed class ConfigurationWarning
     /// Gets or sets the warning message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Gets or sets the severity of the warning.
     /// </summary>
     public WarningSeverity Severity { get; set; } = WarningSeverity.Medium;
-    
+
     /// <summary>
     /// Gets or sets the names of the members that caused the warning.
     /// </summary>
@@ -744,7 +749,7 @@ internal sealed class ConfigurationValidatorAdapter<T> : IConfigurationValidator
         {
             return await _validator.ValidateAsync(typedConfig);
         }
-        
+
         return ValidatorResult.CreateError($"Invalid configuration type. Expected {typeof(T).Name}, got {configuration?.GetType().Name ?? "null"}");
     }
 }

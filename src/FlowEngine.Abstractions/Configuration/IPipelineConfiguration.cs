@@ -343,12 +343,12 @@ public sealed record ConfigurationValidationResult
     /// <summary>
     /// Creates a successful validation result with warnings.
     /// </summary>
-    public static ConfigurationValidationResult SuccessWithWarnings(params string[] warnings) => 
+    public static ConfigurationValidationResult SuccessWithWarnings(params string[] warnings) =>
         new() { IsValid = true, Warnings = warnings };
 
     /// <summary>
     /// Creates a failed validation result.
     /// </summary>
-    public static ConfigurationValidationResult Failure(params string[] errors) => 
+    public static ConfigurationValidationResult Failure(params string[] errors) =>
         new() { IsValid = false, Errors = errors };
 }

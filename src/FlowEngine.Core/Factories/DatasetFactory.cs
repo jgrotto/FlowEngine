@@ -58,7 +58,7 @@ public sealed class DatasetFactory : IDatasetFactory
 
         var totalRows = chunks.Sum(c => c.RowCount);
         _logger.LogDebug("Creating dataset with {ChunkCount} chunks, {TotalRows} total rows", chunks.Length, totalRows);
-        
+
         return new Dataset(schema, chunks);
     }
 
@@ -78,9 +78,9 @@ public sealed class DatasetFactory : IDatasetFactory
         }
 
         var totalRows = chunks.Sum(c => c.RowCount);
-        _logger.LogDebug("Creating dataset with explicit schema, {ChunkCount} chunks, {TotalRows} total rows", 
+        _logger.LogDebug("Creating dataset with explicit schema, {ChunkCount} chunks, {TotalRows} total rows",
             chunks.Length, totalRows);
-        
+
         return new Dataset(schema, chunks);
     }
 
@@ -115,7 +115,7 @@ public sealed class DatasetFactory : IDatasetFactory
             chunks.Add(chunk);
         }
 
-        _logger.LogDebug("Created dataset from {RowCount} rows using chunk size {ChunkSize}, resulting in {ChunkCount} chunks", 
+        _logger.LogDebug("Created dataset from {RowCount} rows using chunk size {ChunkSize}, resulting in {ChunkCount} chunks",
             rows.Length, actualChunkSize, chunks.Count);
 
         return new Dataset(schema, chunks.ToArray());
@@ -134,7 +134,7 @@ public sealed class DatasetFactory : IDatasetFactory
         foreach (var row in rows)
         {
             currentChunkRows.Add(row);
-            
+
             if (currentChunkRows.Count >= actualChunkSize)
             {
                 var chunk = _chunkFactory.CreateChunk(schema, currentChunkRows.ToArray());
@@ -151,7 +151,7 @@ public sealed class DatasetFactory : IDatasetFactory
         }
 
         var totalRows = chunks.Sum(c => c.RowCount);
-        _logger.LogDebug("Created dataset from enumerable rows: {TotalRows} rows in {ChunkCount} chunks", 
+        _logger.LogDebug("Created dataset from enumerable rows: {TotalRows} rows in {ChunkCount} chunks",
             totalRows, chunks.Count);
 
         return new Dataset(schema, chunks.ToArray());
@@ -217,7 +217,7 @@ public sealed class DatasetFactory : IDatasetFactory
             totalRows += dataset.RowCount ?? 0;
         }
 
-        _logger.LogDebug("Combined {DatasetCount} datasets into single dataset: {TotalRows} rows in {TotalChunks} chunks", 
+        _logger.LogDebug("Combined {DatasetCount} datasets into single dataset: {TotalRows} rows in {TotalChunks} chunks",
             datasets.Length, totalRows, allChunks.Count);
 
         return new Dataset(schema, allChunks.ToArray());
@@ -251,7 +251,7 @@ public sealed class DatasetFactory : IDatasetFactory
 
         var slicedChunks = new List<IChunk>();
         int currentIndex = 0;
-        
+
         await foreach (var chunk in source.GetChunksAsync())
         {
             if (currentIndex >= startChunkIndex && currentIndex < startChunkIndex + chunkCount)
@@ -259,12 +259,14 @@ public sealed class DatasetFactory : IDatasetFactory
                 slicedChunks.Add(chunk);
             }
             currentIndex++;
-            
+
             if (currentIndex >= startChunkIndex + chunkCount)
+            {
                 break;
+            }
         }
 
-        _logger.LogDebug("Sliced dataset: chunks {StartIndex} to {EndIndex} ({ChunkCount} chunks)", 
+        _logger.LogDebug("Sliced dataset: chunks {StartIndex} to {EndIndex} ({ChunkCount} chunks)",
             startChunkIndex, startChunkIndex + chunkCount - 1, chunkCount);
 
         return new Dataset(source.Schema, slicedChunks.ToArray());
@@ -277,14 +279,14 @@ public sealed class DatasetFactory : IDatasetFactory
         ArgumentNullException.ThrowIfNull(targetSchema);
 
         var projectedChunks = new List<IChunk>();
-        
+
         await foreach (var chunk in source.GetChunksAsync())
         {
             var projectedChunk = _chunkFactory.ProjectChunk(chunk, targetSchema);
             projectedChunks.Add(projectedChunk);
         }
 
-        _logger.LogDebug("Projected dataset from {SourceColumns} to {TargetColumns} columns", 
+        _logger.LogDebug("Projected dataset from {SourceColumns} to {TargetColumns} columns",
             source.Schema.ColumnCount, targetSchema.ColumnCount);
 
         return new Dataset(targetSchema, projectedChunks);
@@ -300,7 +302,7 @@ public sealed class DatasetFactory : IDatasetFactory
         // a streaming dataset that yields chunks on-demand
         var chunks = chunkProvider().ToArray();
 
-        _logger.LogDebug("Created streaming dataset with {ChunkCount} chunks (estimated: {EstimatedCount})", 
+        _logger.LogDebug("Created streaming dataset with {ChunkCount} chunks (estimated: {EstimatedCount})",
             chunks.Length, estimatedChunkCount);
 
         return new Dataset(schema, chunks);
@@ -350,10 +352,10 @@ public sealed class DatasetFactory : IDatasetFactory
         // Calculate optimal chunk size based on memory constraints
         var optimalChunkSize = _chunkFactory.GetOptimalChunkSize(schema, targetMemorySize / 4); // Use 1/4 of target for chunk size
         var totalChunks = (int)Math.Ceiling((double)estimatedRowCount / optimalChunkSize);
-        
+
         // Calculate chunks per partition to stay within memory limits
         var chunksPerPartition = Math.Max(1, (int)(targetMemorySize / (optimalChunkSize * EstimateRowMemorySize(schema))));
-        
+
         var config = new DatasetPartitioningConfig
         {
             ChunksPerPartition = chunksPerPartition,
@@ -362,7 +364,7 @@ public sealed class DatasetFactory : IDatasetFactory
             PartitioningStrategy = "RowBased"
         };
 
-        _logger.LogDebug("Calculated optimal partitioning: {ChunksPerPartition} chunks per partition, {RowsPerChunk} rows per chunk", 
+        _logger.LogDebug("Calculated optimal partitioning: {ChunksPerPartition} chunks per partition, {RowsPerChunk} rows per chunk",
             config.ChunksPerPartition, config.RowsPerChunk);
 
         return config;
@@ -374,18 +376,24 @@ public sealed class DatasetFactory : IDatasetFactory
     private static bool AreSchemasSame(ISchema schema1, ISchema schema2)
     {
         if (ReferenceEquals(schema1, schema2))
+        {
             return true;
+        }
 
         if (schema1.ColumnCount != schema2.ColumnCount)
+        {
             return false;
+        }
 
         for (int i = 0; i < schema1.ColumnCount; i++)
         {
             var col1 = schema1.Columns[i];
             var col2 = schema2.Columns[i];
-            
+
             if (col1.Name != col2.Name || col1.DataType != col2.DataType)
+            {
                 return false;
+            }
         }
 
         return true;
@@ -397,7 +405,7 @@ public sealed class DatasetFactory : IDatasetFactory
     private static long EstimateRowMemorySize(ISchema schema)
     {
         long size = 64; // Base object overhead
-        
+
         foreach (var column in schema.Columns)
         {
             size += EstimateColumnMemorySize(column.DataType);
@@ -412,20 +420,40 @@ public sealed class DatasetFactory : IDatasetFactory
     private static long EstimateColumnMemorySize(Type dataType)
     {
         if (dataType == typeof(byte) || dataType == typeof(sbyte))
+        {
             return 1;
+        }
+
         if (dataType == typeof(short) || dataType == typeof(ushort))
+        {
             return 2;
+        }
+
         if (dataType == typeof(int) || dataType == typeof(uint) || dataType == typeof(float))
+        {
             return 4;
+        }
+
         if (dataType == typeof(long) || dataType == typeof(ulong) || dataType == typeof(double) || dataType == typeof(DateTime))
+        {
             return 8;
+        }
+
         if (dataType == typeof(decimal))
+        {
             return 16;
+        }
+
         if (dataType == typeof(string))
+        {
             return 50; // Average string size estimate
+        }
+
         if (dataType == typeof(Guid))
+        {
             return 16;
-        
+        }
+
         // Default for unknown types
         return 8;
     }

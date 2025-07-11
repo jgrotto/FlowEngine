@@ -15,14 +15,14 @@ public sealed class DelimitedSourceConfiguration : IPluginConfiguration
     public bool HasHeaders { get; init; } = true;
     public string Encoding { get; init; } = "UTF-8";
     public int ChunkSize { get; init; } = 5000;
-    
+
     // Schema definition
     public ISchema? OutputSchema { get; init; }
-    
+
     // Schema inference settings
     public bool InferSchema { get; init; } = false;
     public int InferenceSampleRows { get; init; } = 1000;
-    
+
     // Error handling
     public bool SkipMalformedRows { get; init; } = false;
     public int MaxErrors { get; init; } = 100;
@@ -56,14 +56,18 @@ public sealed class DelimitedSourceConfiguration : IPluginConfiguration
     public int GetOutputFieldIndex(string fieldName)
     {
         if (_outputFieldIndexes.TryGetValue(fieldName, out var index))
+        {
             return index;
-        
+        }
+
         // Try to get from output schema if available
         if (OutputSchema != null)
         {
             var schemaIndex = OutputSchema.GetIndex(fieldName);
             if (schemaIndex >= 0)
+            {
                 return schemaIndex;
+            }
         }
 
         throw new ArgumentException($"Field '{fieldName}' not found in output schema", nameof(fieldName));
@@ -78,10 +82,14 @@ public sealed class DelimitedSourceConfiguration : IPluginConfiguration
     public T GetProperty<T>(string key)
     {
         if (!_properties.TryGetValue(key, out var value))
+        {
             throw new KeyNotFoundException($"Property '{key}' not found");
+        }
 
         if (value is T typedValue)
+        {
             return typedValue;
+        }
 
         return (T)Convert.ChangeType(value, typeof(T));
     }
@@ -90,7 +98,9 @@ public sealed class DelimitedSourceConfiguration : IPluginConfiguration
     {
         value = default;
         if (!_properties.TryGetValue(key, out var objectValue))
+        {
             return false;
+        }
 
         try
         {

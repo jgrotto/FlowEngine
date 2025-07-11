@@ -19,18 +19,17 @@ namespace FlowEngine.Integration.Tests;
 public class DelimitedPluginsIntegrationTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
-    private readonly ILogger<DelimitedPluginsIntegrationTests> _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly string _testDataDirectory;
     private readonly List<string> _testFiles = new();
 
     public DelimitedPluginsIntegrationTests(ITestOutputHelper output)
     {
         _output = output;
-        
-        var loggerFactory = LoggerFactory.Create(builder => 
+
+        _loggerFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Information));
-        _logger = loggerFactory.CreateLogger<DelimitedPluginsIntegrationTests>();
-        
+
         _testDataDirectory = Path.Combine(Path.GetTempPath(), "FlowEngine_DelimitedPlugins_Tests", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_testDataDirectory);
     }
@@ -50,7 +49,7 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             OutputSchema = CreateCustomerSchema()
         };
 
-        var plugin = new DelimitedSourcePlugin(_logger);
+        var plugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
 
         // Act
         var initResult = await plugin.InitializeAsync(config);
@@ -80,7 +79,7 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             InputSchema = CreateCustomerSchema()
         };
 
-        var plugin = new DelimitedSinkPlugin(_logger);
+        var plugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act
         var initResult = await plugin.InitializeAsync(config);
@@ -122,8 +121,8 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             InputSchema = CreateCustomerSchema()
         };
 
-        var sourcePlugin = new DelimitedSourcePlugin(_logger);
-        var sinkPlugin = new DelimitedSinkPlugin(_logger);
+        var sourcePlugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
+        var sinkPlugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act - Initialize plugins
         var sourceInitResult = await sourcePlugin.InitializeAsync(sourceConfig);
@@ -148,13 +147,13 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             // For now, test the plugin initialization and configuration validation
             _output.WriteLine($"Source plugin initialized successfully: {sourcePlugin.State}");
             _output.WriteLine($"Sink plugin initialized successfully: {sinkPlugin.State}");
-            
+
             // Validate configuration compatibility
             var sourceSchema = sourceConfig.OutputSchema;
             var sinkCompatibility = sinkService.ValidateInputSchema(sourceSchema);
-            
-            Assert.True(sinkCompatibility.IsSuccess, "Sink should be compatible with source schema");
-            
+
+            Assert.True(sinkCompatibility.IsCompatible, "Sink should be compatible with source schema");
+
             stopwatch.Stop();
             _output.WriteLine($"Pipeline validation completed in {stopwatch.ElapsedMilliseconds}ms");
         }
@@ -196,38 +195,38 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             InputSchema = CreateCustomerSchema()
         };
 
-        var sourcePlugin = new DelimitedSourcePlugin(_logger);
-        var sinkPlugin = new DelimitedSinkPlugin(_logger);
+        var sourcePlugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
+        var sinkPlugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act
         var stopwatch = Stopwatch.StartNew();
-        
+
         var sourceInitResult = await sourcePlugin.InitializeAsync(sourceConfig);
         var sinkInitResult = await sinkPlugin.InitializeAsync(sinkConfig);
-        
+
         var initTime = stopwatch.ElapsedMilliseconds;
         stopwatch.Restart();
 
         await sourcePlugin.StartAsync();
         await sinkPlugin.StartAsync();
-        
+
         var startTime = stopwatch.ElapsedMilliseconds;
         stopwatch.Stop();
 
         // Assert
         Assert.True(sourceInitResult.Success, $"Source initialization failed: {sourceInitResult.Message}");
         Assert.True(sinkInitResult.Success, $"Sink initialization failed: {sinkInitResult.Message}");
-        
+
         // Performance assertions
         Assert.True(initTime < 1000, $"Plugin initialization took {initTime}ms, should be under 1000ms");
         Assert.True(startTime < 500, $"Plugin startup took {startTime}ms, should be under 500ms");
-        
+
         _output.WriteLine($"Performance Test Results:");
         _output.WriteLine($"  Rows: {rowCount:N0}");
         _output.WriteLine($"  Initialization: {initTime}ms");
         _output.WriteLine($"  Startup: {startTime}ms");
         _output.WriteLine($"  Source file size: {new FileInfo(sourceFile).Length / 1024}KB");
-        
+
         // Cleanup
         await sourcePlugin.StopAsync();
         await sinkPlugin.StopAsync();
@@ -272,8 +271,8 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             ColumnMappings = columnMappings
         };
 
-        var sourcePlugin = new DelimitedSourcePlugin(_logger);
-        var sinkPlugin = new DelimitedSinkPlugin(_logger);
+        var sourcePlugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
+        var sinkPlugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act
         var sourceInitResult = await sourcePlugin.InitializeAsync(sourceConfig);
@@ -309,36 +308,36 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             InputSchema = customerSchema
         };
 
-        var sinkPlugin = new DelimitedSinkPlugin(_logger);
+        var sinkPlugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
         await sinkPlugin.InitializeAsync(sinkConfig);
         var sinkService = sinkPlugin.GetSinkService();
 
         // Act & Assert - Compatible schema
         var compatibleResult = sinkService.ValidateInputSchema(customerSchema);
-        Assert.True(compatibleResult.IsSuccess, "Customer schema should be compatible");
+        Assert.True(compatibleResult.IsCompatible, "Customer schema should be compatible");
 
         // Act & Assert - Incompatible schema
         var incompatibleResult = sinkService.ValidateInputSchema(incompatibleSchema);
-        Assert.False(incompatibleResult.IsSuccess, "Incompatible schema should fail validation");
+        Assert.False(incompatibleResult.IsCompatible, "Incompatible schema should fail validation");
     }
 
     private string CreateTestCsvFile(string fileName, int rowCount)
     {
         var filePath = GetTestFilePath(fileName);
         var csv = new StringBuilder();
-        
+
         // Headers
         csv.AppendLine("Id,Name,Email,Age,CreatedAt");
-        
+
         // Data rows
         for (int i = 1; i <= rowCount; i++)
         {
             csv.AppendLine($"{i},Customer{i},customer{i}@example.com,{20 + (i % 50)},2024-{(i % 12) + 1:D2}-{(i % 28) + 1:D2}T{(i % 24):D2}:00:00Z");
         }
-        
+
         File.WriteAllText(filePath, csv.ToString(), Encoding.UTF8);
         _testFiles.Add(filePath);
-        
+
         return filePath;
     }
 
@@ -353,25 +352,25 @@ public class DelimitedPluginsIntegrationTests : IDisposable
     {
         var columns = new[]
         {
-            new Column { Name = "Id", DataType = typeof(int), Index = 0 },
-            new Column { Name = "Name", DataType = typeof(string), Index = 1 },
-            new Column { Name = "Email", DataType = typeof(string), Index = 2 },
-            new Column { Name = "Age", DataType = typeof(int), Index = 3 },
-            new Column { Name = "CreatedAt", DataType = typeof(DateTime), Index = 4 }
+            new ColumnDefinition { Name = "Id", DataType = typeof(int), Index = 0 },
+            new ColumnDefinition { Name = "Name", DataType = typeof(string), Index = 1 },
+            new ColumnDefinition { Name = "Email", DataType = typeof(string), Index = 2 },
+            new ColumnDefinition { Name = "Age", DataType = typeof(int), Index = 3 },
+            new ColumnDefinition { Name = "CreatedAt", DataType = typeof(DateTime), Index = 4 }
         };
 
-        return new Schema("Customer", columns);
+        return new Schema(columns);
     }
 
     private ISchema CreateIncompatibleSchema()
     {
         var columns = new[]
         {
-            new Column { Name = "ComplexData", DataType = typeof(object), Index = 0 },
-            new Column { Name = "BinaryData", DataType = typeof(byte[]), Index = 1 }
+            new ColumnDefinition { Name = "ComplexData", DataType = typeof(object), Index = 0 },
+            new ColumnDefinition { Name = "BinaryData", DataType = typeof(byte[]), Index = 1 }
         };
 
-        return new Schema("Incompatible", columns);
+        return new Schema(columns);
     }
 
     public void Dispose()
@@ -382,11 +381,15 @@ public class DelimitedPluginsIntegrationTests : IDisposable
             foreach (var file in _testFiles)
             {
                 if (File.Exists(file))
+                {
                     File.Delete(file);
+                }
             }
 
             if (Directory.Exists(_testDataDirectory))
+            {
                 Directory.Delete(_testDataDirectory, true);
+            }
         }
         catch (Exception ex)
         {

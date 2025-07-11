@@ -88,7 +88,7 @@ public sealed class DataTypeService : IDataTypeService
         {
             return result.Value;
         }
-        
+
         throw new InvalidCastException(result.ErrorMessage);
     }
 
@@ -153,12 +153,12 @@ public sealed class DataTypeService : IDataTypeService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug("Failed to convert {SourceType} to {TargetType}: {Error}", 
+            _logger.LogDebug("Failed to convert {SourceType} to {TargetType}: {Error}",
                 sourceType?.Name, targetType.Name, ex.Message);
-            
+
             return TypeConversionResult.Failure(
-                $"Cannot convert {sourceType?.Name ?? "null"} to {targetType.Name}: {ex.Message}", 
-                sourceType, 
+                $"Cannot convert {sourceType?.Name ?? "null"} to {targetType.Name}: {ex.Message}",
+                sourceType,
                 targetType);
         }
     }
@@ -265,7 +265,7 @@ public sealed class DataTypeService : IDataTypeService
 
         // Handle nullable types
         var underlyingType = GetUnderlyingType(netType);
-        
+
         if (TypeToDataTypeString.TryGetValue(underlyingType, out var dataTypeString))
         {
             return dataTypeString;
@@ -279,7 +279,7 @@ public sealed class DataTypeService : IDataTypeService
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        return !type.IsValueType || 
+        return !type.IsValueType ||
                (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>));
     }
 
@@ -295,7 +295,9 @@ public sealed class DataTypeService : IDataTypeService
     public long EstimateValueSize(object? value)
     {
         if (value == null)
+        {
             return 8; // Reference size
+        }
 
         return value switch
         {

@@ -36,7 +36,7 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
         // Service will be created via dependency injection when available
         _service = null!; // Will be set during plugin loading
     }
-    
+
     /// <summary>
     /// Sets the service instance (called by plugin loader with DI-created service)
     /// </summary>
@@ -46,8 +46,8 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
     }
 
     /// <inheritdoc />
-    public override IPluginConfiguration Configuration 
-    { 
+    public override IPluginConfiguration Configuration
+    {
         get => _configuration ?? throw new InvalidOperationException("Processor not initialized");
         protected set => _configuration = (TemplatePluginConfiguration)value;
     }
@@ -66,12 +66,12 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
     protected override async Task InitializeInternalAsync(IPluginConfiguration configuration, CancellationToken cancellationToken)
     {
         Logger.LogDebug("Initializing Template Plugin Processor");
-        
+
         _configuration = configuration as TemplatePluginConfiguration ?? throw new ArgumentException("Expected TemplatePluginConfiguration");
-        
+
         // Initialize the service component
         await _service.InitializeAsync(configuration, cancellationToken);
-        
+
         Logger.LogDebug("Template Plugin Processor initialized successfully");
     }
 
@@ -82,7 +82,7 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
 
         // Start the service component
         await _service.StartAsync(cancellationToken);
-        
+
         Logger.LogDebug("Template Plugin Processor started successfully");
     }
 
@@ -109,7 +109,10 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
 
             // Delegate processing to service component
             if (_service == null)
+            {
                 throw new InvalidOperationException("Service not initialized");
+            }
+
             var processedChunk = await _service.ProcessChunkAsync(input, cancellationToken);
 
             Logger.LogDebug("Chunk processed successfully. {RowCount} rows", processedChunk.RowCount);
@@ -129,17 +132,17 @@ public sealed class TemplatePluginProcessor : PluginProcessorBase
     }
 
     /// <inheritdoc />
-    protected override async Task<IDataset> ProcessDatasetInternalAsync(IDataset input, CancellationToken cancellationToken)
+    protected override Task<IDataset> ProcessDatasetInternalAsync(IDataset input, CancellationToken cancellationToken)
     {
         Logger.LogInformation("Processing dataset with streaming approach");
-        
+
         try
         {
             // Use the service to process the entire dataset
             // For a real implementation, this would stream through chunks
             // For template purposes, we'll return the input as-is
             Logger.LogInformation("Dataset processing completed");
-            return input;
+            return Task.FromResult(input);
         }
         catch (Exception ex)
         {

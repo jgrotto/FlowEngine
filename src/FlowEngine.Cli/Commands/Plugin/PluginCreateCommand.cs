@@ -109,7 +109,7 @@ public class PluginCreateCommand : BaseCommand
                 return template switch
                 {
                     "source" or "src" => "source",
-                    "transform" or "trans" => "transform", 
+                    "transform" or "trans" => "transform",
                     "destination" or "dest" or "sink" => "destination",
                     _ => "source"
                 };
@@ -121,10 +121,14 @@ public class PluginCreateCommand : BaseCommand
     private static bool IsValidPluginName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
+        {
             return false;
+        }
 
         if (!char.IsLetter(name[0]) && name[0] != '_')
+        {
             return false;
+        }
 
         return name.All(c => char.IsLetterOrDigit(c) || c == '_');
     }
@@ -233,7 +237,7 @@ public class PluginCreateCommand : BaseCommand
         var baseInterface = template switch
         {
             "source" => "ISourcePlugin",
-            "transform" => "ITransformPlugin", 
+            "transform" => "ITransformPlugin",
             "destination" => "ISinkPlugin",
             _ => "ISourcePlugin"
         };
@@ -283,8 +287,8 @@ public sealed class {{pluginName}} : {{baseClass}}, {{baseInterface}}
         return _outputSchema ?? throw new InvalidOperationException("Plugin not initialized");
     }
 
-{{(template == "source" ? GenerateSourceMethods() : 
-  template == "transform" ? GenerateTransformMethods() : 
+{{(template == "source" ? GenerateSourceMethods() :
+  template == "transform" ? GenerateTransformMethods() :
   GenerateDestinationMethods())}}
 
     /// <summary>

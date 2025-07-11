@@ -39,16 +39,16 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public void RecordMetric(string metricName, double value, IDictionary<string, string>? tags = null)
     {
         ThrowIfDisposed();
-        
+
         var componentName = ExtractComponentName(metricName, tags);
         var stats = GetOrCreateStatistics(componentName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordMetric(metricName, value);
         }
-        
-        _logger.LogDebug("Recorded metric {MetricName} = {Value} for component {Component}", 
+
+        _logger.LogDebug("Recorded metric {MetricName} = {Value} for component {Component}",
             metricName, value, componentName);
     }
 
@@ -56,16 +56,16 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public void RecordCounter(string counterName, long increment = 1, IDictionary<string, string>? tags = null)
     {
         ThrowIfDisposed();
-        
+
         var componentName = ExtractComponentName(counterName, tags);
         var stats = GetOrCreateStatistics(componentName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordCounter(counterName, increment);
         }
-        
-        _logger.LogDebug("Recorded counter {CounterName} += {Increment} for component {Component}", 
+
+        _logger.LogDebug("Recorded counter {CounterName} += {Increment} for component {Component}",
             counterName, increment, componentName);
     }
 
@@ -73,16 +73,16 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public void RecordProcessingTime(string operationName, TimeSpan elapsed, IDictionary<string, string>? tags = null)
     {
         ThrowIfDisposed();
-        
+
         var componentName = ExtractComponentName(operationName, tags);
         var stats = GetOrCreateStatistics(componentName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordProcessingTime(elapsed);
         }
-        
-        _logger.LogDebug("Recorded processing time {Elapsed}ms for operation {Operation} in component {Component}", 
+
+        _logger.LogDebug("Recorded processing time {Elapsed}ms for operation {Operation} in component {Component}",
             elapsed.TotalMilliseconds, operationName, componentName);
     }
 
@@ -90,15 +90,15 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public void RecordChunkProcessed(int chunkSize, TimeSpan processingTime, string componentName)
     {
         ThrowIfDisposed();
-        
+
         var stats = GetOrCreateStatistics(componentName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordChunkProcessed(chunkSize, processingTime);
         }
-        
-        _logger.LogDebug("Recorded chunk processing: {ChunkSize} rows in {ProcessingTime}ms for component {Component}", 
+
+        _logger.LogDebug("Recorded chunk processing: {ChunkSize} rows in {ProcessingTime}ms for component {Component}",
             chunkSize, processingTime.TotalMilliseconds, componentName);
     }
 
@@ -106,15 +106,15 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public void RecordMemoryUsage(string componentName, long memoryUsage)
     {
         ThrowIfDisposed();
-        
+
         var stats = GetOrCreateStatistics(componentName);
-        
+
         lock (stats.Lock)
         {
             stats.RecordMemoryUsage(memoryUsage);
         }
-        
-        _logger.LogDebug("Recorded memory usage: {MemoryUsage} bytes for component {Component}", 
+
+        _logger.LogDebug("Recorded memory usage: {MemoryUsage} bytes for component {Component}",
             memoryUsage, componentName);
     }
 
@@ -122,10 +122,12 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public PerformanceStatistics? GetStatistics(string componentName)
     {
         ThrowIfDisposed();
-        
+
         if (!_statistics.TryGetValue(componentName, out var stats))
+        {
             return null;
-            
+        }
+
         lock (stats.Lock)
         {
             return stats.ToPerformanceStatistics();
@@ -136,9 +138,9 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public IReadOnlyDictionary<string, PerformanceStatistics> GetAllStatistics()
     {
         ThrowIfDisposed();
-        
+
         var result = new Dictionary<string, PerformanceStatistics>();
-        
+
         foreach (var kvp in _statistics)
         {
             lock (kvp.Value.Lock)
@@ -146,7 +148,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
                 result[kvp.Key] = kvp.Value.ToPerformanceStatistics();
             }
         }
-        
+
         return result;
     }
 
@@ -154,14 +156,14 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     public void ResetStatistics(string componentName)
     {
         ThrowIfDisposed();
-        
+
         if (_statistics.TryGetValue(componentName, out var stats))
         {
             lock (stats.Lock)
             {
                 stats.Reset();
             }
-            
+
             _logger.LogInformation("Reset statistics for component {Component}", componentName);
         }
     }
@@ -175,8 +177,10 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     {
         // Try to extract component name from tags first
         if (tags?.TryGetValue("component", out var component) == true)
+        {
             return component;
-            
+        }
+
         // Extract from operation name (e.g., "PluginName.OperationName" -> "PluginName")
         var dotIndex = operationName.IndexOf('.');
         return dotIndex > 0 ? operationName[..dotIndex] : operationName;
@@ -185,7 +189,9 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(PerformanceMonitor));
+        }
     }
 
     /// <inheritdoc />
@@ -193,7 +199,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     {
         if (!_disposed)
         {
-            _logger.LogInformation("Disposing PerformanceMonitor, tracked {ComponentCount} components", 
+            _logger.LogInformation("Disposing PerformanceMonitor, tracked {ComponentCount} components",
                 _statistics.Count);
             _disposed = true;
         }
@@ -231,7 +237,7 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
     {
         public string ComponentName { get; }
         public object Lock { get; } = new();
-        
+
         private long _totalOperations;
         private TimeSpan _totalProcessingTime;
         private TimeSpan _minProcessingTime = TimeSpan.MaxValue;
@@ -263,13 +269,17 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
         {
             _totalOperations++;
             _totalProcessingTime += elapsed;
-            
+
             if (elapsed < _minProcessingTime)
+            {
                 _minProcessingTime = elapsed;
-                
+            }
+
             if (elapsed > _maxProcessingTime)
+            {
                 _maxProcessingTime = elapsed;
-                
+            }
+
             _lastUpdated = DateTimeOffset.UtcNow;
         }
 
@@ -282,10 +292,12 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
         public void RecordMemoryUsage(long memoryUsage)
         {
             _currentMemoryUsage = memoryUsage;
-            
+
             if (memoryUsage > _peakMemoryUsage)
+            {
                 _peakMemoryUsage = memoryUsage;
-                
+            }
+
             _lastUpdated = DateTimeOffset.UtcNow;
         }
 
@@ -303,10 +315,10 @@ public sealed class PerformanceMonitor : IPerformanceMonitor, IDisposable
 
         public PerformanceStatistics ToPerformanceStatistics()
         {
-            var averageTime = _totalOperations > 0 
+            var averageTime = _totalOperations > 0
                 ? TimeSpan.FromTicks(_totalProcessingTime.Ticks / _totalOperations)
                 : TimeSpan.Zero;
-                
+
             var averageRowsPerSecond = _totalProcessingTime.TotalSeconds > 0
                 ? _totalRowsProcessed / _totalProcessingTime.TotalSeconds
                 : 0.0;

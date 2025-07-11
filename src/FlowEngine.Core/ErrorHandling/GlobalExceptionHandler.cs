@@ -43,11 +43,13 @@ public sealed class GlobalExceptionHandler : IDisposable
     public async Task<ErrorHandlingResult> HandleExceptionAsync(Exception exception, ErrorContext? context = null)
     {
         if (exception == null)
+        {
             throw new ArgumentNullException(nameof(exception));
+        }
 
         var effectiveContext = context ?? ErrorContext.FromCurrentContext("UnknownOperation", "GlobalHandler");
         var activity = Activity.Current;
-        
+
         try
         {
             using var handlingActivity = Activity.Current?.Source.StartActivity("ErrorHandling");
@@ -63,13 +65,13 @@ public sealed class GlobalExceptionHandler : IDisposable
             if (handler != null)
             {
                 var result = await handler(exception, effectiveContext);
-                
+
                 // Log the handling result
                 LogHandlingResult(exception, effectiveContext, result);
-                
+
                 // Raise events
                 RaiseHandledEvent(exception, effectiveContext, result);
-                
+
                 if (result.RequiresEscalation)
                 {
                     RaiseEscalationEvent(exception, effectiveContext, result);
@@ -82,12 +84,12 @@ public sealed class GlobalExceptionHandler : IDisposable
             var defaultResult = await HandleUnknownExceptionAsync(exception, effectiveContext);
             LogHandlingResult(exception, effectiveContext, defaultResult);
             RaiseHandledEvent(exception, effectiveContext, defaultResult);
-            
+
             return defaultResult;
         }
         catch (Exception handlingException)
         {
-            _logger.LogCritical(handlingException, 
+            _logger.LogCritical(handlingException,
                 "Critical error in exception handler while processing {ExceptionType}: {OriginalMessage}",
                 exception.GetType().Name, exception.Message);
 
@@ -110,7 +112,9 @@ public sealed class GlobalExceptionHandler : IDisposable
     public void RegisterHandler<T>(Func<T, ErrorContext, Task<ErrorHandlingResult>> handler) where T : Exception
     {
         if (handler == null)
+        {
             throw new ArgumentNullException(nameof(handler));
+        }
 
         lock (_lock)
         {
@@ -135,12 +139,12 @@ public sealed class GlobalExceptionHandler : IDisposable
         RegisterHandler<FlowEngineSchemaException>(HandleSchemaExceptionAsync);
         RegisterHandler<FlowEngineMemoryException>(HandleMemoryExceptionAsync);
         RegisterHandler<FlowEnginePluginException>(HandlePluginExceptionAsync);
-        
+
         // Legacy exceptions (for backwards compatibility)
         RegisterHandler<SchemaValidationException>(HandleLegacySchemaExceptionAsync);
         RegisterHandler<MemoryAllocationException>(HandleLegacyMemoryExceptionAsync);
         RegisterHandler<ChunkProcessingException>(HandleChunkProcessingExceptionAsync);
-        
+
         // System exceptions
         RegisterHandler<OutOfMemoryException>(HandleOutOfMemoryExceptionAsync);
         RegisterHandler<UnauthorizedAccessException>(HandleUnauthorizedAccessExceptionAsync);
@@ -186,7 +190,7 @@ public sealed class GlobalExceptionHandler : IDisposable
     private async Task<ErrorHandlingResult> HandleSchemaExceptionAsync(FlowEngineSchemaException exception, ErrorContext context)
     {
         var recovery = await _recoveryService.AttemptSchemaRecoveryAsync(exception, context);
-        
+
         return ErrorHandlingResult.Create(
             isRecovered: recovery.IsSuccessful,
             requiresEscalation: !recovery.IsSuccessful && exception.Severity >= ErrorSeverity.High,
@@ -203,7 +207,7 @@ public sealed class GlobalExceptionHandler : IDisposable
     private async Task<ErrorHandlingResult> HandleMemoryExceptionAsync(FlowEngineMemoryException exception, ErrorContext context)
     {
         var recovery = await _recoveryService.AttemptMemoryRecoveryAsync(exception, context);
-        
+
         return ErrorHandlingResult.Create(
             isRecovered: recovery.IsSuccessful,
             requiresEscalation: !recovery.IsSuccessful, // Memory issues always escalate if not recovered
@@ -220,7 +224,7 @@ public sealed class GlobalExceptionHandler : IDisposable
     private async Task<ErrorHandlingResult> HandlePluginExceptionAsync(FlowEnginePluginException exception, ErrorContext context)
     {
         var recovery = await _recoveryService.AttemptPluginRecoveryAsync(exception, context);
-        
+
         return ErrorHandlingResult.Create(
             isRecovered: recovery.IsSuccessful,
             requiresEscalation: !recovery.IsSuccessful && !exception.IsRecoverable,
@@ -262,11 +266,11 @@ public sealed class GlobalExceptionHandler : IDisposable
         return await HandleMemoryExceptionAsync(modernException, context);
     }
 
-    private async Task<ErrorHandlingResult> HandleChunkProcessingExceptionAsync(ChunkProcessingException exception, ErrorContext context)
+    private Task<ErrorHandlingResult> HandleChunkProcessingExceptionAsync(ChunkProcessingException exception, ErrorContext context)
     {
         // Attempt chunk recovery
         var canRetry = exception.Chunk != null && exception.RowIndex.HasValue;
-        
+
         if (canRetry)
         {
             // Log the problematic row/chunk for analysis
@@ -274,7 +278,7 @@ public sealed class GlobalExceptionHandler : IDisposable
                 exception.RowIndex, exception.ColumnName ?? "Unknown");
         }
 
-        return ErrorHandlingResult.Create(
+        return Task.FromResult(ErrorHandlingResult.Create(
             isRecovered: false, // Chunk processing failures usually need manual intervention
             requiresEscalation: true,
             message: canRetry ? "Chunk processing failed but can be retried" : "Chunk processing failed permanently",
@@ -285,14 +289,14 @@ public sealed class GlobalExceptionHandler : IDisposable
                 ["ColumnName"] = exception.ColumnName ?? "Unknown",
                 ["HasChunk"] = exception.Chunk != null,
                 ["CanRetry"] = canRetry
-            });
+            }));
     }
 
     private async Task<ErrorHandlingResult> HandleOutOfMemoryExceptionAsync(OutOfMemoryException exception, ErrorContext context)
     {
         // Force garbage collection and attempt recovery
         var recovery = await _recoveryService.AttemptMemoryRecoveryAsync(null, context);
-        
+
         return ErrorHandlingResult.Create(
             isRecovered: false, // OOM usually means serious issues
             requiresEscalation: true,
@@ -305,9 +309,9 @@ public sealed class GlobalExceptionHandler : IDisposable
             });
     }
 
-    private async Task<ErrorHandlingResult> HandleUnauthorizedAccessExceptionAsync(UnauthorizedAccessException exception, ErrorContext context)
+    private Task<ErrorHandlingResult> HandleUnauthorizedAccessExceptionAsync(UnauthorizedAccessException exception, ErrorContext context)
     {
-        return ErrorHandlingResult.Create(
+        return Task.FromResult(ErrorHandlingResult.Create(
             isRecovered: false,
             requiresEscalation: true,
             message: "Access denied - insufficient permissions",
@@ -316,13 +320,13 @@ public sealed class GlobalExceptionHandler : IDisposable
             {
                 ["SecurityIssue"] = true,
                 ["RequiresManualIntervention"] = true
-            });
+            }));
     }
 
     private async Task<ErrorHandlingResult> HandleIOExceptionAsync(IOException exception, ErrorContext context)
     {
         var recovery = await _recoveryService.AttemptIORecoveryAsync(exception, context);
-        
+
         return ErrorHandlingResult.Create(
             isRecovered: recovery.IsSuccessful,
             requiresEscalation: !recovery.IsSuccessful,
@@ -335,9 +339,9 @@ public sealed class GlobalExceptionHandler : IDisposable
             });
     }
 
-    private async Task<ErrorHandlingResult> HandleTimeoutExceptionAsync(TimeoutException exception, ErrorContext context)
+    private Task<ErrorHandlingResult> HandleTimeoutExceptionAsync(TimeoutException exception, ErrorContext context)
     {
-        return ErrorHandlingResult.Create(
+        return Task.FromResult(ErrorHandlingResult.Create(
             isRecovered: false, // Timeouts usually indicate the operation should be retried
             requiresEscalation: false, // But not necessarily escalated immediately
             message: "Operation timed out",
@@ -346,14 +350,14 @@ public sealed class GlobalExceptionHandler : IDisposable
             {
                 ["IsRetryable"] = true,
                 ["SuggestedRetryDelay"] = TimeSpan.FromSeconds(5).TotalMilliseconds
-            });
+            }));
     }
 
-    private async Task<ErrorHandlingResult> HandleCancellationExceptionAsync(OperationCanceledException exception, ErrorContext context)
+    private Task<ErrorHandlingResult> HandleCancellationExceptionAsync(OperationCanceledException exception, ErrorContext context)
     {
         var isUserCancellation = exception.CancellationToken.IsCancellationRequested;
-        
-        return ErrorHandlingResult.Create(
+
+        return Task.FromResult(ErrorHandlingResult.Create(
             isRecovered: isUserCancellation, // User cancellations are "normal"
             requiresEscalation: !isUserCancellation, // Unexpected cancellations should escalate
             message: isUserCancellation ? "Operation cancelled by user" : "Operation cancelled unexpectedly",
@@ -362,12 +366,12 @@ public sealed class GlobalExceptionHandler : IDisposable
             {
                 ["IsUserCancellation"] = isUserCancellation,
                 ["CancellationRequested"] = exception.CancellationToken.IsCancellationRequested
-            });
+            }));
     }
 
-    private async Task<ErrorHandlingResult> HandleUnknownExceptionAsync(Exception exception, ErrorContext context)
+    private Task<ErrorHandlingResult> HandleUnknownExceptionAsync(Exception exception, ErrorContext context)
     {
-        return ErrorHandlingResult.Create(
+        return Task.FromResult(ErrorHandlingResult.Create(
             isRecovered: false,
             requiresEscalation: true,
             message: $"Unhandled exception: {exception.GetType().Name}",
@@ -376,7 +380,7 @@ public sealed class GlobalExceptionHandler : IDisposable
             {
                 ["ExceptionType"] = exception.GetType().FullName ?? "Unknown",
                 ["UnhandledException"] = true
-            });
+            }));
     }
 
     #endregion
@@ -392,7 +396,7 @@ public sealed class GlobalExceptionHandler : IDisposable
                 .Build();
 
             _logger.LogCritical(exception, "Unhandled exception in AppDomain. Terminating: {IsTerminating}", e.IsTerminating);
-            
+
             // Attempt to handle the exception even if terminating
             _ = Task.Run(async () =>
             {
@@ -415,10 +419,10 @@ public sealed class GlobalExceptionHandler : IDisposable
             .Build();
 
         _logger.LogError(e.Exception, "Unobserved task exception detected");
-        
+
         // Mark as observed to prevent process termination
         e.SetObserved();
-        
+
         // Handle the exception
         _ = Task.Run(async () =>
         {
@@ -435,7 +439,7 @@ public sealed class GlobalExceptionHandler : IDisposable
 
     private void LogHandlingResult(Exception exception, ErrorContext context, ErrorHandlingResult result)
     {
-        var logLevel = result.RequiresEscalation ? LogLevel.Error : 
+        var logLevel = result.RequiresEscalation ? LogLevel.Error :
                       result.IsRecovered ? LogLevel.Information : LogLevel.Warning;
 
         using var scope = _logger.BeginScope(context.ToLogDictionary());
@@ -472,13 +476,16 @@ public sealed class GlobalExceptionHandler : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
             AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
             TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
-            
+
             _recoveryService?.Dispose();
         }
         catch (Exception ex)
@@ -501,32 +508,32 @@ public sealed class ErrorHandlingResult
     /// Gets whether the error was successfully recovered.
     /// </summary>
     public bool IsRecovered { get; }
-    
+
     /// <summary>
     /// Gets whether the error requires escalation to higher-level handlers.
     /// </summary>
     public bool RequiresEscalation { get; }
-    
+
     /// <summary>
     /// Gets the human-readable result message.
     /// </summary>
     public string Message { get; }
-    
+
     /// <summary>
     /// Gets the recovery action that was taken or should be taken.
     /// </summary>
     public string? RecoveryAction { get; }
-    
+
     /// <summary>
     /// Gets additional metadata about the handling result.
     /// </summary>
     public IReadOnlyDictionary<string, object> Metadata { get; }
-    
+
     /// <summary>
     /// Gets the timestamp when the handling was completed.
     /// </summary>
     public DateTimeOffset Timestamp { get; }
-    
+
     private ErrorHandlingResult(bool isRecovered, bool requiresEscalation, string message, string? recoveryAction, Dictionary<string, object> metadata)
     {
         IsRecovered = isRecovered;
@@ -536,22 +543,22 @@ public sealed class ErrorHandlingResult
         Metadata = metadata.AsReadOnly();
         Timestamp = DateTimeOffset.UtcNow;
     }
-    
+
     public static ErrorHandlingResult Create(bool isRecovered, bool requiresEscalation, string message, string? recoveryAction = null, Dictionary<string, object>? metadata = null)
     {
         return new ErrorHandlingResult(isRecovered, requiresEscalation, message, recoveryAction, metadata ?? new Dictionary<string, object>());
     }
-    
+
     public static ErrorHandlingResult CreateSuccess(string message, string? recoveryAction = null, Dictionary<string, object>? metadata = null)
     {
         return Create(true, false, message, recoveryAction, metadata);
     }
-    
+
     public static ErrorHandlingResult CreateFailure(string message, bool requiresEscalation = true, Dictionary<string, object>? metadata = null)
     {
         return Create(false, requiresEscalation, message, null, metadata);
     }
-    
+
     public static ErrorHandlingResult CreateCriticalFailure(string message, Dictionary<string, object>? metadata = null)
     {
         return Create(false, true, message, "Immediate attention required", metadata);
@@ -566,7 +573,7 @@ public sealed class ErrorHandledEventArgs : EventArgs
     public Exception Exception { get; }
     public ErrorContext Context { get; }
     public ErrorHandlingResult Result { get; }
-    
+
     public ErrorHandledEventArgs(Exception exception, ErrorContext context, ErrorHandlingResult result)
     {
         Exception = exception;
@@ -583,7 +590,7 @@ public sealed class ErrorEscalationEventArgs : EventArgs
     public Exception Exception { get; }
     public ErrorContext Context { get; }
     public ErrorHandlingResult Result { get; }
-    
+
     public ErrorEscalationEventArgs(Exception exception, ErrorContext context, ErrorHandlingResult result)
     {
         Exception = exception;

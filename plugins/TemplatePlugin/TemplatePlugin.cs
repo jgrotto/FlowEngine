@@ -93,8 +93,8 @@ public sealed class TemplatePlugin : PluginBase
     public override bool SupportsHotSwapping => true;
 
     /// <inheritdoc />
-    public override IPluginConfiguration Configuration 
-    { 
+    public override IPluginConfiguration Configuration
+    {
         get => _configuration ?? throw new InvalidOperationException("Plugin not initialized");
         protected set => _configuration = (TemplatePluginConfiguration)value;
     }
@@ -121,7 +121,7 @@ public sealed class TemplatePlugin : PluginBase
     // === Base Class Overrides ===
 
     /// <inheritdoc />
-    protected override async Task<PluginInitializationResult> InitializeInternalAsync(
+    protected override Task<PluginInitializationResult> InitializeInternalAsync(
         IPluginConfiguration configuration,
         CancellationToken cancellationToken)
     {
@@ -129,13 +129,13 @@ public sealed class TemplatePlugin : PluginBase
 
         if (configuration is not TemplatePluginConfiguration templateConfig)
         {
-            return new PluginInitializationResult
+            return Task.FromResult(new PluginInitializationResult
             {
                 Success = false,
                 Message = $"Expected TemplatePluginConfiguration, got {configuration?.GetType().Name ?? "null"}",
                 InitializationTime = TimeSpan.Zero,
                 Errors = ImmutableArray.Create("Invalid configuration type")
-            };
+            });
         }
 
         try
@@ -147,13 +147,13 @@ public sealed class TemplatePlugin : PluginBase
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.Message).ToArray();
-                return new PluginInitializationResult
+                return Task.FromResult(new PluginInitializationResult
                 {
                     Success = false,
                     Message = "Configuration validation failed",
                     InitializationTime = TimeSpan.Zero,
                     Errors = ImmutableArray.Create(errors)
-                };
+                });
             }
 
             // Store configuration
@@ -165,24 +165,24 @@ public sealed class TemplatePlugin : PluginBase
                 templateConfig.BatchSize,
                 templateConfig.DataType);
 
-            return new PluginInitializationResult
+            return Task.FromResult(new PluginInitializationResult
             {
                 Success = true,
                 Message = "Plugin initialized successfully",
                 InitializationTime = TimeSpan.Zero
-            };
+            });
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to initialize Template Plugin");
 
-            return new PluginInitializationResult
+            return Task.FromResult(new PluginInitializationResult
             {
                 Success = false,
                 Message = $"Initialization failed: {ex.Message}",
                 InitializationTime = TimeSpan.Zero,
                 Errors = ImmutableArray.Create(ex.Message)
-            };
+            });
         }
     }
 
@@ -190,19 +190,19 @@ public sealed class TemplatePlugin : PluginBase
     protected override async Task StartInternalAsync(CancellationToken cancellationToken)
     {
         Logger.LogInformation("Starting Template Plugin");
-        
+
         // If we have factory services, demonstrate real data processing
         if (_schemaFactory != null && _arrayRowFactory != null && _chunkFactory != null && _datasetFactory != null)
         {
             var hasMonitoringServices = _memoryManager != null && _performanceMonitor != null && _channelTelemetry != null;
             Logger.LogInformation("🎯 Core services available - running data processing demonstration (monitoring: {HasMonitoring})", hasMonitoringServices);
-            
+
             try
             {
                 var dataset = await DemonstrateRealDataProcessingAsync();
                 Logger.LogInformation("✅ Data processing demonstration completed - dataset created with {RowCount} rows", dataset.RowCount);
-        Logger.LogInformation("📋 Configuration values used: RowCount={ConfigRowCount}, BatchSize={ConfigBatchSize}, DataType={ConfigDataType}", 
-            _configuration?.RowCount ?? 0, _configuration?.BatchSize ?? 0, _configuration?.DataType ?? "not set");
+                Logger.LogInformation("📋 Configuration values used: RowCount={ConfigRowCount}, BatchSize={ConfigBatchSize}, DataType={ConfigDataType}",
+                    _configuration?.RowCount ?? 0, _configuration?.BatchSize ?? 0, _configuration?.DataType ?? "not set");
             }
             catch (Exception ex)
             {
@@ -213,7 +213,7 @@ public sealed class TemplatePlugin : PluginBase
         {
             Logger.LogWarning("⚠️ Core services not available - skipping data processing demonstration");
         }
-        
+
         Logger.LogInformation("Template Plugin started successfully");
     }
 
@@ -241,7 +241,7 @@ public sealed class TemplatePlugin : PluginBase
         Logger.LogInformation("🚀 Starting REAL DATA PROCESSING demonstration using Core services");
 
         // Start performance monitoring
-        using var operation = _performanceMonitor?.StartOperation("TemplatePlugin.DataProcessing", 
+        using var operation = _performanceMonitor?.StartOperation("TemplatePlugin.DataProcessing",
             new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
         try
@@ -257,21 +257,21 @@ public sealed class TemplatePlugin : PluginBase
 
             var schema = _schemaFactory.CreateSchema(columnDefinitions);
             Logger.LogInformation("✅ Created schema with {ColumnCount} columns: {Schema}", schema.ColumnCount, schema.Signature);
-            
+
             // Record schema creation performance
-            _performanceMonitor?.RecordCounter("TemplatePlugin.SchemasCreated", 1, 
+            _performanceMonitor?.RecordCounter("TemplatePlugin.SchemasCreated", 1,
                 new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
             // === STEP 2: Create ArrayRows using ArrayRowFactory with Memory Management ===
             var rows = new List<IArrayRow>();
-            
+
             // Check memory pressure before creating large datasets
             if (_memoryManager?.IsUnderMemoryPressure() == true)
             {
-                Logger.LogWarning("⚠️ System under memory pressure (level: {PressureLevel}), proceeding with caution", 
+                Logger.LogWarning("⚠️ System under memory pressure (level: {PressureLevel}), proceeding with caution",
                     _memoryManager.PressureLevel);
             }
-            
+
             var sampleData = new object[][]
             {
                 new object[] { 1, "Alice Johnson", 95.5, DateTime.UtcNow.AddDays(-10) },
@@ -285,21 +285,21 @@ public sealed class TemplatePlugin : PluginBase
             {
                 var row = _arrayRowFactory.CreateRow(schema, rowData);
                 rows.Add(row);
-                Logger.LogDebug("Created row: Id={Id}, Name={Name}, Score={Score}", 
+                Logger.LogDebug("Created row: Id={Id}, Name={Name}, Score={Score}",
                     row[0], row[1], row[2]?.ToString() ?? "NULL");
             }
 
             Logger.LogInformation("✅ Created {RowCount} ArrayRows with real data", rows.Count);
-            _performanceMonitor?.RecordCounter("TemplatePlugin.RowsCreated", rows.Count, 
+            _performanceMonitor?.RecordCounter("TemplatePlugin.RowsCreated", rows.Count,
                 new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
             // === STEP 3: Create a Chunk using ChunkFactory ===
             var chunk = _chunkFactory.CreateChunk(rows.ToArray());
-            Logger.LogInformation("✅ Created chunk with {RowCount} rows, memory size ~{MemorySize} bytes", 
+            Logger.LogInformation("✅ Created chunk with {RowCount} rows, memory size ~{MemorySize} bytes",
                 chunk.RowCount, chunk.ApproximateMemorySize);
-            
+
             // Record chunk creation and memory usage
-            _performanceMonitor?.RecordCounter("TemplatePlugin.ChunksCreated", 1, 
+            _performanceMonitor?.RecordCounter("TemplatePlugin.ChunksCreated", 1,
                 new Dictionary<string, string> { { "component", "TemplatePlugin" } });
             _performanceMonitor?.RecordMemoryUsage("TemplatePlugin", chunk.ApproximateMemorySize);
 
@@ -318,18 +318,18 @@ public sealed class TemplatePlugin : PluginBase
                 }
             }
 
-            Logger.LogInformation("✅ Processed data: filtered {FilteredCount} rows from {TotalCount}, added bonus points", 
+            Logger.LogInformation("✅ Processed data: filtered {FilteredCount} rows from {TotalCount}, added bonus points",
                 filteredRows.Count, chunk.RowCount);
-            
+
             // Record data processing metrics
-            _performanceMonitor?.RecordCounter("TemplatePlugin.RowsProcessed", filteredRows.Count, 
+            _performanceMonitor?.RecordCounter("TemplatePlugin.RowsProcessed", filteredRows.Count,
                 new Dictionary<string, string> { { "component", "TemplatePlugin" } });
 
             // === STEP 5: Create processed Chunk and Dataset ===
             var processedChunk = _chunkFactory.CreateChunk(filteredRows.ToArray());
             var dataset = _datasetFactory.CreateDataset(new[] { processedChunk });
 
-            Logger.LogInformation("✅ Created final dataset with {ChunkCount} chunk(s), {RowCount} rows", 
+            Logger.LogInformation("✅ Created final dataset with {ChunkCount} chunk(s), {RowCount} rows",
                 dataset.ChunkCount, dataset.RowCount);
 
             // === STEP 6: Demonstrate streaming processing ===
@@ -339,13 +339,13 @@ public sealed class TemplatePlugin : PluginBase
                 Logger.LogInformation("Processing chunk with {RowCount} rows", streamChunk.RowCount);
                 foreach (var row in streamChunk.GetRows())
                 {
-                    Logger.LogDebug("  Row: {Id} | {Name} | {Score} | {Date}", 
+                    Logger.LogDebug("  Row: {Id} | {Name} | {Score} | {Date}",
                         row[0], row[1], row[2], row[3]);
                 }
             }
 
             Logger.LogInformation("🎉 REAL DATA PROCESSING demonstration completed successfully!");
-            Logger.LogInformation("📊 Summary: Created schema → {RowCount} rows → chunk → filtered/transformed → final dataset", 
+            Logger.LogInformation("📊 Summary: Created schema → {RowCount} rows → chunk → filtered/transformed → final dataset",
                 dataset.RowCount);
 
             // === STEP 7: Display performance statistics if monitoring is available ===
@@ -354,7 +354,7 @@ public sealed class TemplatePlugin : PluginBase
                 var stats = _performanceMonitor.GetStatistics("TemplatePlugin");
                 if (stats != null)
                 {
-                    Logger.LogInformation("📈 Performance Statistics: {Operations} operations, {AvgTime}ms avg, {TotalRows} rows processed", 
+                    Logger.LogInformation("📈 Performance Statistics: {Operations} operations, {AvgTime}ms avg, {TotalRows} rows processed",
                         stats.TotalOperations, stats.AverageProcessingTime.TotalMilliseconds, stats.TotalRowsProcessed);
                 }
             }
@@ -371,7 +371,7 @@ public sealed class TemplatePlugin : PluginBase
     // Health checks and metrics handled by base class
 
     /// <inheritdoc />
-    protected override async Task<HotSwapResult> HotSwapInternalAsync(
+    protected override Task<HotSwapResult> HotSwapInternalAsync(
         IPluginConfiguration newConfiguration,
         CancellationToken cancellationToken)
     {
@@ -379,12 +379,12 @@ public sealed class TemplatePlugin : PluginBase
 
         if (newConfiguration is not TemplatePluginConfiguration newTemplateConfig)
         {
-            return new HotSwapResult
+            return Task.FromResult(new HotSwapResult
             {
                 Success = false,
                 Message = $"Expected TemplatePluginConfiguration, got {newConfiguration?.GetType().Name ?? "null"}",
                 SwapTime = TimeSpan.Zero
-            };
+            });
         }
 
         try
@@ -395,13 +395,13 @@ public sealed class TemplatePlugin : PluginBase
 
             if (!validationResult.IsValid)
             {
-                return new HotSwapResult
+                return Task.FromResult(new HotSwapResult
                 {
                     Success = false,
                     Message = "Hot-swap validation failed",
                     SwapTime = TimeSpan.Zero,
                     Errors = validationResult.Errors.Select(e => e.Message).ToImmutableArray()
-                };
+                });
             }
 
             // Update configuration atomically
@@ -415,24 +415,24 @@ public sealed class TemplatePlugin : PluginBase
                 oldConfig?.BatchSize ?? 0,
                 newTemplateConfig.BatchSize);
 
-            return new HotSwapResult
+            return Task.FromResult(new HotSwapResult
             {
                 Success = true,
                 Message = "Configuration updated successfully",
                 SwapTime = TimeSpan.Zero
-            };
+            });
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Hot-swap failed for Template Plugin");
-            
-            return new HotSwapResult
+
+            return Task.FromResult(new HotSwapResult
             {
                 Success = false,
                 Message = $"Hot-swap failed: {ex.Message}",
                 SwapTime = TimeSpan.Zero,
                 Errors = ImmutableArray.Create(ex.Message)
-            };
+            });
         }
     }
 

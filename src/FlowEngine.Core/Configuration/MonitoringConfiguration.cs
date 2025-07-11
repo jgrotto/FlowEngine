@@ -24,6 +24,6 @@ internal sealed class MonitoringConfiguration : IMonitoringConfiguration
     public bool EnableTracing => _data.EnableTracing;
 
     /// <inheritdoc />
-    public IReadOnlyDictionary<string, object> Custom => 
+    public IReadOnlyDictionary<string, object> Custom =>
         _data.Custom ?? (IReadOnlyDictionary<string, object>)new Dictionary<string, object>();
 }

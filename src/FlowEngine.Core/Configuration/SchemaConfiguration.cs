@@ -55,22 +55,30 @@ internal sealed class SchemaConfiguration : ISchemaConfiguration
         var warnings = new List<string>();
 
         if (string.IsNullOrWhiteSpace(Name))
+        {
             errors.Add("Schema name is required");
+        }
 
         if (Fields.Count == 0)
+        {
             errors.Add("Schema must contain at least one field");
+        }
 
         // Validate field names are unique
         var fieldNames = Fields.Select(f => f.Name).ToList();
         var duplicateNames = fieldNames.GroupBy(n => n).Where(g => g.Count() > 1).Select(g => g.Key);
         foreach (var name in duplicateNames)
+        {
             errors.Add($"Duplicate field name: {name}");
+        }
 
         // Validate field types
         foreach (var field in Fields)
         {
             if (string.IsNullOrWhiteSpace(field.Name))
+            {
                 errors.Add("Field name is required");
+            }
 
             try
             {
@@ -82,9 +90,9 @@ internal sealed class SchemaConfiguration : ISchemaConfiguration
             }
         }
 
-        return errors.Count > 0 
+        return errors.Count > 0
             ? ConfigurationValidationResult.Failure(errors.ToArray())
-            : warnings.Count > 0 
+            : warnings.Count > 0
                 ? ConfigurationValidationResult.SuccessWithWarnings(warnings.ToArray())
                 : ConfigurationValidationResult.Success();
     }

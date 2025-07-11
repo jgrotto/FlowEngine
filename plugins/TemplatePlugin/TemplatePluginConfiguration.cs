@@ -94,7 +94,10 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
     public int GetInputFieldIndex(string fieldName)
     {
         if (_inputFieldIndexes.TryGetValue(fieldName, out var index))
+        {
             return index;
+        }
+
         throw new ArgumentException($"Field '{fieldName}' not found in input schema", nameof(fieldName));
     }
 
@@ -102,7 +105,10 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
     public int GetOutputFieldIndex(string fieldName)
     {
         if (_outputFieldIndexes.TryGetValue(fieldName, out var index))
+        {
             return index;
+        }
+
         throw new ArgumentException($"Field '{fieldName}' not found in output schema", nameof(fieldName));
     }
 
@@ -117,10 +123,14 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
     public T GetProperty<T>(string key)
     {
         if (!_properties.TryGetValue(key, out var value))
+        {
             throw new KeyNotFoundException($"Property '{key}' not found");
+        }
 
         if (value is T typedValue)
+        {
             return typedValue;
+        }
 
         return (T)Convert.ChangeType(value, typeof(T));
     }
@@ -130,7 +140,9 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
     {
         value = default;
         if (!_properties.TryGetValue(key, out var objectValue))
+        {
             return false;
+        }
 
         try
         {
@@ -156,17 +168,19 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
     /// </summary>
     private static ImmutableDictionary<string, int> CalculateFieldIndexes(ISchema? schema)
     {
-        if (schema == null) 
+        if (schema == null)
+        {
             return ImmutableDictionary<string, int>.Empty;
+        }
 
         var builder = ImmutableDictionary.CreateBuilder<string, int>();
-        
+
         // IMPORTANT: Sequential indexing is required for ArrayRow optimization
         for (int i = 0; i < schema.Columns.Length; i++)
         {
             builder[schema.Columns[i].Name] = i;
         }
-        
+
         return builder.ToImmutable();
     }
 
@@ -192,35 +206,35 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
         // Define output schema with explicit field ordering
         var columns = new[]
         {
-            new ColumnDefinition 
-            { 
-                Name = "Id", 
-                DataType = typeof(int), 
-                IsNullable = false, 
+            new ColumnDefinition
+            {
+                Name = "Id",
+                DataType = typeof(int),
+                IsNullable = false,
                 Description = "Sequential ID",
                 Index = 0  // Explicit index for ArrayRow optimization
             },
-            new ColumnDefinition 
-            { 
-                Name = "Name", 
-                DataType = typeof(string), 
-                IsNullable = false, 
+            new ColumnDefinition
+            {
+                Name = "Name",
+                DataType = typeof(string),
+                IsNullable = false,
                 Description = "Generated name",
                 Index = 1  // Must be sequential
             },
-            new ColumnDefinition 
-            { 
-                Name = "Value", 
-                DataType = typeof(decimal), 
-                IsNullable = false, 
+            new ColumnDefinition
+            {
+                Name = "Value",
+                DataType = typeof(decimal),
+                IsNullable = false,
                 Description = "Generated value",
                 Index = 2  // Must be sequential
             },
-            new ColumnDefinition 
-            { 
-                Name = "Timestamp", 
-                DataType = typeof(DateTime), 
-                IsNullable = false, 
+            new ColumnDefinition
+            {
+                Name = "Timestamp",
+                DataType = typeof(DateTime),
+                IsNullable = false,
                 Description = "Creation timestamp",
                 Index = 3  // Must be sequential
             }
@@ -228,7 +242,7 @@ public sealed class TemplatePluginConfiguration : IPluginConfiguration
 
         // TODO: Need to resolve ISchema creation - this is where we'll need Core bridge
         // var outputSchema = Schema.Create(columns); 
-        
+
         return new TemplatePluginConfiguration
         {
             // OutputSchema = outputSchema  // Will be set once we have Core bridge

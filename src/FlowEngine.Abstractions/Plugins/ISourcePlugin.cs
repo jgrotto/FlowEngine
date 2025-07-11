@@ -85,6 +85,6 @@ public sealed record SourcePosition
     /// <param name="value">Position value</param>
     /// <param name="metadata">Position metadata</param>
     /// <returns>Source position</returns>
-    public static SourcePosition FromValueWithMetadata(object value, IReadOnlyDictionary<string, object> metadata) => 
+    public static SourcePosition FromValueWithMetadata(object value, IReadOnlyDictionary<string, object> metadata) =>
         new() { Value = value, Metadata = metadata };
 }

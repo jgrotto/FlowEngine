@@ -1,0 +1,227 @@
+pipeline:
+  name: "Customer Data Processing Pipeline - Simplified"
+  version: "1.0.0"
+  description: "Real-world example with automatic plugin type resolution"
+  
+  plugins:
+    # Source: Read customer data from CSV file - using short name
+    - name: "CustomerSource"
+      type: "DelimitedSource"  # Short name instead of DelimitedSource.DelimitedSourcePlugin
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 5000
+        Encoding: "UTF-8"
+        InferSchema: false
+        OutputSchema:
+          Name: "CustomerData"
+          Description: "Customer information schema"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 3
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 4
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 5
+              IsNullable: false
+        SkipMalformedRows: true
+        MaxErrors: 10
+        
+    # Transform: Enrich customer data with JavaScript logic - using short name
+    - name: "CustomerTransform"
+      type: "JavaScriptTransform"  # Short name instead of JavaScriptTransform.JavaScriptTransformPlugin
+      config:
+        OutputSchema:
+          Name: "ProcessedCustomerData"
+          Description: "Customer data with transformations and enrichments"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "full_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 3
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 4
+              IsNullable: false
+            - Name: "age_category"
+              Type: "String"
+              Index: 5
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 6
+              IsNullable: false
+            - Name: "email_domain"
+              Type: "String"
+              Index: 7
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 8
+              IsNullable: false
+            - Name: "value_category"
+              Type: "String"
+              Index: 9
+              IsNullable: false
+            - Name: "priority_score"
+              Type: "Integer"
+              Index: 10
+              IsNullable: false
+            - Name: "processed_date"
+              Type: "String"
+              Index: 11
+              IsNullable: false
+        Script: |
+          function process(context) {
+              try {
+                  // Get current row data
+                  var customer = context.input.current();
+                  
+                  // Basic validation
+                  if (!customer.first_name || !customer.last_name) {
+                      context.utils.log('warning', 'Missing name data for customer ID: ' + customer.customer_id);
+                      return false; // Skip this row
+                  }
+                  
+                  // Transform: Create full name
+                  var fullName = customer.first_name + ' ' + customer.last_name;
+                  
+                  // Transform: Categorize age
+                  var age = parseInt(customer.age);
+                  var ageCategory = 'Unknown';
+                  if (age < 25) ageCategory = 'Young Adult';
+                  else if (age < 45) ageCategory = 'Adult';
+                  else if (age < 65) ageCategory = 'Middle Age';
+                  else ageCategory = 'Senior';
+                  
+                  // Transform: Email domain extraction
+                  var emailDomain = customer.email ? customer.email.split('@')[1] : 'unknown';
+                  
+                  // Transform: Calculate account value category
+                  var accountValue = parseFloat(customer.account_value || 0);
+                  var valueCategory = 'Standard';
+                  if (accountValue >= 100000) valueCategory = 'Premium';
+                  else if (accountValue >= 50000) valueCategory = 'Gold';
+                  else if (accountValue >= 10000) valueCategory = 'Silver';
+                  
+                  // Transform: Generate priority score
+                  var priorityScore = 0;
+                  if (valueCategory === 'Premium') priorityScore += 40;
+                  else if (valueCategory === 'Gold') priorityScore += 30;
+                  else if (valueCategory === 'Silver') priorityScore += 20;
+                  else priorityScore += 10;
+                  
+                  if (ageCategory === 'Adult' || ageCategory === 'Middle Age') priorityScore += 20;
+                  if (emailDomain.includes('gmail') || emailDomain.includes('yahoo')) priorityScore += 10;
+                  
+                  // Set output fields
+                  context.output.setField('customer_id', customer.customer_id);
+                  context.output.setField('full_name', fullName);
+                  context.output.setField('first_name', customer.first_name);
+                  context.output.setField('last_name', customer.last_name);
+                  context.output.setField('age', age);
+                  context.output.setField('age_category', ageCategory);
+                  context.output.setField('email', customer.email);
+                  context.output.setField('email_domain', emailDomain);
+                  context.output.setField('account_value', accountValue);
+                  context.output.setField('value_category', valueCategory);
+                  context.output.setField('priority_score', priorityScore);
+                  context.output.setField('processed_date', new Date().toISOString());
+                  
+                  return true; // Successfully processed
+                  
+              } catch (error) {
+                  context.utils.log('error', 'Transform error: ' + error.message);
+                  return false; // Skip row on error
+              }
+          }
+        ChunkSize: 5000
+        TimeoutSeconds: 30
+        
+    # Sink: Write processed data to CSV file - using short name
+    - name: "ProcessedOutput"
+      type: "DelimitedSink"  # Short name instead of DelimitedSink.DelimitedSinkPlugin
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\output\\processed-customers-simplified.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Encoding: "UTF-8"
+        BufferSize: 8192
+        FlushInterval: 1000
+        CreateDirectory: true
+        OverwriteExisting: true
+        
+  connections:
+    # Customer data flows from source to transform
+    - from: "CustomerSource"
+      to: "CustomerTransform"
+      channel:
+        bufferSize: 2000
+        backpressureThreshold: 75
+        fullMode: "Wait"
+        timeoutSeconds: 45
+        
+    # Transformed data flows to output
+    - from: "CustomerTransform"
+      to: "ProcessedOutput"
+      channel:
+        bufferSize: 1500
+        backpressureThreshold: 80
+        fullMode: "Wait"
+        timeoutSeconds: 30
+
+  settings:
+    defaultChannel:
+      bufferSize: 1000
+      backpressureThreshold: 80
+      fullMode: "Wait"
+      timeoutSeconds: 30
+    
+    monitoring:
+      enableMetrics: true
+      metricsIntervalSeconds: 5
+      enableTracing: true
+      custom:
+        logLevel: "Information"
+        
+    custom:
+      performance:
+        maxConcurrentPlugins: 3
+        memoryLimitMB: 512
+        gcPressureThreshold: 0.8
+        
+      errorHandling:
+        maxRetries: 3
+        retryDelaySeconds: 2
+        stopOnError: false
+        logErrors: true

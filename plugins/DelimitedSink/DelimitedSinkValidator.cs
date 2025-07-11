@@ -164,8 +164,8 @@ public sealed class DelimitedSinkValidator : SchemaValidatedPluginValidator<Deli
             }
         }
 
-        return errors.Any(e => e.Severity == ValidationSeverity.Error) 
-            ? ValidationResult.Failure(errors.ToArray()) 
+        return errors.Any(e => e.Severity == ValidationSeverity.Error)
+            ? ValidationResult.Failure(errors.ToArray())
             : ValidationResult.Success();
     }
 
@@ -189,7 +189,7 @@ public sealed class DelimitedSinkValidator : SchemaValidatedPluginValidator<Deli
         // Check that all column types are CSV-compatible
         var csvCompatibleTypes = new HashSet<Type>
         {
-            typeof(string), typeof(int), typeof(long), typeof(decimal), 
+            typeof(string), typeof(int), typeof(long), typeof(decimal),
             typeof(double), typeof(bool), typeof(DateTime), typeof(DateTimeOffset)
         };
 

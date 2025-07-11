@@ -18,18 +18,17 @@ namespace FlowEngine.Integration.Tests;
 public class DelimitedPluginsStandaloneTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
-    private readonly ILogger<DelimitedPluginsStandaloneTests> _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly string _testDataDirectory;
     private readonly List<string> _testFiles = new();
 
     public DelimitedPluginsStandaloneTests(ITestOutputHelper output)
     {
         _output = output;
-        
-        var loggerFactory = LoggerFactory.Create(builder => 
+
+        _loggerFactory = LoggerFactory.Create(builder =>
             builder.AddConsole().SetMinimumLevel(LogLevel.Information));
-        _logger = loggerFactory.CreateLogger<DelimitedPluginsStandaloneTests>();
-        
+
         _testDataDirectory = Path.Combine(Path.GetTempPath(), "FlowEngine_DelimitedPlugins_Standalone", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_testDataDirectory);
     }
@@ -49,7 +48,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             OutputSchema = CreateSimpleSchema()
         };
 
-        var plugin = new DelimitedSourcePlugin(_logger);
+        var plugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
 
         // Act
         var stopwatch = Stopwatch.StartNew();
@@ -60,7 +59,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
         Assert.True(result.Success, $"Initialization failed: {result.Message}");
         Assert.Equal(PluginState.Initialized, plugin.State);
         Assert.Equal("delimited-source", plugin.Id);
-        
+
         _output.WriteLine($"✅ DelimitedSource initialized in {stopwatch.ElapsedMilliseconds}ms");
         _output.WriteLine($"   File: {sourceFile}");
         _output.WriteLine($"   State: {plugin.State}");
@@ -84,7 +83,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             InputSchema = CreateSimpleSchema()
         };
 
-        var plugin = new DelimitedSinkPlugin(_logger);
+        var plugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act
         var stopwatch = Stopwatch.StartNew();
@@ -95,7 +94,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
         Assert.True(result.Success, $"Initialization failed: {result.Message}");
         Assert.Equal(PluginState.Initialized, plugin.State);
         Assert.Equal("delimited-sink", plugin.Id);
-        
+
         _output.WriteLine($"✅ DelimitedSink initialized in {stopwatch.ElapsedMilliseconds}ms");
         _output.WriteLine($"   Output: {outputFile}");
         _output.WriteLine($"   State: {plugin.State}");
@@ -127,27 +126,27 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             InputSchema = CreateSimpleSchema()
         };
 
-        var sourcePlugin = new DelimitedSourcePlugin(_logger);
-        var sinkPlugin = new DelimitedSinkPlugin(_logger);
+        var sourcePlugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
+        var sinkPlugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act & Assert - Initialize
         await sourcePlugin.InitializeAsync(sourceConfig);
         await sinkPlugin.InitializeAsync(sinkConfig);
-        
+
         Assert.Equal(PluginState.Initialized, sourcePlugin.State);
         Assert.Equal(PluginState.Initialized, sinkPlugin.State);
 
         // Act & Assert - Start
         await sourcePlugin.StartAsync();
         await sinkPlugin.StartAsync();
-        
+
         Assert.Equal(PluginState.Running, sourcePlugin.State);
         Assert.Equal(PluginState.Running, sinkPlugin.State);
 
         // Act & Assert - Stop
         await sourcePlugin.StopAsync();
         await sinkPlugin.StopAsync();
-        
+
         Assert.Equal(PluginState.Stopped, sourcePlugin.State);
         Assert.Equal(PluginState.Stopped, sinkPlugin.State);
 
@@ -179,7 +178,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             OutputSchema = CreateSimpleSchema()
         };
 
-        var plugin = new DelimitedSourcePlugin(_logger);
+        var plugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
 
         // Act & Assert - Valid configuration
         var validResult = await plugin.InitializeAsync(validConfig);
@@ -187,7 +186,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
 
         // Reset plugin for second test
         plugin.Dispose();
-        plugin = new DelimitedSourcePlugin(_logger);
+        plugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
 
         // Act & Assert - Invalid configuration
         var invalidResult = await plugin.InitializeAsync(invalidConfig);
@@ -221,14 +220,14 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             ColumnMappings = columnMappings
         };
 
-        var plugin = new DelimitedSinkPlugin(_logger);
+        var plugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act
         var result = await plugin.InitializeAsync(config);
 
         // Assert
         Assert.True(result.Success, $"Initialization with column mapping failed: {result.Message}");
-        
+
         var configuration = (DelimitedSinkConfiguration)plugin.Configuration;
         Assert.NotNull(configuration.ColumnMappings);
         Assert.Equal(3, configuration.ColumnMappings.Count);
@@ -268,23 +267,23 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             InputSchema = CreateSimpleSchema()
         };
 
-        var sourcePlugin = new DelimitedSourcePlugin(_logger);
-        var sinkPlugin = new DelimitedSinkPlugin(_logger);
+        var sourcePlugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
+        var sinkPlugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         // Act
         var stopwatch = Stopwatch.StartNew();
-        
+
         var sourceResult = await sourcePlugin.InitializeAsync(sourceConfig);
         var sinkResult = await sinkPlugin.InitializeAsync(sinkConfig);
-        
+
         stopwatch.Stop();
 
         // Assert
         Assert.True(sourceResult.Success, "Large file source initialization should succeed");
         Assert.True(sinkResult.Success, "Large file sink initialization should succeed");
-        
+
         var sourceFileSize = new FileInfo(largeFileConfig).Length;
-        
+
         _output.WriteLine("✅ Large file configuration handled successfully");
         _output.WriteLine($"   Source file size: {sourceFileSize / 1024:N0} KB");
         _output.WriteLine($"   Initialization time: {stopwatch.ElapsedMilliseconds}ms");
@@ -292,7 +291,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
         _output.WriteLine($"   Sink buffer size: {sinkConfig.BufferSize / 1024:N0} KB");
 
         // Performance assertion
-        Assert.True(stopwatch.ElapsedMilliseconds < 2000, 
+        Assert.True(stopwatch.ElapsedMilliseconds < 2000,
             $"Large file initialization took {stopwatch.ElapsedMilliseconds}ms, should be under 2000ms");
     }
 
@@ -321,8 +320,8 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             InputSchema = CreateSimpleSchema()
         };
 
-        var sourcePlugin = new DelimitedSourcePlugin(_logger);
-        var sinkPlugin = new DelimitedSinkPlugin(_logger);
+        var sourcePlugin = new DelimitedSourcePlugin(_loggerFactory.CreateLogger<DelimitedSourcePlugin>());
+        var sinkPlugin = new DelimitedSinkPlugin(_loggerFactory.CreateLogger<DelimitedSinkPlugin>());
 
         await sourcePlugin.InitializeAsync(sourceConfig);
         await sinkPlugin.InitializeAsync(sinkConfig);
@@ -336,7 +335,7 @@ public class DelimitedPluginsStandaloneTests : IDisposable
         // Assert
         Assert.NotEmpty(sourceHealthChecks);
         Assert.NotEmpty(sinkHealthChecks);
-        
+
         var sourceHealthList = sourceHealthChecks.ToList();
         var sinkHealthList = sinkHealthChecks.ToList();
 
@@ -352,10 +351,10 @@ public class DelimitedPluginsStandaloneTests : IDisposable
     {
         var filePath = GetTestFilePath(fileName);
         var csv = new StringBuilder();
-        
+
         // Headers
         csv.AppendLine("Id,Name,Email,CreatedAt");
-        
+
         // Data rows
         var baseDate = new DateTime(2024, 1, 1);
         for (int i = 1; i <= rowCount; i++)
@@ -363,10 +362,10 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             var date = baseDate.AddDays(i % 365);
             csv.AppendLine($"{i},TestUser{i},user{i}@test.com,{date:yyyy-MM-ddTHH:mm:ssZ}");
         }
-        
+
         File.WriteAllText(filePath, csv.ToString(), Encoding.UTF8);
         _testFiles.Add(filePath);
-        
+
         return filePath;
     }
 
@@ -390,11 +389,15 @@ public class DelimitedPluginsStandaloneTests : IDisposable
             foreach (var file in _testFiles)
             {
                 if (File.Exists(file))
+                {
                     File.Delete(file);
+                }
             }
 
             if (Directory.Exists(_testDataDirectory))
+            {
                 Directory.Delete(_testDataDirectory, true);
+            }
         }
         catch (Exception ex)
         {
@@ -417,7 +420,7 @@ public static class TestSchemaHelper
             new ColumnDefinition { Name = "Email", DataType = typeof(string), Index = 2, IsNullable = true },
             new ColumnDefinition { Name = "CreatedAt", DataType = typeof(DateTime), Index = 3, IsNullable = false }
         };
-        
+
         return Schema.GetOrCreate(columns);
     }
 }

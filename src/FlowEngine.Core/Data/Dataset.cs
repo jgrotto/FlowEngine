@@ -99,7 +99,7 @@ public sealed class Dataset : IDataset
         {
             cancellationToken.ThrowIfCancellationRequested();
             yield return chunk;
-            
+
             // Yield control to allow other async operations to continue
             await Task.Yield();
         }
@@ -116,15 +116,22 @@ public sealed class Dataset : IDataset
         await foreach (var chunk in GetChunksAsync(cancellationToken: cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             foreach (var row in chunk.GetRows())
             {
-                if (totalRows >= maxRows) break;
+                if (totalRows >= maxRows)
+                {
+                    break;
+                }
+
                 result.Add(row);
                 totalRows++;
             }
-            
-            if (totalRows >= maxRows) break;
+
+            if (totalRows >= maxRows)
+            {
+                break;
+            }
         }
 
         return result;
@@ -134,7 +141,7 @@ public sealed class Dataset : IDataset
     public async Task<IDataset> TransformSchemaAsync(ISchema newSchema, Func<IArrayRow, IArrayRow> transform, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         ArgumentNullException.ThrowIfNull(newSchema);
         ArgumentNullException.ThrowIfNull(transform);
 
@@ -143,9 +150,9 @@ public sealed class Dataset : IDataset
         await foreach (var chunk in GetChunksAsync(cancellationToken: cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             var transformedRows = chunk.GetRows().Select(transform).ToList();
-            
+
             // Create new chunk with transformed data
             // Note: This assumes we have a Chunk implementation available
             var transformedChunk = new Chunk(newSchema, transformedRows.ToArray(), chunk.Metadata);
@@ -159,7 +166,7 @@ public sealed class Dataset : IDataset
     public async Task<IDataset> FilterAsync(Func<IArrayRow, bool> predicate, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        
+
         ArgumentNullException.ThrowIfNull(predicate);
 
         var filteredChunks = new List<IChunk>();
@@ -167,9 +174,9 @@ public sealed class Dataset : IDataset
         await foreach (var chunk in GetChunksAsync(cancellationToken: cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             var filteredRows = chunk.GetRows().Where(predicate).ToList();
-            
+
             if (filteredRows.Count > 0)
             {
                 // Create new chunk with filtered data
@@ -185,14 +192,17 @@ public sealed class Dataset : IDataset
     public IDataset WithMetadata(IReadOnlyDictionary<string, object>? metadata)
     {
         ThrowIfDisposed();
-        
+
         return new Dataset(_schema, _chunks.ToArray(), metadata ?? ImmutableDictionary<string, object>.Empty);
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
@@ -210,7 +220,10 @@ public sealed class Dataset : IDataset
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
@@ -235,6 +248,8 @@ public sealed class Dataset : IDataset
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(Dataset));
+        }
     }
 }

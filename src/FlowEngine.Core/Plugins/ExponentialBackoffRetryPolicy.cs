@@ -38,7 +38,9 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> operation, RetryContext? context = null)
     {
         if (operation == null)
+        {
             throw new ArgumentNullException(nameof(operation));
+        }
 
         var operationName = context?.OperationName ?? "Unknown Operation";
         var maxAttempts = context?.MaxAttempts ?? _configuration.MaxAttempts;
@@ -51,7 +53,7 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             var attemptStartTime = DateTime.UtcNow;
-            
+
             try
             {
                 _logger.LogDebug("Executing operation {OperationName}, attempt {Attempt}/{MaxAttempts}",
@@ -81,7 +83,7 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
                 lastException = ex;
                 var duration = DateTime.UtcNow - attemptStartTime;
                 var shouldRetry = attempt < maxAttempts && ShouldRetry(ex);
-                
+
                 TimeSpan? nextRetryDelay = null;
                 if (shouldRetry)
                 {
@@ -115,7 +117,7 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
                         _logger.LogError(ex,
                             "Operation {OperationName} failed permanently after {Attempts} attempts over {TotalDuration}ms",
                             operationName, attempt, attempts.Sum(a => a.Duration.TotalMilliseconds));
-                        
+
                         // Wrap the exception with retry context
                         throw CreateRetryExhaustedException(operationName, attempts, lastException);
                     }
@@ -124,7 +126,7 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
                         _logger.LogError(ex,
                             "Operation {OperationName} failed with non-retryable error on attempt {Attempt}: {ErrorMessage}",
                             operationName, attempt, ex.Message);
-                        
+
                         // For non-retryable exceptions, throw the original exception immediately
                         throw;
                     }
@@ -140,7 +142,9 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
     public async Task ExecuteAsync(Func<Task> operation, RetryContext? context = null)
     {
         if (operation == null)
+        {
             throw new ArgumentNullException(nameof(operation));
+        }
 
         await ExecuteAsync(async () =>
         {
@@ -153,7 +157,9 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
     public bool ShouldRetry(Exception exception)
     {
         if (exception == null)
+        {
             return false;
+        }
 
         // Check custom predicate first
         if (_configuration.CustomRetryPredicate != null)
@@ -177,11 +183,11 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
             SocketException => true,
             TaskCanceledException when !((TaskCanceledException)exception).CancellationToken.IsCancellationRequested => true,
             OperationCanceledException when !((OperationCanceledException)exception).CancellationToken.IsCancellationRequested => true,
-            
+
             // Plugin-specific retryable exceptions
             PluginLoadException pluginEx when IsRetryablePluginError(pluginEx) => true,
             PluginExecutionException execEx when execEx.IsRecoverable => true,
-            
+
             // Non-retryable exceptions (order matters - most specific first)
             ArgumentNullException => false,
             ArgumentException => false,
@@ -189,7 +195,7 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
             NotImplementedException => false,
             InvalidOperationException => false,
             SecurityException => false,
-            
+
             _ => false
         };
     }
@@ -224,7 +230,7 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
             // Exponential backoff: delay = baseDelay * (backoffMultiplier ^ (attemptNumber - 1))
             var exponentialDelay = TimeSpan.FromMilliseconds(
                 baseDelay.TotalMilliseconds * Math.Pow(_configuration.BackoffMultiplier, attemptNumber - 1));
-            
+
             delay = exponentialDelay > _configuration.MaxDelay ? _configuration.MaxDelay : exponentialDelay;
         }
         else
@@ -247,8 +253,8 @@ public sealed class ExponentialBackoffRetryPolicy : IRetryPolicy
     /// Creates a comprehensive exception when all retry attempts are exhausted.
     /// </summary>
     private static Exception CreateRetryExhaustedException(
-        string operationName, 
-        List<RetryAttemptResult> attempts, 
+        string operationName,
+        List<RetryAttemptResult> attempts,
         Exception lastException)
     {
         var totalDuration = TimeSpan.FromMilliseconds(attempts.Sum(a => a.Duration.TotalMilliseconds));
@@ -317,6 +323,6 @@ public sealed class OperationRetryExhaustedException : Exception
     /// <summary>
     /// Initializes a new instance of the retry exhausted exception.
     /// </summary>
-    public OperationRetryExhaustedException(string message, Exception innerException) 
+    public OperationRetryExhaustedException(string message, Exception innerException)
         : base(message, innerException) { }
 }

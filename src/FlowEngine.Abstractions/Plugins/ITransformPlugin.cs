@@ -24,7 +24,7 @@ public interface ITransformPlugin : IPlugin
     /// <returns>Async enumerable of transformed chunks with the plugin's output schema</returns>
     /// <exception cref="PluginExecutionException">Thrown when transformation fails</exception>
     IAsyncEnumerable<IChunk> TransformAsync(
-        IAsyncEnumerable<IChunk> input, 
+        IAsyncEnumerable<IChunk> input,
         CancellationToken cancellationToken = default);
 
     /// <summary>

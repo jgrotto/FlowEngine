@@ -83,7 +83,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         try
         {
             var directory = Path.GetDirectoryName(Path.GetFullPath(sinkConfig.FilePath));
-            
+
             // Create directories if needed and allowed
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
@@ -141,10 +141,10 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         var oldState = _state;
         _configuration = sinkConfig;
         _state = PluginState.Initialized;
-        
+
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
 
-        _logger.LogInformation("DelimitedSink plugin initialized successfully for file: {FilePath}", 
+        _logger.LogInformation("DelimitedSink plugin initialized successfully for file: {FilePath}",
             sinkConfig.FilePath);
 
         return new PluginInitializationResult
@@ -160,12 +160,14 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         _logger.LogInformation("Starting DelimitedSink plugin");
 
         if (_state != PluginState.Initialized)
+        {
             throw new InvalidOperationException($"Plugin must be initialized before starting. Current state: {_state}");
+        }
 
         var oldState = _state;
         _state = PluginState.Running;
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
-        
+
         _logger.LogInformation("DelimitedSink plugin started successfully");
 
         return Task.CompletedTask;
@@ -174,11 +176,11 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Stopping DelimitedSink plugin");
-        
+
         var oldState = _state;
         _state = PluginState.Stopped;
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
-        
+
         _logger.LogInformation("DelimitedSink plugin stopped successfully");
 
         return Task.CompletedTask;
@@ -267,13 +269,13 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         {
             var directory = Path.GetDirectoryName(Path.GetFullPath(_configuration.FilePath));
             var isAccessible = string.IsNullOrEmpty(directory) || Directory.Exists(directory);
-            
+
             checks.Add(new HealthCheck
             {
                 Name = "Output Path Accessibility",
                 Passed = isAccessible,
-                Details = isAccessible 
-                    ? "Output path is accessible" 
+                Details = isAccessible
+                    ? "Output path is accessible"
                     : $"Output directory not accessible: {directory}",
                 ExecutionTime = TimeSpan.FromMilliseconds(1),
                 Severity = isAccessible ? HealthCheckSeverity.Info : HealthCheckSeverity.Error
@@ -286,7 +288,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
                 {
                     var drive = new DriveInfo(directory);
                     var hasSpace = drive.AvailableFreeSpace > 100 * 1024 * 1024; // 100MB minimum
-                    
+
                     checks.Add(new HealthCheck
                     {
                         Name = "Disk Space",
@@ -330,7 +332,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         var errors = new List<ValidationError>();
         var supportedTypes = new HashSet<Type>
         {
-            typeof(string), typeof(int), typeof(long), typeof(decimal), 
+            typeof(string), typeof(int), typeof(long), typeof(decimal),
             typeof(double), typeof(bool), typeof(DateTime), typeof(DateTimeOffset)
         };
 
@@ -362,26 +364,30 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     public async Task ConsumeAsync(IAsyncEnumerable<IChunk> input, CancellationToken cancellationToken = default)
     {
         if (_state != PluginState.Running)
+        {
             throw new PluginExecutionException($"Plugin must be running to consume data. Current state: {_state}");
+        }
 
         if (_configuration == null)
+        {
             throw new PluginExecutionException("Plugin not configured");
+        }
 
         _logger.LogInformation("Starting data consumption to file: {FilePath}", _configuration.FilePath);
 
         try
         {
             using var sinkService = GetSinkService();
-            
+
             // Initialize the service with the configuration
             await sinkService.InitializeAsync(_configuration, cancellationToken);
-            
+
             await foreach (var chunk in input.WithCancellation(cancellationToken))
             {
                 _logger.LogDebug("Consuming chunk with {RowCount} rows", chunk.RowCount);
                 await sinkService.ProcessChunkAsync(chunk, cancellationToken);
             }
-            
+
             // Ensure all data is flushed
             await sinkService.FlushAsync(cancellationToken);
         }
@@ -412,10 +418,12 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
         if (_configuration == null)
+        {
             return;
+        }
 
         _logger.LogDebug("Flushing buffered data to file: {FilePath}", _configuration.FilePath);
-        
+
         // File I/O is automatically flushed when streams are disposed
         // For more sophisticated buffering, this would trigger actual flush operations
         await Task.CompletedTask;
@@ -424,12 +432,16 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _logger.LogInformation("Disposing DelimitedSink plugin");
 
         if (_state == PluginState.Running)
+        {
             StopAsync().GetAwaiter().GetResult();
+        }
 
         var oldState = _state;
         _disposed = true;
@@ -443,11 +455,11 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     public DelimitedSinkService GetSinkService()
     {
         return new DelimitedSinkService(
-            this, 
-            _logger, 
-            _schemaFactory, 
-            _arrayRowFactory, 
-            _chunkFactory, 
+            this,
+            _logger,
+            _schemaFactory,
+            _arrayRowFactory,
+            _chunkFactory,
             _datasetFactory,
             _dataTypeService,
             _memoryManager,

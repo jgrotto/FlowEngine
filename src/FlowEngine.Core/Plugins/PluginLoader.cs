@@ -86,26 +86,34 @@ public sealed class PluginLoader : IPluginLoader
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(assemblyPath))
+        {
             throw new ArgumentException("Assembly path cannot be null or empty", nameof(assemblyPath));
+        }
 
         if (string.IsNullOrWhiteSpace(typeName))
+        {
             throw new ArgumentException("Type name cannot be null or empty", nameof(typeName));
+        }
 
         if (!File.Exists(assemblyPath))
+        {
             throw new PluginLoadException($"Assembly file not found: {assemblyPath}") { AssemblyPath = assemblyPath, TypeName = typeName };
+        }
 
         var pluginId = GeneratePluginId(assemblyPath, typeName);
 
         lock (_loadLock)
         {
             if (_loadedPlugins.ContainsKey(pluginId))
+            {
                 throw new PluginLoadException($"Plugin {typeName} from {assemblyPath} is already loaded") { AssemblyPath = assemblyPath, TypeName = typeName };
+            }
         }
 
         try
         {
             var context = await LoadPluginContextAsync<T>(assemblyPath, typeName, isolationLevel);
-            
+
             lock (_loadLock)
             {
                 _loadedPlugins[pluginId] = context;
@@ -164,11 +172,15 @@ public sealed class PluginLoader : IPluginLoader
         ThrowIfDisposed();
 
         if (plugin == null)
+        {
             throw new ArgumentNullException(nameof(plugin));
+        }
 
         var pluginContext = FindPluginContext(plugin);
         if (pluginContext == null)
+        {
             return; // Plugin not managed by this loader
+        }
 
         var pluginInfo = CreatePluginInfoFromContext(pluginContext);
 
@@ -243,13 +255,15 @@ public sealed class PluginLoader : IPluginLoader
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         try
         {
             // Unload all plugins
             var tasks = new List<Task>();
-            
+
             lock (_loadLock)
             {
                 foreach (var context in _loadedPlugins.Values)
@@ -295,7 +309,9 @@ public sealed class PluginLoader : IPluginLoader
         var type = assembly.GetType(typeName) ?? throw new PluginLoadException($"Type {typeName} not found in assembly {assemblyPath}");
 
         if (!typeof(T).IsAssignableFrom(type))
+        {
             throw new PluginLoadException($"Type {typeName} does not implement {typeof(T).Name}");
+        }
 
         var plugin = CreatePluginInstance<T>(type);
 
@@ -323,7 +339,9 @@ public sealed class PluginLoader : IPluginLoader
             var type = assembly.GetType(typeName) ?? throw new PluginLoadException($"Type {typeName} not found in assembly {assemblyPath}");
 
             if (!typeof(T).IsAssignableFrom(type))
+            {
                 throw new PluginLoadException($"Type {typeName} does not implement {typeof(T).Name}");
+            }
 
             var plugin = CreatePluginInstance<T>(type);
 
@@ -440,30 +458,30 @@ public sealed class PluginLoader : IPluginLoader
                 {
                     var paramType = parameters[i].ParameterType;
                     var arg = ResolveConstructorParameter(paramType, pluginType);
-                    
+
                     if (arg == null && !IsNullableParameter(parameters[i]))
                     {
                         canInstantiate = false;
                         break;
                     }
-                    
+
                     args[i] = arg;
                 }
 
                 if (canInstantiate)
                 {
-                    _logger.LogDebug("Creating plugin {PluginType} with {ParameterCount} dependencies", 
+                    _logger.LogDebug("Creating plugin {PluginType} with {ParameterCount} dependencies",
                         pluginType.Name, parameters.Length);
-                    
-                    return (T)(Activator.CreateInstance(pluginType, args) ?? 
+
+                    return (T)(Activator.CreateInstance(pluginType, args) ??
                         throw new PluginLoadException($"Failed to create instance of {pluginType.Name}"));
                 }
             }
 
             // If no constructor could be satisfied, provide detailed error
-            var constructorInfo = string.Join("; ", constructors.Select(c => 
+            var constructorInfo = string.Join("; ", constructors.Select(c =>
                 $"({string.Join(", ", c.GetParameters().Select(p => p.ParameterType.Name))})"));
-            
+
             throw new PluginLoadException(
                 $"No suitable constructor found for plugin type {pluginType.Name}. " +
                 $"Available constructors: {constructorInfo}. " +
@@ -484,42 +502,64 @@ public sealed class PluginLoader : IPluginLoader
     {
         // Factory services
         if (parameterType == typeof(ISchemaFactory))
+        {
             return _schemaFactory;
-        
+        }
+
         if (parameterType == typeof(IArrayRowFactory))
+        {
             return _arrayRowFactory;
-        
+        }
+
         if (parameterType == typeof(IChunkFactory))
+        {
             return _chunkFactory;
-        
+        }
+
         if (parameterType == typeof(IDatasetFactory))
+        {
             return _datasetFactory;
-        
+        }
+
         if (parameterType == typeof(IDataTypeService))
+        {
             return _dataTypeService;
+        }
 
         // Monitoring and telemetry services
         if (parameterType == typeof(IMemoryManager))
+        {
             return _memoryManager;
-        
+        }
+
         if (parameterType == typeof(IPerformanceMonitor))
+        {
             return _performanceMonitor;
-        
+        }
+
         if (parameterType == typeof(IChannelTelemetry))
+        {
             return _channelTelemetry;
+        }
 
         // JavaScript services
         if (parameterType == typeof(IScriptEngineService))
+        {
             return _scriptEngineService;
-        
+        }
+
         if (parameterType == typeof(IJavaScriptContextService))
+        {
             return _javaScriptContextService;
+        }
 
         // Logger services
         if (parameterType == typeof(ILogger))
+        {
             return _logger;
-        
-        if (parameterType.IsGenericType && 
+        }
+
+        if (parameterType.IsGenericType &&
             parameterType.GetGenericTypeDefinition() == typeof(ILogger<>))
         {
             var loggerType = parameterType.GetGenericArguments()[0];
@@ -540,7 +580,7 @@ public sealed class PluginLoader : IPluginLoader
     /// </summary>
     private static bool IsNullableParameter(ParameterInfo parameter)
     {
-        return !parameter.ParameterType.IsValueType || 
+        return !parameter.ParameterType.IsValueType ||
                Nullable.GetUnderlyingType(parameter.ParameterType) != null ||
                parameter.HasDefaultValue;
     }
@@ -548,7 +588,9 @@ public sealed class PluginLoader : IPluginLoader
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(PluginLoader));
+        }
     }
 }
 
@@ -572,12 +614,12 @@ internal sealed class PluginAssemblyLoadContext : AssemblyLoadContext
     private readonly string _pluginPath;
     private readonly string _pluginDirectory;
 
-    public PluginAssemblyLoadContext(string name, string pluginPath, bool isCollectible = true) 
+    public PluginAssemblyLoadContext(string name, string pluginPath, bool isCollectible = true)
         : base(name, isCollectible)
     {
         _pluginPath = pluginPath ?? throw new ArgumentNullException(nameof(pluginPath));
         _pluginDirectory = Path.GetDirectoryName(_pluginPath) ?? throw new ArgumentException("Invalid plugin path", nameof(pluginPath));
-        
+
         // Subscribe to assembly resolve events for dependency resolution
         Resolving += OnResolving;
     }

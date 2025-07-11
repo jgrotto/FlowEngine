@@ -14,7 +14,7 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     private readonly ObjectPool<object?[]> _arrayPool;
     private readonly ConcurrentDictionary<int, ObjectPool<object?[]>> _sizedPools = new();
     private readonly object _lock = new();
-    
+
     private long _totalAllocatedMemory;
     private long _maxMemoryThreshold = 1024 * 1024 * 1024; // 1GB default
     private bool _disposed;
@@ -26,11 +26,11 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     public MemoryManager(ILogger<MemoryManager> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
+
         // Create default pool for most common array sizes
         var provider = new DefaultObjectPoolProvider();
         _arrayPool = provider.Create(new ArrayPoolPolicy(64)); // Default size for most ArrayRows
-        
+
         _logger.LogInformation("MemoryManager initialized with {MaxMemory} bytes threshold", _maxMemoryThreshold);
     }
 
@@ -60,17 +60,17 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     public object?[] RentArray(int size)
     {
         ThrowIfDisposed();
-        
+
         var pool = GetPoolForSize(size);
         var array = pool.Get();
-        
+
         // Track memory allocation
         var memorySize = size * IntPtr.Size; // Rough estimate
         Interlocked.Add(ref _totalAllocatedMemory, memorySize);
-        
-        _logger.LogDebug("Rented array of size {Size}, total memory: {TotalMemory} bytes", 
+
+        _logger.LogDebug("Rented array of size {Size}, total memory: {TotalMemory} bytes",
             size, _totalAllocatedMemory);
-            
+
         return array;
     }
 
@@ -78,22 +78,25 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     public void ReturnArray(object?[] array, bool clearArray = true)
     {
         ThrowIfDisposed();
-        
-        if (array == null) return;
-        
+
+        if (array == null)
+        {
+            return;
+        }
+
         if (clearArray)
         {
             Array.Clear(array);
         }
-        
+
         var pool = GetPoolForSize(array.Length);
         pool.Return(array);
-        
+
         // Track memory deallocation
         var memorySize = array.Length * IntPtr.Size;
         Interlocked.Add(ref _totalAllocatedMemory, -memorySize);
-        
-        _logger.LogDebug("Returned array of size {Size}, total memory: {TotalMemory} bytes", 
+
+        _logger.LogDebug("Returned array of size {Size}, total memory: {TotalMemory} bytes",
             array.Length, _totalAllocatedMemory);
     }
 
@@ -117,16 +120,16 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     public void RequestCleanup(bool force = false)
     {
         ThrowIfDisposed();
-        
+
         if (force || PressureLevel >= MemoryPressureLevel.High)
         {
             _logger.LogInformation("Performing memory cleanup, pressure level: {PressureLevel}", PressureLevel);
-            
+
             // Request garbage collection
             GC.Collect(2, GCCollectionMode.Optimized);
             GC.WaitForPendingFinalizers();
-            
-            _logger.LogInformation("Memory cleanup completed, current memory: {TotalMemory} bytes", 
+
+            _logger.LogInformation("Memory cleanup completed, current memory: {TotalMemory} bytes",
                 _totalAllocatedMemory);
         }
     }
@@ -144,8 +147,10 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     public void SetMaxMemoryThreshold(long threshold)
     {
         if (threshold <= 0)
+        {
             throw new ArgumentException("Threshold must be positive", nameof(threshold));
-            
+        }
+
         _maxMemoryThreshold = threshold;
         _logger.LogInformation("Memory threshold updated to {Threshold} bytes", threshold);
     }
@@ -169,7 +174,9 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(MemoryManager));
+        }
     }
 
     /// <inheritdoc />
@@ -177,7 +184,7 @@ public sealed class MemoryManager : IMemoryManager, IDisposable
     {
         if (!_disposed)
         {
-            _logger.LogInformation("Disposing MemoryManager, final memory usage: {TotalMemory} bytes", 
+            _logger.LogInformation("Disposing MemoryManager, final memory usage: {TotalMemory} bytes",
                 _totalAllocatedMemory);
             _disposed = true;
         }

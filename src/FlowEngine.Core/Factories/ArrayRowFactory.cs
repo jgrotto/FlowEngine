@@ -35,7 +35,7 @@ public sealed class ArrayRowFactory : IArrayRowFactory
         if (values.Length != schema.ColumnCount)
         {
             throw new ArgumentException(
-                $"Values array length ({values.Length}) must match schema column count ({schema.ColumnCount})", 
+                $"Values array length ({values.Length}) must match schema column count ({schema.ColumnCount})",
                 nameof(values));
         }
 
@@ -52,7 +52,7 @@ public sealed class ArrayRowFactory : IArrayRowFactory
                 if (_dataTypeService.TryConvertValue(value, column.DataType, out var convertedValue))
                 {
                     convertedValues[i] = convertedValue;
-                    _logger.LogDebug("Converted value for column '{ColumnName}' from {SourceType} to {TargetType}", 
+                    _logger.LogDebug("Converted value for column '{ColumnName}' from {SourceType} to {TargetType}",
                         column.Name, value.GetType().Name, column.DataType.Name);
                 }
                 else
@@ -92,7 +92,7 @@ public sealed class ArrayRowFactory : IArrayRowFactory
         ArgumentNullException.ThrowIfNull(fieldValues);
 
         var values = new object?[schema.ColumnCount];
-        
+
         // Map field values to the correct positions
         for (int i = 0; i < schema.ColumnCount; i++)
         {
@@ -139,7 +139,7 @@ public sealed class ArrayRowFactory : IArrayRowFactory
 
         var schema = source.Schema;
         var values = new object?[schema.ColumnCount];
-        
+
         // Copy existing values
         for (int i = 0; i < schema.ColumnCount; i++)
         {
@@ -177,7 +177,7 @@ public sealed class ArrayRowFactory : IArrayRowFactory
         {
             var targetColumn = targetSchema.Columns[i];
             var sourceIndex = sourceSchema.GetIndex(targetColumn.Name);
-            
+
             if (sourceIndex >= 0)
             {
                 values[i] = source[sourceIndex];
@@ -211,7 +211,7 @@ public sealed class ArrayRowFactory : IArrayRowFactory
         {
             var column = schema.Columns[i];
             var value = values[i];
-            
+
             var validation = _dataTypeService.ValidateValue(value, column);
             if (!validation.IsValid)
             {
@@ -234,7 +234,7 @@ public sealed class ArrayRowFactory : IArrayRowFactory
         }
 
         var rows = new IArrayRow[valueArrays.Length];
-        
+
         for (int i = 0; i < valueArrays.Length; i++)
         {
             rows[i] = CreateRow(schema, valueArrays[i]);

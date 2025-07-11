@@ -29,10 +29,14 @@ public sealed class PluginRegistry : IPluginRegistry
     public async Task ScanDirectoryAsync(string directoryPath, string searchPattern = "*.dll")
     {
         if (string.IsNullOrWhiteSpace(directoryPath))
+        {
             throw new ArgumentException("Directory path cannot be null or empty", nameof(directoryPath));
+        }
 
         if (!Directory.Exists(directoryPath))
+        {
             throw new DirectoryNotFoundException($"Directory not found: {directoryPath}");
+        }
 
         var assemblyFiles = Directory.GetFiles(directoryPath, searchPattern, SearchOption.TopDirectoryOnly);
 
@@ -55,14 +59,18 @@ public sealed class PluginRegistry : IPluginRegistry
     public void ScanAssembly(Assembly assembly)
     {
         if (assembly == null)
+        {
             throw new ArgumentNullException(nameof(assembly));
+        }
 
         var assemblyName = assembly.GetName().Name ?? assembly.FullName ?? "Unknown";
 
         lock (_scanLock)
         {
             if (_scannedAssemblies.ContainsKey(assemblyName))
+            {
                 return; // Already scanned
+            }
 
             _scannedAssemblies[assemblyName] = assembly;
         }
@@ -97,10 +105,14 @@ public sealed class PluginRegistry : IPluginRegistry
     public void ScanAssemblyFile(string assemblyPath)
     {
         if (string.IsNullOrWhiteSpace(assemblyPath))
+        {
             throw new ArgumentException("Assembly path cannot be null or empty", nameof(assemblyPath));
+        }
 
         if (!File.Exists(assemblyPath))
+        {
             throw new FileNotFoundException($"Assembly file not found: {assemblyPath}");
+        }
 
         try
         {
@@ -118,7 +130,9 @@ public sealed class PluginRegistry : IPluginRegistry
     public PluginTypeInfo? GetPluginType(string typeName)
     {
         if (string.IsNullOrWhiteSpace(typeName))
+        {
             return null;
+        }
 
         return _registeredTypes.TryGetValue(typeName, out var typeInfo) ? typeInfo : null;
     }
@@ -128,7 +142,7 @@ public sealed class PluginRegistry : IPluginRegistry
     {
         var allTypes = _registeredTypes.Values.ToArray();
 
-        return category.HasValue 
+        return category.HasValue
             ? allTypes.Where(t => t.Category == category.Value).ToArray()
             : allTypes;
     }
@@ -137,7 +151,9 @@ public sealed class PluginRegistry : IPluginRegistry
     public IReadOnlyCollection<PluginTypeInfo> SearchPluginTypes(string namePattern)
     {
         if (string.IsNullOrWhiteSpace(namePattern))
+        {
             return Array.Empty<PluginTypeInfo>();
+        }
 
         var pattern = namePattern.Replace("*", ".*").Replace("?", ".");
         var regex = new System.Text.RegularExpressions.Regex(pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
@@ -157,10 +173,14 @@ public sealed class PluginRegistry : IPluginRegistry
     public void RegisterPluginType(Type pluginType)
     {
         if (pluginType == null)
+        {
             throw new ArgumentNullException(nameof(pluginType));
+        }
 
         if (!IsPluginType(pluginType))
+        {
             throw new ArgumentException($"Type {pluginType.FullName} is not a valid plugin type", nameof(pluginType));
+        }
 
         var typeInfo = CreatePluginTypeInfo(pluginType);
         _registeredTypes[pluginType.FullName ?? pluginType.Name] = typeInfo;
@@ -187,24 +207,20 @@ public sealed class PluginRegistry : IPluginRegistry
     private static bool IsPluginType(Type type)
     {
         if (!type.IsClass || type.IsAbstract || !typeof(IPlugin).IsAssignableFrom(type))
+        {
             return false;
+        }
 
-        // Check for acceptable constructors:
-        // 1. Parameterless constructor
-        if (type.GetConstructor(Type.EmptyTypes) != null)
-            return true;
+        // Check if type has any public constructors
+        var constructors = type.GetConstructors();
+        if (constructors.Length == 0)
+        {
+            return false;
+        }
 
-        // 2. Constructor with ILogger<> parameter
-        var loggerGenericConstructor = type.GetConstructor(new[] { typeof(ILogger<>).MakeGenericType(type) });
-        if (loggerGenericConstructor != null)
-            return true;
-
-        // 3. Constructor with ILogger parameter
-        var loggerConstructor = type.GetConstructor(new[] { typeof(ILogger) });
-        if (loggerConstructor != null)
-            return true;
-
-        return false;
+        // Accept plugins with any constructors - dependency injection will handle parameter resolution
+        // This is more flexible than the previous approach that only allowed specific constructor patterns
+        return true;
     }
 
     private static PluginTypeInfo CreatePluginTypeInfo(Type pluginType)
@@ -234,13 +250,19 @@ public sealed class PluginRegistry : IPluginRegistry
     private static PluginCategory DeterminePluginCategory(Type pluginType)
     {
         if (typeof(ISourcePlugin).IsAssignableFrom(pluginType))
+        {
             return PluginCategory.Source;
+        }
 
         if (typeof(ITransformPlugin).IsAssignableFrom(pluginType))
+        {
             return PluginCategory.Transform;
+        }
 
         if (typeof(ISinkPlugin).IsAssignableFrom(pluginType))
+        {
             return PluginCategory.Sink;
+        }
 
         return PluginCategory.Other;
     }
@@ -250,12 +272,16 @@ public sealed class PluginRegistry : IPluginRegistry
         // Check for PluginAttribute or similar
         var attribute = pluginType.GetCustomAttribute<PluginDisplayNameAttribute>();
         if (attribute != null && !string.IsNullOrWhiteSpace(attribute.DisplayName))
+        {
             return attribute.DisplayName;
+        }
 
         // Generate friendly name from type name
         var typeName = pluginType.Name;
         if (typeName.EndsWith("Plugin", StringComparison.OrdinalIgnoreCase))
+        {
             typeName = typeName[..^6]; // Remove "Plugin" suffix
+        }
 
         // Insert spaces before capital letters
         return System.Text.RegularExpressions.Regex.Replace(typeName, @"(?<!^)(?=[A-Z])", " ");
@@ -271,7 +297,9 @@ public sealed class PluginRegistry : IPluginRegistry
     {
         var attribute = pluginType.GetCustomAttribute<PluginVersionAttribute>();
         if (attribute != null)
+        {
             return attribute.Version;
+        }
 
         // Try to get version from assembly
         var assemblyVersion = pluginType.Assembly.GetName().Version;
@@ -317,9 +345,11 @@ public sealed class PluginRegistry : IPluginRegistry
         var customAttributes = pluginType.GetCustomAttributes()
             .Where(a => a.GetType().Namespace?.StartsWith("FlowEngine") == true)
             .ToDictionary(a => a.GetType().Name, a => a.ToString() ?? "");
-        
+
         if (customAttributes.Count > 0)
+        {
             metadata["Attributes"] = customAttributes;
+        }
 
         return metadata;
     }

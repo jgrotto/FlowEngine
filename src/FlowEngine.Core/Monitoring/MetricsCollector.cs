@@ -12,7 +12,7 @@ namespace FlowEngine.Core.Monitoring;
 public sealed class MetricsCollector : IDisposable
 {
     private static readonly Meter Meter = new("FlowEngine", "1.0.0");
-    
+
     private readonly ILogger<MetricsCollector> _logger;
     private readonly ConcurrentDictionary<string, MetricTracker> _trackers = new();
     private readonly Timer _aggregationTimer;
@@ -50,7 +50,7 @@ public sealed class MetricsCollector : IDisposable
         _memoryUsage = Meter.CreateHistogram<long>("flowengine_memory_usage_bytes", "bytes", "Memory usage");
         _dataProcessingThroughput = Meter.CreateHistogram<long>("flowengine_data_throughput_rows_per_second", "rows/second", "Data processing throughput");
         _activeOperations = Meter.CreateUpDownCounter<int>("flowengine_active_operations", "operations", "Number of active operations");
-        
+
         // TODO: Fix CreateObservableGauge method signature
         // _systemCpuUsage = Meter.CreateObservableGauge<double>("flowengine_system_cpu_usage_percent", "percent", "System CPU usage percentage");
         // _systemMemoryUsage = Meter.CreateObservableGauge<long>("flowengine_system_memory_usage_bytes", "bytes", "System memory usage");
@@ -98,7 +98,7 @@ public sealed class MetricsCollector : IDisposable
         var tracker = GetOrCreateTracker(operationName);
         tracker.RecordOperationComplete(duration, success);
 
-        _logger.LogDebug("Operation {Operation} completed in {Duration}ms. Success: {Success}", 
+        _logger.LogDebug("Operation {Operation} completed in {Duration}ms. Success: {Success}",
             operationName, duration.TotalMilliseconds, success);
     }
 
@@ -110,7 +110,7 @@ public sealed class MetricsCollector : IDisposable
         var tagList = CreateTagList(tags);
         tagList.Add(new KeyValuePair<string, object?>("operation", operationName));
         tagList.Add(new KeyValuePair<string, object?>("error_type", errorType));
-        
+
         if (exception != null)
         {
             tagList.Add(new KeyValuePair<string, object?>("exception_type", exception.GetType().Name));
@@ -150,7 +150,7 @@ public sealed class MetricsCollector : IDisposable
         var tracker = GetOrCreateTracker($"throughput_{operation}");
         tracker.RecordThroughput(rowsPerSecond);
 
-        _logger.LogDebug("Data throughput recorded: {RowsPerSecond} rows/second for operation {Operation}", 
+        _logger.LogDebug("Data throughput recorded: {RowsPerSecond} rows/second for operation {Operation}",
             rowsPerSecond, operation);
     }
 
@@ -202,7 +202,7 @@ public sealed class MetricsCollector : IDisposable
             _trackers.Clear();
             CurrentSummary = new MetricsSummary();
         }
-        
+
         _logger.LogInformation("Metrics collector reset");
     }
 
@@ -222,12 +222,12 @@ public sealed class MetricsCollector : IDisposable
             // Operation counts
             metrics.Add($"flowengine_operation_total{{operation=\"{operationName}\"}} {summary.TotalOperations} {timestamp}");
             metrics.Add($"flowengine_operation_errors{{operation=\"{operationName}\"}} {summary.ErrorCount} {timestamp}");
-            
+
             // Timing metrics
             metrics.Add($"flowengine_operation_duration_avg{{operation=\"{operationName}\"}} {summary.AverageDuration.TotalMilliseconds} {timestamp}");
             metrics.Add($"flowengine_operation_duration_min{{operation=\"{operationName}\"}} {summary.MinDuration.TotalMilliseconds} {timestamp}");
             metrics.Add($"flowengine_operation_duration_max{{operation=\"{operationName}\"}} {summary.MaxDuration.TotalMilliseconds} {timestamp}");
-            
+
             // Throughput if available
             if (summary.AverageThroughput > 0)
             {
@@ -275,7 +275,7 @@ public sealed class MetricsCollector : IDisposable
             var process = Process.GetCurrentProcess();
             var threadCount = process.Threads.Count;
             var processorCount = Environment.ProcessorCount;
-            
+
             // Rough heuristic - actual CPU measurement would require performance counters
             return Math.Min((threadCount / (double)processorCount) * 10, 100);
         }
@@ -333,7 +333,10 @@ public sealed class MetricsCollector : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         try
         {
@@ -390,7 +393,7 @@ internal sealed class MetricTracker
             _totalOperations++;
             _durations.Add(duration);
             Interlocked.Decrement(ref _activeOperations);
-            
+
             if (!success)
             {
                 _errorCount++;
@@ -418,7 +421,7 @@ internal sealed class MetricTracker
         lock (_lock)
         {
             _throughputValues.Add(rowsPerSecond);
-            
+
             // Keep only recent values
             if (_throughputValues.Count > 100)
             {
@@ -432,7 +435,7 @@ internal sealed class MetricTracker
         lock (_lock)
         {
             _customValues.Add(value);
-            
+
             // Keep only recent values
             if (_customValues.Count > 100)
             {
@@ -504,7 +507,10 @@ public sealed class OperationMetrics : IDisposable
     /// </summary>
     public void Complete(bool success = true)
     {
-        if (_completed) return;
+        if (_completed)
+        {
+            return;
+        }
 
         _stopwatch.Stop();
         _collector.CompleteOperation(_operationName, _stopwatch.Elapsed, success, _additionalData);
@@ -513,7 +519,10 @@ public sealed class OperationMetrics : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         if (!_completed)
         {
@@ -539,7 +548,7 @@ public sealed class OperationMetricsSummary
     public double AverageThroughput { get; set; }
     public Dictionary<string, long> ErrorTypes { get; set; } = new();
     public DateTimeOffset LastUpdate { get; set; }
-    
+
     public double SuccessRate => TotalOperations > 0 ? (TotalOperations - ErrorCount) / (double)TotalOperations : 0;
     public double ErrorRate => TotalOperations > 0 ? ErrorCount / (double)TotalOperations : 0;
 }
@@ -556,7 +565,7 @@ public sealed class MetricsSummary
     public long MemoryUsage { get; set; }
     public double CpuUsage { get; set; }
     public long ActiveOperations { get; set; }
-    
+
     public double OverallSuccessRate => TotalOperations > 0 ? (TotalOperations - TotalErrors) / (double)TotalOperations : 0;
 }
 
@@ -566,7 +575,7 @@ public sealed class MetricsSummary
 public sealed class MetricsAggregatedEventArgs : EventArgs
 {
     public MetricsSummary Summary { get; }
-    
+
     public MetricsAggregatedEventArgs(MetricsSummary summary)
     {
         Summary = summary;

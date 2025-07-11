@@ -17,6 +17,7 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
     private readonly IDagAnalyzer _dagAnalyzer;
     private readonly IPipelineExecutor _pipelineExecutor;
     private readonly IPluginRegistry _pluginRegistry;
+    private readonly IPluginTypeResolver _pluginTypeResolver;
     private bool _disposed;
 
     /// <summary>
@@ -26,16 +27,19 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
     /// <param name="dagAnalyzer">DAG analyzer for dependency analysis</param>
     /// <param name="pipelineExecutor">Pipeline executor for orchestrating execution</param>
     /// <param name="pluginRegistry">Plugin registry for type discovery</param>
+    /// <param name="pluginTypeResolver">Plugin type resolver for short name resolution</param>
     public FlowEngineCoordinator(
         IPluginManager pluginManager,
-        IDagAnalyzer dagAnalyzer, 
+        IDagAnalyzer dagAnalyzer,
         IPipelineExecutor pipelineExecutor,
-        IPluginRegistry pluginRegistry)
+        IPluginRegistry pluginRegistry,
+        IPluginTypeResolver pluginTypeResolver)
     {
         _pluginManager = pluginManager ?? throw new ArgumentNullException(nameof(pluginManager));
         _dagAnalyzer = dagAnalyzer ?? throw new ArgumentNullException(nameof(dagAnalyzer));
         _pipelineExecutor = pipelineExecutor ?? throw new ArgumentNullException(nameof(pipelineExecutor));
         _pluginRegistry = pluginRegistry ?? throw new ArgumentNullException(nameof(pluginRegistry));
+        _pluginTypeResolver = pluginTypeResolver ?? throw new ArgumentNullException(nameof(pluginTypeResolver));
     }
 
 
@@ -73,14 +77,18 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(configurationFilePath))
+        {
             throw new ArgumentException("Configuration file path cannot be null or empty", nameof(configurationFilePath));
+        }
 
         if (!File.Exists(configurationFilePath))
+        {
             throw new FileNotFoundException($"Configuration file not found: {configurationFilePath}");
+        }
 
         try
         {
-            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath);
+            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath, _pluginTypeResolver);
             return await _pipelineExecutor.ExecuteAsync(configuration, cancellationToken);
         }
         catch (Exception ex) when (!(ex is PipelineExecutionException))
@@ -108,11 +116,13 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(yamlContent))
+        {
             throw new ArgumentException("YAML content cannot be null or empty", nameof(yamlContent));
+        }
 
         try
         {
-            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent);
+            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent, _pluginTypeResolver);
             return await _pipelineExecutor.ExecuteAsync(configuration, cancellationToken);
         }
         catch (Exception ex) when (!(ex is PipelineExecutionException))
@@ -133,14 +143,18 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(configurationFilePath))
+        {
             throw new ArgumentException("Configuration file path cannot be null or empty", nameof(configurationFilePath));
+        }
 
         if (!File.Exists(configurationFilePath))
+        {
             throw new FileNotFoundException($"Configuration file not found: {configurationFilePath}");
+        }
 
         try
         {
-            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath);
+            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath, _pluginTypeResolver);
             return await _pipelineExecutor.ValidatePipelineAsync(configuration);
         }
         catch (Exception ex)
@@ -160,11 +174,13 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(yamlContent))
+        {
             throw new ArgumentException("YAML content cannot be null or empty", nameof(yamlContent));
+        }
 
         try
         {
-            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent);
+            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent, _pluginTypeResolver);
             return await _pipelineExecutor.ValidatePipelineAsync(configuration);
         }
         catch (Exception ex)
@@ -186,10 +202,14 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         ThrowIfDisposed();
 
         if (string.IsNullOrWhiteSpace(pluginDirectory))
+        {
             throw new ArgumentException("Plugin directory cannot be null or empty", nameof(pluginDirectory));
+        }
 
         if (!Directory.Exists(pluginDirectory))
+        {
             throw new DirectoryNotFoundException($"Plugin directory not found: {pluginDirectory}");
+        }
 
         await _pluginRegistry.ScanDirectoryAsync(pluginDirectory, searchPattern);
     }
@@ -296,7 +316,9 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
+        {
             return;
+        }
 
         try
         {
@@ -316,7 +338,9 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
     private void ThrowIfDisposed()
     {
         if (_disposed)
+        {
             throw new ObjectDisposedException(nameof(FlowEngineCoordinator));
+        }
     }
-    
+
 }

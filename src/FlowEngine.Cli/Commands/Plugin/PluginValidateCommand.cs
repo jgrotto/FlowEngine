@@ -34,11 +34,11 @@ public class PluginValidateCommand : BaseCommand
             WriteInfo($"Validating plugin at: {Path.GetFullPath(pluginPath)}");
 
             var validationResults = await ValidatePluginAsync(pluginPath, verbose);
-            
+
             // Display results
             Console.WriteLine();
             Console.WriteLine("=== Validation Results ===");
-            
+
             var hasErrors = false;
             var hasWarnings = false;
 
@@ -331,7 +331,7 @@ public class PluginValidateCommand : BaseCommand
             }
 
             var dllFiles = Directory.GetFiles(binPath, "*.dll", SearchOption.AllDirectories)
-                .Where(f => !Path.GetFileName(f).StartsWith("FlowEngine.") && 
+                .Where(f => !Path.GetFileName(f).StartsWith("FlowEngine.") &&
                            !Path.GetFileName(f).StartsWith("Microsoft.") &&
                            !Path.GetFileName(f).StartsWith("System."))
                 .ToArray();
@@ -365,7 +365,7 @@ public class PluginValidateCommand : BaseCommand
                     // This is a simplified check - in reality we'd use the plugin loader
                     var assembly = System.Reflection.Assembly.LoadFrom(dllFile);
                     var pluginTypes = assembly.GetTypes()
-                        .Where(t => t.IsClass && !t.IsAbstract && 
+                        .Where(t => t.IsClass && !t.IsAbstract &&
                                    t.GetInterfaces().Any(i => i.Name.Contains("Plugin")))
                         .ToArray();
 

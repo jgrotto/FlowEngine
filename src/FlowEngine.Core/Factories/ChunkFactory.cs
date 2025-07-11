@@ -27,7 +27,7 @@ public sealed class ChunkFactory : IChunkFactory
     /// <param name="arrayRowFactory">Factory for creating ArrayRow instances</param>
     /// <param name="memoryManager">Optional memory manager for optimization</param>
     public ChunkFactory(
-        ILogger<ChunkFactory> logger, 
+        ILogger<ChunkFactory> logger,
         IArrayRowFactory arrayRowFactory,
         IMemoryManager? memoryManager = null)
     {
@@ -109,7 +109,7 @@ public sealed class ChunkFactory : IChunkFactory
         }
 
         _logger.LogDebug("Creating chunk with capacity {Capacity}", capacity);
-        
+
         // For now, create an empty chunk. In a full implementation, this might 
         // pre-allocate memory or use a specialized chunk type that can grow efficiently
         return new Chunk(schema, Array.Empty<IArrayRow>());
@@ -186,7 +186,7 @@ public sealed class ChunkFactory : IChunkFactory
 
         var totalRowCount = chunks.Sum(c => c.RowCount);
         var combinedRows = new IArrayRow[totalRowCount];
-        
+
         int currentIndex = 0;
         foreach (var chunk in chunks)
         {
@@ -243,7 +243,7 @@ public sealed class ChunkFactory : IChunkFactory
             projectedRows[i] = _arrayRowFactory.ProjectRow(source.GetRows().ElementAt(i), targetSchema);
         }
 
-        _logger.LogDebug("Projected chunk from {SourceColumns} to {TargetColumns} columns", 
+        _logger.LogDebug("Projected chunk from {SourceColumns} to {TargetColumns} columns",
             source.Schema.ColumnCount, targetSchema.ColumnCount);
         return new Chunk(targetSchema, projectedRows);
     }
@@ -280,7 +280,7 @@ public sealed class ChunkFactory : IChunkFactory
         ArgumentNullException.ThrowIfNull(schema);
 
         var targetSize = targetMemorySize ?? DefaultTargetMemorySize;
-        
+
         // Estimate memory per row
         long estimatedRowSize = 0;
         foreach (var column in schema.Columns)
@@ -297,11 +297,11 @@ public sealed class ChunkFactory : IChunkFactory
         }
 
         var optimalSize = (int)(targetSize / estimatedRowSize);
-        
+
         // Clamp to reasonable bounds
         optimalSize = Math.Max(100, Math.Min(optimalSize, 100000));
 
-        _logger.LogDebug("Calculated optimal chunk size: {OptimalSize} (estimated row size: {RowSize} bytes)", 
+        _logger.LogDebug("Calculated optimal chunk size: {OptimalSize} (estimated row size: {RowSize} bytes)",
             optimalSize, estimatedRowSize);
 
         return optimalSize;
@@ -313,18 +313,24 @@ public sealed class ChunkFactory : IChunkFactory
     private static bool AreSchemasSame(ISchema schema1, ISchema schema2)
     {
         if (ReferenceEquals(schema1, schema2))
+        {
             return true;
+        }
 
         if (schema1.ColumnCount != schema2.ColumnCount)
+        {
             return false;
+        }
 
         for (int i = 0; i < schema1.ColumnCount; i++)
         {
             var col1 = schema1.Columns[i];
             var col2 = schema2.Columns[i];
-            
+
             if (col1.Name != col2.Name || col1.DataType != col2.DataType)
+            {
                 return false;
+            }
         }
 
         return true;
@@ -336,20 +342,40 @@ public sealed class ChunkFactory : IChunkFactory
     private static long EstimateColumnMemorySize(Type dataType)
     {
         if (dataType == typeof(byte) || dataType == typeof(sbyte))
+        {
             return 1;
+        }
+
         if (dataType == typeof(short) || dataType == typeof(ushort))
+        {
             return 2;
+        }
+
         if (dataType == typeof(int) || dataType == typeof(uint) || dataType == typeof(float))
+        {
             return 4;
+        }
+
         if (dataType == typeof(long) || dataType == typeof(ulong) || dataType == typeof(double) || dataType == typeof(DateTime))
+        {
             return 8;
+        }
+
         if (dataType == typeof(decimal))
+        {
             return 16;
+        }
+
         if (dataType == typeof(string))
+        {
             return 50; // Average string size estimate
+        }
+
         if (dataType == typeof(Guid))
+        {
             return 16;
-        
+        }
+
         // Default for unknown types
         return 8;
     }

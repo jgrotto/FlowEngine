@@ -24,7 +24,7 @@ public sealed class DelimitedSinkService : IPluginService
     private readonly IDataTypeService? _dataTypeService;
     private readonly IMemoryManager? _memoryManager;
     private readonly IChannelTelemetry? _channelTelemetry;
-    
+
     private DelimitedSinkConfiguration? _configuration;
     private StreamWriter? _streamWriter;
     private CsvWriter? _csvWriter;
@@ -60,7 +60,7 @@ public sealed class DelimitedSinkService : IPluginService
 
     public string Id => _plugin.Id + "-service";
     public IPluginConfiguration Configuration => _plugin.Configuration;
-    
+
     public ServiceMetrics Metrics => new()
     {
         TotalChunks = _chunksProcessed,
@@ -73,10 +73,12 @@ public sealed class DelimitedSinkService : IPluginService
         Timestamp = DateTimeOffset.UtcNow
     };
 
-    public async Task InitializeAsync(IPluginConfiguration configuration, CancellationToken cancellationToken = default)
+    public Task InitializeAsync(IPluginConfiguration configuration, CancellationToken cancellationToken = default)
     {
         if (configuration is not DelimitedSinkConfiguration sinkConfig)
+        {
             throw new ArgumentException("Expected DelimitedSinkConfiguration", nameof(configuration));
+        }
 
         _configuration = sinkConfig;
 
@@ -114,15 +116,18 @@ public sealed class DelimitedSinkService : IPluginService
         _headersWritten = sinkConfig.AppendMode; // Skip headers if appending
 
         _logger.LogInformation("DelimitedSinkService initialized for file: {FilePath}", sinkConfig.FilePath);
+        return Task.CompletedTask;
     }
 
     public async Task<IChunk> ProcessChunkAsync(IChunk input, CancellationToken cancellationToken = default)
     {
         if (_configuration == null || _csvWriter == null)
+        {
             throw new InvalidOperationException("Service not initialized");
+        }
 
         var startTime = DateTime.UtcNow;
-        
+
         try
         {
             // Write headers if needed
@@ -138,7 +143,7 @@ public sealed class DelimitedSinkService : IPluginService
                 await WriteRowAsync(input.Rows[i], input.Schema, cancellationToken);
                 _rowsWritten++;
             }
-            
+
             // Optimized: Flush only once per chunk instead of per FlushInterval
             // This reduces I/O operations significantly
             await FlushAsync(cancellationToken);
@@ -165,10 +170,12 @@ public sealed class DelimitedSinkService : IPluginService
     public async Task<IArrayRow> ProcessRowAsync(IArrayRow input, CancellationToken cancellationToken = default)
     {
         if (_configuration == null || _csvWriter == null)
+        {
             throw new InvalidOperationException("Service not initialized");
+        }
 
         var startTime = DateTime.UtcNow;
-        
+
         try
         {
             // Write headers if needed (derive schema from first row)
@@ -205,7 +212,10 @@ public sealed class DelimitedSinkService : IPluginService
 
     private async Task WriteHeadersAsync(ISchema schema, CancellationToken cancellationToken)
     {
-        if (_csvWriter == null) return;
+        if (_csvWriter == null)
+        {
+            return;
+        }
 
         var headers = GetOutputColumnNames(schema);
         foreach (var header in headers)
@@ -233,7 +243,7 @@ public sealed class DelimitedSinkService : IPluginService
         // Check that all column types are CSV-compatible
         var csvCompatibleTypes = new HashSet<Type>
         {
-            typeof(string), typeof(int), typeof(long), typeof(decimal), 
+            typeof(string), typeof(int), typeof(long), typeof(decimal),
             typeof(double), typeof(bool), typeof(DateTime), typeof(DateTimeOffset)
         };
 
@@ -255,7 +265,7 @@ public sealed class DelimitedSinkService : IPluginService
                 {
                     Type = isIncompatible ? "IncompatibleDataType" : "UnsupportedDataType",
                     Severity = isIncompatible ? "Error" : "Warning",
-                    Description = isIncompatible 
+                    Description = isIncompatible
                         ? $"Column '{column.Name}' has type '{column.DataType.Name}' which cannot be serialized to CSV format"
                         : $"Column '{column.Name}' has type '{column.DataType.Name}' which may not format well in CSV",
                     Resolution = isIncompatible
@@ -288,17 +298,20 @@ public sealed class DelimitedSinkService : IPluginService
 
     private async Task WriteRowAsync(IArrayRow row, ISchema? schema, CancellationToken cancellationToken)
     {
-        if (_csvWriter == null) return;
+        if (_csvWriter == null)
+        {
+            return;
+        }
 
         var outputColumns = GetOutputColumnMappings(schema);
-        
+
         foreach (var (sourceIndex, format) in outputColumns)
         {
             var value = row[sourceIndex];
             var formattedValue = FormatValue(value, format);
             _csvWriter.WriteField(formattedValue);
         }
-        
+
         await _csvWriter.NextRecordAsync();
     }
 
@@ -331,7 +344,10 @@ public sealed class DelimitedSinkService : IPluginService
 
     private string FormatValue(object? value, string? format)
     {
-        if (value == null) return string.Empty;
+        if (value == null)
+        {
+            return string.Empty;
+        }
 
         if (!string.IsNullOrEmpty(format))
         {
@@ -360,8 +376,11 @@ public sealed class DelimitedSinkService : IPluginService
 
     private bool ShouldFlush()
     {
-        if (_configuration == null) return false;
-        
+        if (_configuration == null)
+        {
+            return false;
+        }
+
         var timeSinceLastFlush = DateTime.UtcNow - _lastFlush;
         return timeSinceLastFlush.TotalMilliseconds >= _configuration.FlushInterval;
     }
@@ -373,7 +392,7 @@ public sealed class DelimitedSinkService : IPluginService
             await _csvWriter.FlushAsync();
             await _streamWriter.FlushAsync();
             _lastFlush = DateTime.UtcNow;
-            
+
             // Record buffer utilization telemetry
             if (_configuration != null)
             {
@@ -405,12 +424,15 @@ public sealed class DelimitedSinkService : IPluginService
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
 
         _csvWriter?.Dispose();
         _streamWriter?.Dispose();
         _disposed = true;
-        
+
         _logger.LogInformation("DelimitedSinkService disposed");
     }
 }
