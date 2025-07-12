@@ -148,7 +148,27 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
 
         // Use reflection to create the plugin's own configuration type
         var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for DelimitedSource plugin");
-        var assembly = Assembly.LoadFrom(assemblyPath);
+        
+        // Try to get already loaded assembly first to avoid "Assembly with same name is already loaded" error
+        var assemblyName = Path.GetFileNameWithoutExtension(assemblyPath);
+        var assembly = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => a.GetName().Name?.Equals(assemblyName, StringComparison.OrdinalIgnoreCase) == true);
+            
+        if (assembly == null)
+        {
+            try
+            {
+                assembly = Assembly.LoadFrom(assemblyPath);
+            }
+            catch (FileLoadException ex) when (ex.Message.Contains("Assembly with same name is already loaded"))
+            {
+                // If assembly is already loaded, try to find it by name again
+                assembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name?.Equals(assemblyName, StringComparison.OrdinalIgnoreCase) == true)
+                    ?? throw new PluginLoadException($"Cannot load assembly {assemblyName}: already loaded but not found in current domain", ex);
+            }
+        }
+            
         var configType = assembly.GetType("DelimitedSource.DelimitedSourceConfiguration");
 
         if (configType == null)
@@ -207,7 +227,27 @@ public sealed class PluginConfigurationMapper : IPluginConfigurationMapper
 
         // Use reflection to create the plugin's own configuration type
         var assemblyPath = definition.AssemblyPath ?? throw new PluginLoadException("Assembly path required for DelimitedSink plugin");
-        var assembly = Assembly.LoadFrom(assemblyPath);
+        
+        // Try to get already loaded assembly first to avoid "Assembly with same name is already loaded" error
+        var assemblyName = Path.GetFileNameWithoutExtension(assemblyPath);
+        var assembly = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => a.GetName().Name?.Equals(assemblyName, StringComparison.OrdinalIgnoreCase) == true);
+            
+        if (assembly == null)
+        {
+            try
+            {
+                assembly = Assembly.LoadFrom(assemblyPath);
+            }
+            catch (FileLoadException ex) when (ex.Message.Contains("Assembly with same name is already loaded"))
+            {
+                // If assembly is already loaded, try to find it by name again
+                assembly = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name?.Equals(assemblyName, StringComparison.OrdinalIgnoreCase) == true)
+                    ?? throw new PluginLoadException($"Cannot load assembly {assemblyName}: already loaded but not found in current domain", ex);
+            }
+        }
+            
         var configType = assembly.GetType("DelimitedSink.DelimitedSinkConfiguration");
 
         if (configType == null)
