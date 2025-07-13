@@ -360,4 +360,20 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
-FodyWeavers.xsd
+FodyWeavers.xsd# Build outputs
+bin/
+obj/
+temp_build/
+
+# IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Packages
+*.nupkg
+
+# Test results
+TestResults/
+*.trx
