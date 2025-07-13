@@ -1,8 +1,25 @@
 # FlowEngine Development Roadmap
 
-**Last Updated**: January 2025  
+**Last Updated**: July 2025  
 **Focus**: Production hardening of existing CSV and JavaScript transformation capabilities  
 **Timeline**: 18-month path to enterprise production readiness
+
+## Current Cycle: 1
+
+## Current Sprint: Performance (JavaScript AST)
+
+## Sprint Type Rotation:
+
+- [x] Performance: JavaScript AST optimization
+- [ ] Simplification: Configuration cleanup  
+- [ ] Stability: Error handling
+
+## Completed Cycles:
+
+### Cycle 0 (Bootstrap):
+- Documentation consolidation
+- Feature matrix analysis  
+- Strategy definition
 
 ## Current Phase: Foundation Stability
 
@@ -30,10 +47,16 @@ Transform FlowEngine from "functional foundation" to "production-ready platform"
 - [ ] **Standardize plugin manifest format** - Choose one schema, migrate all plugins
 
 ### **Documentation Reality Check**
-- [ ] **Remove inflated performance claims** - Document realistic 4K-7K rows/sec with transforms
-- [ ] **Remove missing CLI features from docs** - `--validate`, `--variable` don't exist
-- [ ] **Add operational troubleshooting guide** - Common issues and solutions
-- [ ] **Document actual production limitations** - Be honest about current capabilities
+- [x] **Remove inflated performance claims** - ✅ Documented realistic 4K-7K rows/sec with transforms in performance-characteristics.md
+- [x] **Remove missing CLI features from docs** - ✅ Fixed non-existent CLI features (--validate, --variable)
+- [x] **Add operational troubleshooting guide** - ✅ Created current/capabilities.md and limitations.md
+- [x] **Document actual production limitations** - ✅ Comprehensive limitations assessment completed
+
+### **JavaScript Performance Optimization (High Priority)**
+- [ ] **Sprint 1: JavaScript AST Pre-compilation** - Eliminate repeated string parsing (2x performance improvement)
+- [ ] **Sprint 2: JavaScript Global Context Optimization** - Eliminate context recreation overhead (additional 2-3x improvement)
+- [ ] **Context Identification Strategy Implementation** - Hybrid approach for human-readable cache keys
+- [ ] **Performance Validation** - Benchmark 4-6x combined JavaScript improvement (4K → 16K-24K rows/sec)
 
 ### **Development Experience Improvements**
 - [ ] **Create comprehensive integration test suite** - Cover real-world scenarios
@@ -116,10 +139,17 @@ Focus resources on making current capabilities production-ready rather than expa
 - Honest documentation of production gaps
 - Clear roadmap for production readiness
 
-### **✅ Documentation Cleanup (January 2025)**
+### **✅ Documentation Cleanup (July 2025)**
 - Archived historical documents with clear warnings
 - Created evidence-based current capabilities documentation
 - Established honest limitations documentation
+- Created performance-characteristics.md with actual measurements vs theoretical claims
+
+### **✅ JavaScript Performance Analysis (July 2025)**
+- Comprehensive analysis of AST pre-compilation optimization (2x improvement potential)
+- Global context optimization strategy (additional 2-3x improvement potential)
+- Context identification strategy for human-readable cache keys
+- Architecture team recommendations ready for implementation
 
 ### **✅ Strategic Planning (January 2025)**
 - Implementation strategy focused on production hardening

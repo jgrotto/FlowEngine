@@ -24,46 +24,60 @@ FlowEngine uses a **sprint-lite** approach focused on production hardening rathe
 - Streamline configurations and APIs
 - Eliminate overlapping functionality
 
-## Sprint Types
+## Cyclical Sprint Types (3-Sprint Rotation)
 
-### **Hardening Sprints (2 weeks)**
-**Focus**: Make one aspect production-ready
+### **Performance Sprints (2 weeks)**
+**Focus**: Optimize speed, throughput, and resource usage
 
 **Examples**:
-- Memory management production hardening
-- Error handling sophistication
-- Plugin reliability improvements
+- JavaScript AST pre-compilation (2x performance improvement)
+- Global context optimization (additional 2-3x improvement)
+- Memory allocation reduction
+- Parallel processing implementation
 
 **Deliverables**:
-- Bulletproof subsystem
-- Comprehensive tests
-- Updated documentation
+- Measurable performance improvements
+- BenchmarkDotNet validation
+- Performance regression tests
+- Updated performance documentation
 
 ### **Simplification Sprints (1 week)**
-**Focus**: Remove complexity
+**Focus**: Remove complexity and improve usability
 
 **Examples**:
 - Configuration cleanup (remove OverwriteExisting vs AppendMode confusion)
-- API simplification
-- Documentation consolidation
+- API simplification and consolidation
+- CLI command streamlining
+- Documentation clarity improvements
 
 **Deliverables**:
 - Cleaner interfaces
-- Updated examples
-- Simplified user experience
+- Simplified configuration options
+- Updated examples and documentation
+- Reduced cognitive load for users
 
-### **Polish Sprints (1 week)**
-**Focus**: Developer experience
+### **Stability Sprints (1 week)**
+**Focus**: Error handling, reliability, and robustness
 
 **Examples**:
-- Better error messages
-- Improved logging
-- Enhanced debugging tools
+- Comprehensive error handling implementation
+- Retry/recovery mechanisms integration
+- Integration test failure resolution
+- Plugin loading stability improvements
 
 **Deliverables**:
-- Smoother user experience
-- Clear error guidance
-- Better troubleshooting
+- Improved error handling
+- Higher test success rates
+- Better failure recovery
+- Production-ready reliability
+
+## Cycle Benefits
+
+### **Balanced Development**
+- **Prevents obsession** with single area (performance, usability, or stability)
+- **Ensures holistic progress** across all production readiness dimensions
+- **Maintains momentum** with varied, focused objectives
+- **Builds cumulative quality** through repeated attention to each area
 
 ## Daily Development Rhythm
 
@@ -86,10 +100,16 @@ FlowEngine uses a **sprint-lite** approach focused on production hardening rathe
 
 ## Sprint Lifecycle
 
+### **Cycle Planning**
+1. **Plan 3-sprint cycle** with Performance → Simplification → Stability rotation
+2. **Identify cycle theme** (e.g., "JavaScript Optimization Cycle")
+3. **Define cycle success criteria** across all three sprint types
+4. **Update ROADMAP.md** with current cycle status
+
 ### **Sprint Planning**
 1. Create new sprint document from template
-2. Define clear, measurable goals
-3. Identify success criteria
+2. Define clear, measurable goals **specific to sprint type**
+3. Identify success criteria **aligned with sprint focus**
 4. Update ROADMAP.md with sprint priorities
 
 ### **Daily Execution**
@@ -102,7 +122,13 @@ FlowEngine uses a **sprint-lite** approach focused on production hardening rathe
 1. Ensure all goals achieved or explicitly deferred
 2. Update capabilities.md and limitations.md
 3. Move sprint doc to completed/
-4. Update ROADMAP.md with next priorities
+4. **Update ROADMAP.md** with next sprint in rotation
+
+### **Cycle Completion**
+1. **Assess cycle success** across Performance → Simplification → Stability
+2. **Document cycle achievements** in ROADMAP.md completed cycles
+3. **Plan next cycle theme** (e.g., "Database Integration Cycle")
+4. **Reset sprint rotation** to Performance for new cycle
 
 ## Definition of Done
 
