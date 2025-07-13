@@ -2,7 +2,7 @@
   "profiles": {
     "FlowEngine.Cli": {
       "commandName": "Project",
-      "commandLineArgs": "examples\\customer-processing-pipeline.yaml",
+      "commandLineArgs": "examples\\customer-processing-pipeline-simplified.yaml",
       "workingDirectory": "C:\\source\\FlowEngine"
     }
   }

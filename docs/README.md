@@ -4,12 +4,17 @@
 
 Welcome to the FlowEngine documentation. This guide provides comprehensive information for users, developers, and contributors.
 
+## ⚠️ **Current Status: Functional Foundation**
+
+FlowEngine is currently a **sophisticated prototype** with excellent core performance characteristics. It excels at CSV file processing with JavaScript transformations but lacks enterprise production features like security, monitoring, and high availability. See [Current Limitations](./current/limitations.md) for honest assessment.
+
 ## 📚 Documentation Overview
 
 ### 🚀 Getting Started
 
 - **[README](../README.md)**: Project overview and quick start guide
-- **[Architecture](./architecture.md)**: Core system design and patterns
+- **[Current Capabilities](./current/capabilities.md)**: What FlowEngine does today (evidence-based)
+- **[Current Limitations](./current/limitations.md)**: Honest assessment of production gaps
 - **[Configuration](./configuration.md)**: Complete configuration reference
 - **[Troubleshooting](./troubleshooting.md)**: Common issues and solutions
 
@@ -25,10 +30,12 @@ Welcome to the FlowEngine documentation. This guide provides comprehensive infor
 - **[Development Guidelines](./development/)**: Development standards and practices
 - **[Specifications](./specifications/)**: Technical specifications
 
-### 📊 Project Reviews
+### 📊 Project Status
 
-- **[Reviews](./reviews/)**: Sprint reviews and project analysis
-- **[Specifications Archive](./specifications/archive/)**: Historical specifications
+- **[Feature Matrix](./specifications/flowengine-feature-matrix.md)**: Comprehensive status analysis
+- **[Implementation Strategy](./implementation-strategy.md)**: Production hardening roadmap
+- **[Sprint Reviews](./reviews/)**: Completed sprint analysis
+- **[Archive](./archive/)**: Historical documentation (reference only)
 
 ## 🏗️ Architecture Overview
 
@@ -64,21 +71,21 @@ FlowEngine follows a **thin plugin calling Core services** architecture:
 
 ## 🚀 Performance Highlights
 
-### Validated Performance Metrics
+### Measured Performance Characteristics
 
-| Component | Target | Achieved | Status |
-|-----------|---------|----------|--------|
-| **Core ArrayRow Processing** | 200K rows/sec | **441K rows/sec** | ✅ 220% of target |
-| **Field Access Performance** | <20ns | **0.4ns** | ✅ 50x faster |
-| **Chunk Processing** | 500K rows/sec | **1.9M rows/sec** | ✅ 380% of target |
-| **JavaScript Transform** | 5K rows/sec | **7-13K rows/sec** | ✅ Exceeds minimum |
+| Component | Measured Performance | Test Scenario | Status |
+|-----------|---------------------|---------------|--------|
+| **Field Access (by name)** | **25ns** | ArrayRow performance tests | ✅ Optimized |
+| **Field Access (by index)** | **<10ns** | Direct array access | ✅ Excellent |
+| **Simple Pipeline** | **3,870 rows/sec** | 20K records CSV passthrough | ✅ Functional |
+| **Complex Pipeline** | **3,997 rows/sec** | 30K records with JavaScript transforms | ✅ Stable |
 
 ### Key Performance Features
 
-- **ArrayRow Technology**: Sub-nanosecond field access
-- **Chunk-based Streaming**: Memory-bounded processing
-- **Engine Pooling**: Reusable JavaScript engines
-- **Schema Optimization**: Compile-time field access patterns
+- **ArrayRow Technology**: 25ns field access with FrozenDictionary optimization
+- **Chunk-based Streaming**: Memory-bounded processing with configurable chunk sizes
+- **V8 JavaScript Engine**: Reliable transformation processing
+- **Schema Optimization**: Compile-time field access patterns with explicit schemas
 
 ## 📋 Quick Reference
 
@@ -196,8 +203,8 @@ dotnet add plugins/MyPlugin/ package FlowEngine.Abstractions
 # Run performance tests
 dotnet.exe test tests/DelimitedPlugins.Tests/ --filter "Performance" --logger "console;verbosity=detailed"
 
-# Monitor performance
-dotnet.exe run --project src/FlowEngine.Cli/ -- pipeline.yaml --monitor-performance
+# Execute pipeline with timing
+time dotnet.exe run --project src/FlowEngine.Cli/ -- pipeline.yaml
 ```
 
 ## 🔧 Configuration Examples
@@ -284,14 +291,14 @@ dotnet.exe test tests/DelimitedPlugins.Tests/ --filter "JavaScriptTransformPerfo
 ### Diagnostic Commands
 
 ```bash
-# Check system health
-dotnet.exe run --project src/FlowEngine.Cli/ -- --health-check
+# Run pipeline with verbose logging
+dotnet.exe run --project src/FlowEngine.Cli/ -- pipeline.yaml --verbose
 
-# Validate configuration
-dotnet.exe run --project src/FlowEngine.Cli/ -- pipeline.yaml --validate
+# Test plugin functionality
+dotnet.exe run --project src/FlowEngine.Cli/ -- plugin test ./MyPlugin
 
-# Performance profiling
-dotnet.exe run --project src/FlowEngine.Cli/ -- pipeline.yaml --profile
+# Performance validation through tests
+dotnet.exe test tests/DelimitedPlugins.Tests/ --filter "Performance"
 ```
 
 ## 🤝 Contributing
