@@ -17,7 +17,7 @@ public class Phase2IntegrationTests : IDisposable
     private readonly ITestOutputHelper _output;
     private readonly ServiceProvider _serviceProvider;
     private readonly FlowEngineCoordinator _coordinator;
-    private readonly IChannelTelemetry _telemetry;
+    // private readonly IChannelTelemetry _telemetry;
     private readonly PipelinePerformanceMonitor _monitor;
 
     public Phase2IntegrationTests(ITestOutputHelper output)
@@ -31,8 +31,8 @@ public class Phase2IntegrationTests : IDisposable
         
         _serviceProvider = services.BuildServiceProvider();
         _coordinator = _serviceProvider.GetRequiredService<FlowEngineCoordinator>();
-        _telemetry = new FlowEngine.Core.Monitoring.ChannelTelemetry();
-        _monitor = new PipelinePerformanceMonitor(_telemetry);
+        // _telemetry = new FlowEngine.Core.Monitoring.ChannelTelemetry();
+        _monitor = new PipelinePerformanceMonitor(null!);
     }
 
     [Fact]

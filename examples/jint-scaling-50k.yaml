@@ -1,0 +1,120 @@
+pipeline:
+  name: "Jint Scaling Test - 50K Records"
+  version: "1.0.0"
+  description: "Jint performance scaling validation with 50,000 records"
+  
+  plugins:
+    # Source: Read 50K customer records
+    - name: "CustomerSource"
+      type: "DelimitedSource"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers-50k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 2000
+        Encoding: "UTF-8"
+        InferSchema: false
+        OutputSchema:
+          Name: "CustomerData"
+          Description: "Customer information schema"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 3
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 4
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 5
+              IsNullable: false
+
+    # Transform: Simple JavaScript for clear scaling measurement
+    - name: "JintScalingTransform"
+      type: "JavaScriptTransform"
+      config:
+        Script: |
+          function process(context) {
+              try {
+                  // Simple but representative processing
+                  var customer_id = context.input.getValue('customer_id');
+                  var first_name = context.input.getValue('first_name') || '';
+                  var last_name = context.input.getValue('last_name') || '';
+                  var age = parseInt(context.input.getValue('age')) || 0;
+                  var email = context.input.getValue('email') || '';
+                  var account_value = parseFloat(context.input.getValue('account_value')) || 0;
+                  
+                  // Business logic transformations
+                  var full_name = first_name + ' ' + last_name;
+                  var age_category = age < 30 ? 'Young' : age < 50 ? 'Middle' : 'Senior';
+                  var email_domain = email.includes('@') ? email.split('@')[1] : 'unknown';
+                  var value_tier = account_value > 100000 ? 'Premium' : account_value > 50000 ? 'Gold' : 'Standard';
+                  
+                  // Set output fields
+                  context.output.setField('customer_id', customer_id);
+                  context.output.setField('full_name', full_name);
+                  context.output.setField('age_category', age_category);
+                  context.output.setField('email_domain', email_domain);
+                  context.output.setField('value_tier', value_tier);
+                  context.output.setField('processed_at', new Date().toISOString());
+                  
+                  return true;
+              } catch (error) {
+                  return false;
+              }
+          }
+
+        OutputSchema:
+          Fields:
+            - Name: "customer_id"
+              Type: "string"
+              Required: true
+            - Name: "full_name"
+              Type: "string"
+              Required: true
+            - Name: "age_category"
+              Type: "string"
+              Required: true
+            - Name: "email_domain"
+              Type: "string"
+              Required: true
+            - Name: "value_tier"
+              Type: "string"
+              Required: true
+            - Name: "processed_at"
+              Type: "string"
+              Required: true
+
+        Engine:
+          Timeout: 5000
+          MemoryLimit: 67108864
+          EnableCaching: true
+          EnableDebugging: false
+
+        Performance:
+          EnableMonitoring: true
+          TargetThroughput: 8000
+          LogPerformanceWarnings: true
+
+    # Sink: Write to scaling test output
+    - name: "ScalingOutput"
+      type: "DelimitedSink"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\output\\jint-scaling-50k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Overwrite: true

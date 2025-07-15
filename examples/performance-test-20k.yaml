@@ -1,0 +1,272 @@
+pipeline:
+  name: "Performance Test - 20K Records JavaScript Processing"
+  version: "1.0.0"
+  description: "Performance validation with 20,000 records and complex JavaScript transforms"
+  
+  plugins:
+    # Source: Read 20K customer records
+    - name: "CustomerSource"
+      type: "DelimitedSource"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers-20k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 1000  # Smaller chunks for better throughput measurement
+        Encoding: "UTF-8"
+        InferSchema: false
+        OutputSchema:
+          Name: "CustomerData"
+          Description: "Customer information schema"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 3
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 4
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 5
+              IsNullable: false
+        SkipMalformedRows: true
+        MaxErrors: 10
+        
+    # Transform: Complex JavaScript processing to test performance
+    - name: "CustomerTransform"
+      type: "JavaScriptTransform"
+      config:
+        OutputSchema:
+          Name: "ProcessedCustomerData"
+          Description: "Customer data with complex transformations for performance testing"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "full_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 3
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 4
+              IsNullable: false
+            - Name: "age_category"
+              Type: "String"
+              Index: 5
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 6
+              IsNullable: false
+            - Name: "email_domain"
+              Type: "String"
+              Index: 7
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 8
+              IsNullable: false
+            - Name: "value_category"
+              Type: "String"
+              Index: 9
+              IsNullable: false
+            - Name: "priority_score"
+              Type: "Integer"
+              Index: 10
+              IsNullable: false
+            - Name: "processed_date"
+              Type: "String"
+              Index: 11
+              IsNullable: false
+            - Name: "complexity_hash"
+              Type: "String"
+              Index: 12
+              IsNullable: false
+        Script: |
+          function process(context) {
+              try {
+                  // Get current row data
+                  var customer = context.input.current();
+                  
+                  // Basic validation
+                  if (!customer.first_name || !customer.last_name) {
+                      context.utils.log('warning', 'Missing name data for customer ID: ' + customer.customer_id);
+                      return false;
+                  }
+                  
+                  // Transform: Create full name
+                  var fullName = customer.first_name + ' ' + customer.last_name;
+                  
+                  // Transform: Categorize age with more complex logic
+                  var age = parseInt(customer.age);
+                  var ageCategory = 'Unknown';
+                  if (age < 18) ageCategory = 'Minor';
+                  else if (age < 25) ageCategory = 'Young Adult';
+                  else if (age < 35) ageCategory = 'Adult';
+                  else if (age < 45) ageCategory = 'Mid Adult';
+                  else if (age < 55) ageCategory = 'Mature Adult';
+                  else if (age < 65) ageCategory = 'Pre-Senior';
+                  else ageCategory = 'Senior';
+                  
+                  // Transform: Email domain extraction with validation
+                  var emailDomain = 'unknown';
+                  if (customer.email && customer.email.indexOf('@') > 0) {
+                      var parts = customer.email.split('@');
+                      emailDomain = parts[1].toLowerCase();
+                  }
+                  
+                  // Transform: Calculate account value category with complex thresholds
+                  var accountValue = parseFloat(customer.account_value || 0);
+                  var valueCategory = 'Basic';
+                  if (accountValue >= 500000) valueCategory = 'Platinum';
+                  else if (accountValue >= 250000) valueCategory = 'Diamond';
+                  else if (accountValue >= 100000) valueCategory = 'Premium';
+                  else if (accountValue >= 50000) valueCategory = 'Gold';
+                  else if (accountValue >= 25000) valueCategory = 'Silver';
+                  else if (accountValue >= 10000) valueCategory = 'Bronze';
+                  
+                  // Transform: Generate complex priority score with multiple factors
+                  var priorityScore = 0;
+                  
+                  // Value-based scoring
+                  if (valueCategory === 'Platinum') priorityScore += 100;
+                  else if (valueCategory === 'Diamond') priorityScore += 80;
+                  else if (valueCategory === 'Premium') priorityScore += 60;
+                  else if (valueCategory === 'Gold') priorityScore += 40;
+                  else if (valueCategory === 'Silver') priorityScore += 25;
+                  else if (valueCategory === 'Bronze') priorityScore += 15;
+                  else priorityScore += 5;
+                  
+                  // Age-based scoring
+                  if (ageCategory === 'Adult' || ageCategory === 'Mid Adult' || ageCategory === 'Mature Adult') {
+                      priorityScore += 30;
+                  } else if (ageCategory === 'Young Adult' || ageCategory === 'Pre-Senior') {
+                      priorityScore += 20;
+                  } else {
+                      priorityScore += 10;
+                  }
+                  
+                  // Email domain scoring
+                  var businessDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com'];
+                  var enterpriseDomains = ['enterprise.com', 'company.com', 'corp.com'];
+                  
+                  if (enterpriseDomains.indexOf(emailDomain) >= 0) {
+                      priorityScore += 25;
+                  } else if (businessDomains.indexOf(emailDomain) >= 0) {
+                      priorityScore += 15;
+                  } else {
+                      priorityScore += 5;
+                  }
+                  
+                  // Complex hash generation for performance testing
+                  var hashInput = fullName + age + emailDomain + accountValue + valueCategory;
+                  var complexityHash = '';
+                  for (var i = 0; i < hashInput.length; i++) {
+                      var char = hashInput.charCodeAt(i);
+                      complexityHash += (char * 17 + i * 3).toString(16);
+                  }
+                  complexityHash = complexityHash.substring(0, 16).toUpperCase();
+                  
+                  // Set all output fields
+                  context.output.setField('customer_id', customer.customer_id);
+                  context.output.setField('full_name', fullName);
+                  context.output.setField('first_name', customer.first_name);
+                  context.output.setField('last_name', customer.last_name);
+                  context.output.setField('age', age);
+                  context.output.setField('age_category', ageCategory);
+                  context.output.setField('email', customer.email);
+                  context.output.setField('email_domain', emailDomain);
+                  context.output.setField('account_value', accountValue);
+                  context.output.setField('value_category', valueCategory);
+                  context.output.setField('priority_score', priorityScore);
+                  context.output.setField('processed_date', new Date().toISOString());
+                  context.output.setField('complexity_hash', complexityHash);
+                  
+                  return true;
+                  
+              } catch (error) {
+                  context.utils.log('error', 'Transform error: ' + error.message);
+                  return false;
+              }
+          }
+        ChunkSize: 1000
+        TimeoutSeconds: 60
+        
+    # Sink: Write to performance test output
+    - name: "PerformanceOutput"
+      type: "DelimitedSink"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\output\\performance-test-20k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Encoding: "UTF-8"
+        BufferSize: 16384
+        FlushInterval: 500
+        CreateDirectory: true
+        OverwriteExisting: true
+        
+  connections:
+    - from: "CustomerSource"
+      to: "CustomerTransform"
+      channel:
+        bufferSize: 2000
+        backpressureThreshold: 75
+        fullMode: "Wait"
+        timeoutSeconds: 60
+        
+    - from: "CustomerTransform"
+      to: "PerformanceOutput"
+      channel:
+        bufferSize: 2000
+        backpressureThreshold: 75
+        fullMode: "Wait"
+        timeoutSeconds: 60
+
+  settings:
+    defaultChannel:
+      bufferSize: 1000
+      backpressureThreshold: 80
+      fullMode: "Wait"
+      timeoutSeconds: 60
+    
+    monitoring:
+      enableMetrics: true
+      metricsIntervalSeconds: 1
+      enableTracing: true
+      custom:
+        logLevel: "Information"
+        
+    custom:
+      performance:
+        maxConcurrentPlugins: 3
+        memoryLimitMB: 1024
+        gcPressureThreshold: 0.8
+        
+      errorHandling:
+        maxRetries: 2
+        retryDelaySeconds: 1
+        stopOnError: false
+        logErrors: true

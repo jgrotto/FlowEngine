@@ -1,0 +1,61 @@
+pipeline:
+  name: "Simple Scaling Test"
+  version: "1.0.0"
+  description: "Simple scaling test for engine comparison"
+  
+  plugins:
+    - name: "CustomerSource"
+      type: "DelimitedSource"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers-50k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 2000
+        Encoding: "UTF-8"
+        InferSchema: false
+        OutputSchema:
+          Name: "CustomerData"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+            - Name: "first_name"
+              Type: "String"
+              Index: 1
+            - Name: "last_name"
+              Type: "String"
+              Index: 2
+            - Name: "age"
+              Type: "Integer"
+              Index: 3
+            - Name: "email"
+              Type: "String"
+              Index: 4
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 5
+
+    - name: "SimpleTransform"
+      type: "JavaScriptTransform"
+      config:
+        Script: |
+          function process(context) {
+              var first_name = context.input.getValue('first_name') || '';
+              var last_name = context.input.getValue('last_name') || '';
+              var full_name = first_name + ' ' + last_name;
+              
+              context.output.setField('full_name', full_name);
+              context.output.setField('timestamp', new Date().toISOString());
+              
+              return true;
+          }
+        ChunkSize: 2000
+        TimeoutSeconds: 60
+
+    - name: "ScalingOutput"
+      type: "DelimitedSink"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\output\\simple-scaling-50k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Overwrite: true

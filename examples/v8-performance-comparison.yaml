@@ -1,0 +1,129 @@
+pipeline:
+  name: "V8 Performance Comparison Test"
+  version: "1.0.0"
+  description: "Compare V8 vs Jint performance with identical workload"
+  
+  plugins:
+    # Source: Read 20K customer records  
+    - name: "CustomerSource"
+      type: "DelimitedSource"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers-20k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 1000  # Smaller chunks for better throughput measurement
+        Encoding: "UTF-8"
+        InferSchema: false
+        OutputSchema:
+          Name: "CustomerData"
+          Description: "Customer information schema"
+          Columns:
+            - Name: "ID"
+              Type: "String"
+              Index: 0
+              IsNullable: false
+            - Name: "Name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "Email"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "Phone"
+              Type: "String"
+              Index: 3
+              IsNullable: false
+            - Name: "Address"
+              Type: "String"
+              Index: 4
+              IsNullable: false
+            - Name: "City"
+              Type: "String"
+              Index: 5
+              IsNullable: false
+            - Name: "Country"
+              Type: "String"
+              Index: 6
+              IsNullable: false
+
+    # Transform: V8 JavaScript processing
+    - name: "V8Transform"
+      type: "JavaScriptTransform"
+      config:
+        Script: |
+          function process(context) {
+              // Performance-intensive JavaScript operations for V8 testing
+              var customer = {
+                  id: context.input.getValue('ID'),
+                  name: context.input.getValue('Name'),
+                  email: context.input.getValue('Email'),
+                  phone: context.input.getValue('Phone'),
+                  address: context.input.getValue('Address'),
+                  city: context.input.getValue('City'),
+                  country: context.input.getValue('Country')
+              };
+              
+              // Complex business logic - heavy computation
+              var nameUpper = customer.name ? customer.name.toUpperCase() : 'UNKNOWN';
+              var emailDomain = customer.email ? customer.email.split('@')[1] || 'unknown.com' : 'no-email.com';
+              var isInternational = customer.country && customer.country !== 'USA';
+              
+              // Generate hash-like identifier
+              var hashInput = (customer.id || '0') + (customer.name || '') + (customer.email || '');
+              var simpleHash = 0;
+              for (var i = 0; i < hashInput.length; i++) {
+                  simpleHash = ((simpleHash << 5) - simpleHash + hashInput.charCodeAt(i)) & 0xffffffff;
+              }
+              
+              // Set all output fields using V8 engine
+              context.output.setField('CustomerID', customer.id);
+              context.output.setField('DisplayName', nameUpper);
+              context.output.setField('EmailDomain', emailDomain);
+              context.output.setField('IsInternational', isInternational);
+              context.output.setField('CustomerHash', Math.abs(simpleHash).toString());
+              context.output.setField('ProcessedAt', new Date().toISOString());
+              
+              return true;
+          }
+        
+        OutputSchema:
+          Fields:
+            - Name: "CustomerID"
+              Type: "string"
+              Required: true
+            - Name: "DisplayName"
+              Type: "string"
+              Required: true
+            - Name: "EmailDomain"
+              Type: "string"
+              Required: true
+            - Name: "IsInternational"
+              Type: "boolean"
+              Required: true
+            - Name: "CustomerHash"
+              Type: "string"
+              Required: true
+            - Name: "ProcessedAt"
+              Type: "string"
+              Required: true
+
+        Engine:
+          Timeout: 5000
+          MemoryLimit: 67108864
+          EnableCaching: true
+          EnableDebugging: false
+
+        Performance:
+          EnableMonitoring: true
+          TargetThroughput: 8000
+          LogPerformanceWarnings: true
+
+    # Sink: Write results
+    - name: "OutputSink"
+      type: "DelimitedSink"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\output\\v8-comparison-results.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Overwrite: true

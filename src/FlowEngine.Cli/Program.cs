@@ -4,6 +4,7 @@ using FlowEngine.Cli.Commands;
 using FlowEngine.Core;
 using FlowEngine.Core.Configuration;
 using FlowEngine.Core.Services;
+using FlowEngine.Core.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -191,21 +192,43 @@ internal class Program
                 Console.WriteLine($"Connections: {pipelineConfig.Connections.Count()}");
             }
 
-            // Step 6: Validate that required plugins are available
-            Console.WriteLine("Validating configuration...");
-            var requiredPluginTypes = pipelineConfig.Plugins.Select(p => p.Type).Distinct().ToHashSet();
-            var availablePluginTypes = discoveredPlugins.Select(p => p.Manifest.PluginTypeName).ToHashSet();
-            var missingPlugins = requiredPluginTypes.Except(availablePluginTypes).ToList();
+            // Step 6: Comprehensive pipeline validation using PipelineValidator
+            Console.WriteLine("Validating pipeline configuration...");
+            var pipelineValidator = serviceProvider.GetRequiredService<PipelineValidator>();
+            var validationResult = await pipelineValidator.ValidatePipelineAsync(pipelineConfig);
             
-            if (missingPlugins.Any())
+            if (!validationResult.IsValid)
             {
-                Console.Error.WriteLine("Configuration validation failed:");
-                Console.Error.WriteLine("Missing plugins:");
-                foreach (var missing in missingPlugins)
+                Console.Error.WriteLine("Pipeline validation failed:");
+                foreach (var error in validationResult.Errors)
                 {
-                    Console.Error.WriteLine($"  - {missing}");
+                    Console.Error.WriteLine($"  ❌ {error}");
+                }
+                
+                if (validationResult.Warnings.Count > 0)
+                {
+                    Console.WriteLine("Warnings:");
+                    foreach (var warning in validationResult.Warnings)
+                    {
+                        Console.WriteLine($"  ⚠️  {warning}");
+                    }
                 }
                 return 1;
+            }
+            
+            // Show warnings even on successful validation
+            if (validationResult.Warnings.Count > 0 && verbose)
+            {
+                Console.WriteLine("Validation warnings:");
+                foreach (var warning in validationResult.Warnings)
+                {
+                    Console.WriteLine($"  ⚠️  {warning}");
+                }
+            }
+            
+            if (verbose)
+            {
+                Console.WriteLine($"✅ Pipeline validation passed ({validationResult.ValidatedPluginCount} plugins, {validationResult.ValidatedConnectionCount} connections)");
             }
 
             // Step 7: Execute pipeline

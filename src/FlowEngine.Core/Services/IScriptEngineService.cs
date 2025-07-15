@@ -201,4 +201,19 @@ public class ScriptEngineStats
     /// Gets the number of active engines in the pool.
     /// </summary>
     public int EnginePoolActive { get; internal set; }
+
+    /// <summary>
+    /// Gets the number of script executions using pre-compiled AST.
+    /// </summary>
+    public int AstExecutions { get; internal set; }
+
+    /// <summary>
+    /// Gets the number of script executions using string parsing (fallback).
+    /// </summary>
+    public int StringExecutions { get; internal set; }
+
+    /// <summary>
+    /// Gets the AST utilization rate as a percentage (0-100).
+    /// </summary>
+    public double AstUtilizationRate => ScriptsExecuted > 0 ? (AstExecutions * 100.0) / ScriptsExecuted : 0.0;
 }

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FlowEngine.Abstractions\FlowEngine.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\FlowEngine.Core\FlowEngine.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,156 @@
+pipeline:
+  name: "V8 Scaling Test - 50K Records"
+  version: "1.0.0"
+  description: "V8 performance scaling validation with 50,000 records"
+  
+  plugins:
+    # Source: Read 50K customer records
+    - name: "CustomerSource"
+      type: "DelimitedSource"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers-50k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        ChunkSize: 2000  # Larger chunks for better scaling measurement
+        Encoding: "UTF-8"
+        InferSchema: false
+        OutputSchema:
+          Name: "CustomerData"
+          Description: "Customer information schema"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 3
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 4
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 5
+              IsNullable: false
+
+    # Transform: Complex V8 JavaScript processing (same complexity as 20K test)
+    - name: "V8ScalingTransform"
+      type: "JavaScriptTransform"
+      config:
+        Script: |
+          function process(context) {
+              try {
+                  // Extract customer data
+                  var customer = {
+                      customer_id: context.input.getValue('customer_id'),
+                      first_name: context.input.getValue('first_name'),
+                      last_name: context.input.getValue('last_name'),
+                      email: context.input.getValue('email'),
+                      account_value: context.input.getValue('account_value'),
+                      age: context.input.getValue('age'),
+                  };
+                  
+                  // Transform: Full name generation
+                  var fullName = (customer.first_name || '') + ' ' + (customer.last_name || '');
+                  
+                  // Transform: Age categorization with multiple conditionals
+                  var age = parseInt(customer.age) || 0;
+                  var ageCategory = 'Unknown';
+                  if (age < 18) ageCategory = 'Minor';
+                  else if (age < 25) ageCategory = 'Young Adult';
+                  else if (age < 35) ageCategory = 'Adult';
+                  else if (age < 45) ageCategory = 'Mid Adult';
+                  else if (age < 55) ageCategory = 'Mature Adult';
+                  else if (age < 65) ageCategory = 'Pre-Senior';
+                  else ageCategory = 'Senior';
+                  
+                  // Transform: Email domain extraction with validation
+                  var emailDomain = 'unknown';
+                  if (customer.email && customer.email.indexOf('@') > 0) {
+                      var parts = customer.email.split('@');
+                      emailDomain = parts[1].toLowerCase();
+                  }
+                  
+                  // Transform: Calculate account value category with complex thresholds
+                  var accountValue = parseFloat(customer.account_value || 0);
+                  var valueCategory = 'Basic';
+                  if (accountValue >= 500000) valueCategory = 'Platinum';
+                  else if (accountValue >= 250000) valueCategory = 'Diamond';
+                  else if (accountValue >= 100000) valueCategory = 'Premium';
+                  else if (accountValue >= 50000) valueCategory = 'Gold';
+                  else if (accountValue >= 25000) valueCategory = 'Silver';
+                  else if (accountValue >= 10000) valueCategory = 'Bronze';
+                  
+                  // Transform: Generate complex priority score with multiple factors
+                  var priorityScore = 0;
+                  
+                  // Value-based scoring
+                  if (valueCategory === 'Platinum') priorityScore += 100;
+                  else if (valueCategory === 'Diamond') priorityScore += 80;
+                  else if (valueCategory === 'Premium') priorityScore += 60;
+                  else if (valueCategory === 'Gold') priorityScore += 40;
+                  else if (valueCategory === 'Silver') priorityScore += 25;
+                  else if (valueCategory === 'Bronze') priorityScore += 15;
+                  else priorityScore += 5;
+                  
+                  // Age-based scoring
+                  if (ageCategory === 'Adult' || ageCategory === 'Mid Adult' || ageCategory === 'Mature Adult') {
+                      priorityScore += 30;
+                  } else if (ageCategory === 'Young Adult' || ageCategory === 'Pre-Senior') {
+                      priorityScore += 20;
+                  } else {
+                      priorityScore += 10;
+                  }
+                  
+                  // Transform: Generate complexity hash (CPU intensive)
+                  var complexityInput = customer.customer_id + fullName + emailDomain + valueCategory + priorityScore;
+                  var complexityHash = '';
+                  for (var i = 0; i < complexityInput.length; i++) {
+                      var char = complexityInput.charCodeAt(i);
+                      complexityHash += (char * 31 + i).toString(16);
+                  }
+                  complexityHash = complexityHash.substring(0, 16).toUpperCase();
+                  
+                  // Set all output fields
+                  context.output.setField('customer_id', customer.customer_id);
+                  context.output.setField('full_name', fullName);
+                  context.output.setField('first_name', customer.first_name);
+                  context.output.setField('last_name', customer.last_name);
+                  context.output.setField('age', age);
+                  context.output.setField('age_category', ageCategory);
+                  context.output.setField('email', customer.email);
+                  context.output.setField('email_domain', emailDomain);
+                  context.output.setField('account_value', accountValue);
+                  context.output.setField('value_category', valueCategory);
+                  context.output.setField('priority_score', priorityScore);
+                  context.output.setField('processed_date', new Date().toISOString());
+                  context.output.setField('complexity_hash', complexityHash);
+                  
+                  return true;
+                  
+              } catch (error) {
+                  context.utils.log('error', 'Transform error: ' + error.message);
+                  return false;
+              }
+          }
+        ChunkSize: 2000
+        TimeoutSeconds: 120
+
+    # Sink: Write to 50K scaling test output
+    - name: "ScalingOutput"
+      type: "DelimitedSink"
+      config:
+        FilePath: "C:\\source\\FlowEngine\\examples\\output\\v8-scaling-50k.csv"
+        HasHeaders: true
+        Delimiter: ","
+        Overwrite: true

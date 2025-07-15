@@ -237,7 +237,7 @@ public class JavaScriptTransformPlugin : PluginBase, ITransformPlugin
     /// <summary>
     /// Flushes any remaining data for stateful transforms.
     /// </summary>
-    public IAsyncEnumerable<IChunk> FlushAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<IChunk> FlushAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // This transform is stateless, so nothing to flush
         yield break;

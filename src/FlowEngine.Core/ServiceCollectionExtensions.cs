@@ -4,6 +4,7 @@ using FlowEngine.Abstractions.Services;
 using FlowEngine.Core.Configuration;
 using FlowEngine.Core.Factories;
 using FlowEngine.Core.Services;
+using FlowEngine.Core.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -39,11 +40,16 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<FlowEngineCoordinator>();
 
         // Register configuration services
-        services.TryAddSingleton<IPluginConfigurationMapper, PluginConfigurationMapper>();
+        services.TryAddSingleton<IPluginConfigurationMapper, PluginConfigurationMapperWithProviders>();
         services.TryAddSingleton<IPluginTypeResolver, PluginTypeResolver>();
+        
+        // Register plugin provider infrastructure
+        services.TryAddSingleton<JsonSchemaValidator>();
+        services.TryAddSingleton<PluginConfigurationProviderRegistry>();
+        services.TryAddSingleton<Validation.PipelineValidator>();
 
-        // Register JavaScript script engine services
-        services.TryAddSingleton<IScriptEngineService, JintScriptEngineService>();
+        // Register JavaScript script engine services - V8 with true AST pre-compilation
+        services.TryAddSingleton<IScriptEngineService, ClearScriptEngineService>();
         services.TryAddSingleton<IJavaScriptContextService, JavaScriptContextService>();
 
         return services;
