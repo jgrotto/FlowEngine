@@ -1,0 +1,16 @@
+pipeline:
+  name: Test
+  plugins:
+    - name: TestPlugin
+      type: DelimitedSource
+      config:
+        filePath: test.csv
+        hasHeaders: true
+        inferSchema: false
+        outputSchema:
+          name: TestSchema
+          columns:
+            - name: id
+              type: Integer
+              index: 0
+  connections: []

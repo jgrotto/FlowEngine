@@ -31,7 +31,6 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IDatasetFactory, DatasetFactory>();
 
         // Register monitoring and performance services
-        services.TryAddSingleton<IMemoryManager, MemoryManager>();
         services.TryAddSingleton<IPerformanceMonitor, PerformanceMonitor>();
         services.TryAddSingleton<IChannelTelemetry, ChannelTelemetry>();
 
@@ -48,8 +47,8 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<PluginConfigurationProviderRegistry>();
         services.TryAddSingleton<Validation.PipelineValidator>();
 
-        // Register JavaScript script engine services - V8 with true AST pre-compilation
-        services.TryAddSingleton<IScriptEngineService, ClearScriptEngineService>();
+        // Register JavaScript script engine services - Basic Jint for simple execution
+        services.TryAddSingleton<IScriptEngineService, BasicJintScriptEngineService>();
         services.TryAddSingleton<IJavaScriptContextService, JavaScriptContextService>();
 
         return services;
@@ -82,7 +81,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFlowEngineMonitoring(this IServiceCollection services)
     {
         // Register monitoring and telemetry services
-        services.TryAddSingleton<IMemoryManager, MemoryManager>();
         services.TryAddSingleton<IPerformanceMonitor, PerformanceMonitor>();
         services.TryAddSingleton<IChannelTelemetry, ChannelTelemetry>();
 

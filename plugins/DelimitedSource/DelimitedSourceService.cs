@@ -22,7 +22,6 @@ public sealed class DelimitedSourceService : IPluginService
     private readonly IChunkFactory? _chunkFactory;
     private readonly IDatasetFactory? _datasetFactory;
     private readonly IDataTypeService? _dataTypeService;
-    private readonly IMemoryManager? _memoryManager;
     private readonly IChannelTelemetry? _channelTelemetry;
 
     private long _processedRows;
@@ -39,7 +38,6 @@ public sealed class DelimitedSourceService : IPluginService
         IChunkFactory? chunkFactory = null,
         IDatasetFactory? datasetFactory = null,
         IDataTypeService? dataTypeService = null,
-        IMemoryManager? memoryManager = null,
         IChannelTelemetry? channelTelemetry = null)
     {
         _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
@@ -49,7 +47,6 @@ public sealed class DelimitedSourceService : IPluginService
         _chunkFactory = chunkFactory;
         _datasetFactory = datasetFactory;
         _dataTypeService = dataTypeService;
-        _memoryManager = memoryManager;
         _channelTelemetry = channelTelemetry;
     }
 

@@ -14,7 +14,6 @@ public sealed class DatasetFactory : IDatasetFactory
 {
     private readonly ILogger<DatasetFactory> _logger;
     private readonly IChunkFactory _chunkFactory;
-    private readonly IMemoryManager? _memoryManager;
 
     // Default configuration
     private const int DefaultChunkSize = 10000;
@@ -25,15 +24,12 @@ public sealed class DatasetFactory : IDatasetFactory
     /// </summary>
     /// <param name="logger">Logger for factory operations</param>
     /// <param name="chunkFactory">Factory for creating Chunk instances</param>
-    /// <param name="memoryManager">Optional memory manager for optimization</param>
     public DatasetFactory(
         ILogger<DatasetFactory> logger,
-        IChunkFactory chunkFactory,
-        IMemoryManager? memoryManager = null)
+        IChunkFactory chunkFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _chunkFactory = chunkFactory ?? throw new ArgumentNullException(nameof(chunkFactory));
-        _memoryManager = memoryManager;
     }
 
     /// <inheritdoc />

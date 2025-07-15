@@ -206,12 +206,8 @@ public class DelimitedSourceConfigurationProvider : IPluginConfigurationProvider
             });
         }
 
-        // Validate schema configuration
-        var inferSchema = GetConfigValue<bool?>(config, "InferSchema") ?? GetConfigValue<bool?>(config, "inferSchema") ?? false;
-        if (!inferSchema)
-        {
-            ValidateOutputSchemaConfiguration(config, errors);
-        }
+        // Always require explicit OutputSchema (InferSchema is deprecated)
+        ValidateOutputSchemaConfiguration(config, errors);
 
         // Validate inference sample rows
         var inferenceSampleRows = GetConfigValue<int?>(config, "InferenceSampleRows") ?? GetConfigValue<int?>(config, "inferenceSampleRows");
@@ -367,7 +363,7 @@ public class DelimitedSourceConfigurationProvider : IPluginConfigurationProvider
             errors.Add(new FlowEngine.Abstractions.Plugins.ValidationError
             {
                 Code = "OUTPUT_SCHEMA_REQUIRED",
-                Message = "OutputSchema configuration is required when InferSchema is false",
+                Message = "OutputSchema configuration is required (InferSchema is deprecated)",
                 Severity = FlowEngine.Abstractions.Plugins.ValidationSeverity.Error
             });
             return;

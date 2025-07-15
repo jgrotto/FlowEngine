@@ -5,37 +5,37 @@
   "description": "Configuration schema for JavaScript Transform plugin with pure context API",
   "type": "object",
   "properties": {
-    "script": {
+    "Script": {
       "type": "string",
       "minLength": 10,
       "maxLength": 50000,
       "description": "JavaScript code with process(context) function",
       "pattern": ".*function\\s+process\\s*\\(\\s*context\\s*\\).*"
     },
-    "engine": {
+    "Engine": {
       "type": "object",
       "description": "JavaScript engine configuration",
       "properties": {
-        "timeout": {
+        "Timeout": {
           "type": "integer",
           "minimum": 100,
           "maximum": 30000,
           "default": 5000,
           "description": "Script execution timeout in milliseconds"
         },
-        "memoryLimit": {
+        "MemoryLimit": {
           "type": "integer",
           "minimum": 1048576,
           "maximum": 104857600,
           "default": 10485760,
           "description": "Memory limit in bytes (1MB to 100MB)"
         },
-        "enableCaching": {
+        "EnableCaching": {
           "type": "boolean",
           "default": true,
           "description": "Enable script compilation caching"
         },
-        "enableDebugging": {
+        "EnableDebugging": {
           "type": "boolean",
           "default": false,
           "description": "Enable debugging support (reduces performance)"
@@ -43,70 +43,70 @@
       },
       "additionalProperties": false
     },
-    "outputSchema": {
+    "OutputSchema": {
       "type": "object",
       "description": "Output schema configuration",
       "properties": {
-        "inferFromScript": {
+        "InferFromScript": {
           "type": "boolean",
           "default": false,
           "description": "Infer schema from script (Mode 2 feature)"
         },
-        "fields": {
+        "Fields": {
           "type": "array",
           "minItems": 1,
           "description": "Explicit field definitions for output",
           "items": {
             "type": "object",
             "properties": {
-              "name": {
+              "Name": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 100,
                 "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
                 "description": "Field name (must be valid identifier)"
               },
-              "type": {
+              "Type": {
                 "type": "string",
                 "enum": ["string", "integer", "decimal", "double", "boolean", "datetime", "date", "time"],
                 "description": "Field data type"
               },
-              "required": {
+              "Required": {
                 "type": "boolean",
                 "default": false,
                 "description": "Whether field is required in output"
               },
-              "description": {
+              "Description": {
                 "type": "string",
                 "maxLength": 500,
                 "description": "Field description for documentation"
               }
             },
-            "required": ["name", "type"],
+            "required": ["Name", "Type"],
             "additionalProperties": false
           }
         }
       },
-      "required": ["fields"],
+      "required": ["Fields"],
       "additionalProperties": false
     },
-    "performance": {
+    "Performance": {
       "type": "object",
       "description": "Performance and monitoring configuration",
       "properties": {
-        "targetThroughput": {
+        "TargetThroughput": {
           "type": "integer",
           "minimum": 1000,
           "maximum": 1000000,
           "default": 120000,
           "description": "Target throughput in rows per second"
         },
-        "enableMonitoring": {
+        "EnableMonitoring": {
           "type": "boolean",
           "default": true,
           "description": "Enable performance monitoring"
         },
-        "logPerformanceWarnings": {
+        "LogPerformanceWarnings": {
           "type": "boolean",
           "default": true,
           "description": "Log warnings when below target performance"
@@ -115,21 +115,21 @@
       "additionalProperties": false
     }
   },
-  "required": ["script", "outputSchema"],
+  "required": ["Script", "OutputSchema"],
   "additionalProperties": false,
   "examples": [
     {
-      "script": "function process(context) {\n  const row = context.input.current();\n  \n  if (!context.validate.required(['customer_id', 'amount'])) {\n    return false;\n  }\n  \n  context.output.setField('customer_id', row.customer_id);\n  context.output.setField('amount', row.amount);\n  context.output.setField('processed_at', context.utils.now());\n  \n  return true;\n}",
-      "engine": {
-        "timeout": 5000,
-        "memoryLimit": 10485760,
-        "enableCaching": true
+      "Script": "function process(context) {\n  const row = context.input.current();\n  \n  if (!context.validate.required(['customer_id', 'amount'])) {\n    return false;\n  }\n  \n  context.output.setField('customer_id', row.customer_id);\n  context.output.setField('amount', row.amount);\n  context.output.setField('processed_at', context.utils.now());\n  \n  return true;\n}",
+      "Engine": {
+        "Timeout": 5000,
+        "MemoryLimit": 10485760,
+        "EnableCaching": true
       },
-      "outputSchema": {
-        "fields": [
-          {"name": "customer_id", "type": "integer", "required": true},
-          {"name": "amount", "type": "decimal", "required": true},
-          {"name": "processed_at", "type": "datetime", "required": true}
+      "OutputSchema": {
+        "Fields": [
+          {"Name": "customer_id", "Type": "integer", "Required": true},
+          {"Name": "amount", "Type": "decimal", "Required": true},
+          {"Name": "processed_at", "Type": "datetime", "Required": true}
         ]
       }
     }

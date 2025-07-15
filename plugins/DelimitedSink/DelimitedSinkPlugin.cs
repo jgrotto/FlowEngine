@@ -18,7 +18,6 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     private readonly IChunkFactory? _chunkFactory;
     private readonly IDatasetFactory? _datasetFactory;
     private readonly IDataTypeService? _dataTypeService;
-    private readonly IMemoryManager? _memoryManager;
     private readonly IPerformanceMonitor? _performanceMonitor;
     private readonly IChannelTelemetry? _channelTelemetry;
 
@@ -33,7 +32,6 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         IChunkFactory? chunkFactory = null,
         IDatasetFactory? datasetFactory = null,
         IDataTypeService? dataTypeService = null,
-        IMemoryManager? memoryManager = null,
         IPerformanceMonitor? performanceMonitor = null,
         IChannelTelemetry? channelTelemetry = null)
     {
@@ -43,7 +41,6 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         _chunkFactory = chunkFactory;
         _datasetFactory = datasetFactory;
         _dataTypeService = dataTypeService;
-        _memoryManager = memoryManager;
         _performanceMonitor = performanceMonitor;
         _channelTelemetry = channelTelemetry;
     }
@@ -462,7 +459,6 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
             _chunkFactory,
             _datasetFactory,
             _dataTypeService,
-            _memoryManager,
             _channelTelemetry);
     }
 }

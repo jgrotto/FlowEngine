@@ -1,13 +1,13 @@
-pipeline:
-  name: "Simple Pipeline Example"
-  version: "1.0.0"
-  description: "Basic CSV read and write with automatic schema inference"
+Pipeline:
+  Name: "Simple Pipeline Example"
+  Version: "1.0.0"
+  Description: "Basic CSV read and write with automatic schema inference"
   
-  plugins:
+  Plugins:
     # Source: Read customer data from CSV file
-    - name: "CustomerSource"
-      type: "DelimitedSource"
-      config:
+    - Name: "CustomerSource"
+      Type: "DelimitedSource"
+      Config:
         FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers.csv"
         HasHeaders: true
         Delimiter: ","
@@ -19,36 +19,36 @@ pipeline:
           Description: "Customer information schema"
           Columns:
             - Name: "customer_id"
-              Type: "Integer"
+              Type: "int32"
               Index: 0
               IsNullable: false
             - Name: "first_name"
-              Type: "String"
+              Type: "string"
               Index: 1
               IsNullable: false
             - Name: "last_name"
-              Type: "String"
+              Type: "string"
               Index: 2
               IsNullable: false
             - Name: "age"
-              Type: "Integer"
+              Type: "int32"
               Index: 3
               IsNullable: false
             - Name: "email"
-              Type: "String"
+              Type: "string"
               Index: 4
               IsNullable: false
             - Name: "account_value"
-              Type: "Decimal"
+              Type: "decimal"
               Index: 5
               IsNullable: false
         SkipMalformedRows: true
         MaxErrors: 5
         
     # Sink: Write data to CSV file (direct passthrough)
-    - name: "CustomerOutput"
-      type: "DelimitedSink"
-      config:
+    - Name: "CustomerOutput"
+      Type: "DelimitedSink"
+      Config:
         FilePath: "C:\\source\\FlowEngine\\examples\\output\\simple-output.csv"
         HasHeaders: true
         Delimiter: ","
@@ -58,38 +58,38 @@ pipeline:
         CreateDirectory: true
         OverwriteExisting: true
         
-  connections:
+  Connections:
     # Direct connection from source to sink
-    - from: "CustomerSource"
-      to: "CustomerOutput"
-      channel:
-        bufferSize: 1000
-        backpressureThreshold: 75
-        fullMode: "Wait"
-        timeoutSeconds: 30
+    - From: "CustomerSource"
+      To: "CustomerOutput"
+      Channel:
+        BufferSize: 1000
+        BackpressureThreshold: 75
+        FullMode: "Wait"
+        TimeoutSeconds: 30
 
-  settings:
-    defaultChannel:
-      bufferSize: 1000
-      backpressureThreshold: 80
-      fullMode: "Wait"
-      timeoutSeconds: 30
+  Settings:
+    DefaultChannel:
+      BufferSize: 1000
+      BackpressureThreshold: 80
+      FullMode: "Wait"
+      TimeoutSeconds: 30
     
-    monitoring:
-      enableMetrics: true
-      metricsIntervalSeconds: 5
-      enableTracing: false
-      custom:
-        logLevel: "Information"
+    Monitoring:
+      EnableMetrics: true
+      MetricsIntervalSeconds: 5
+      EnableTracing: false
+      Custom:
+        LogLevel: "Information"
         
-    custom:
-      performance:
-        maxConcurrentPlugins: 2
-        memoryLimitMB: 256
-        gcPressureThreshold: 0.8
+    Custom:
+      Performance:
+        MaxConcurrentPlugins: 2
+        MemoryLimitMB: 256
+        GcPressureThreshold: 0.8
         
-      errorHandling:
-        maxRetries: 1
-        retryDelaySeconds: 1
-        stopOnError: true
-        logErrors: true
+      ErrorHandling:
+        MaxRetries: 1
+        RetryDelaySeconds: 1
+        StopOnError: true
+        LogErrors: true

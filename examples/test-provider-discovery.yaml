@@ -9,36 +9,29 @@ pipeline:
         FilePath: "examples/data/customers-20k.csv"
         Delimiter: ","
         HasHeaders: true
-        InferSchema: false
         Encoding: "UTF-8"
         OutputSchema:
           Name: "CustomerData"
           Description: "Customer information schema"
           Columns:
             - Name: "customer_id"
-              Type: "Integer"
+              Type: "int32"
               Index: 0
-              IsNullable: false
             - Name: "first_name"
-              Type: "String"
+              Type: "string"
               Index: 1
-              IsNullable: false
             - Name: "last_name"
-              Type: "String"
+              Type: "string"
               Index: 2
-              IsNullable: false
             - Name: "age"
-              Type: "Integer"
+              Type: "int32"
               Index: 3
-              IsNullable: false
             - Name: "email"
-              Type: "String"
+              Type: "string"
               Index: 4
-              IsNullable: false
             - Name: "account_value"
-              Type: "Decimal"
+              Type: "decimal"
               Index: 5
-              IsNullable: false
 
     - name: "TestSink"  
       type: "DelimitedSink"

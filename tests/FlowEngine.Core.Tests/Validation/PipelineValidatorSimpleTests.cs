@@ -2,6 +2,7 @@ using FlowEngine.Abstractions.Configuration;
 using FlowEngine.Core.Configuration;
 using FlowEngine.Core.Validation;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using Xunit;
 
 namespace FlowEngine.Core.Tests.Validation;
@@ -32,7 +33,7 @@ public class PipelineValidatorSimpleTests
     {
         // Arrange
         var yamlContent = await File.ReadAllTextAsync("/mnt/c/source/FlowEngine/examples/simple-pipeline.yaml");
-        var pipeline = PipelineConfiguration.LoadFromYaml(yamlContent);
+        var pipeline = PipelineConfiguration.LoadFromYaml(yamlContent, Substitute.For<IPluginTypeResolver>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<FlowEngine.Core.Configuration.Yaml.YamlConfigurationParser>.Instance);
 
         // Act
         var result = await _validator.ValidatePipelineAsync(pipeline);
@@ -86,7 +87,7 @@ public class PipelineValidatorSimpleTests
     {
         // Arrange
         var yamlContent = await File.ReadAllTextAsync("/mnt/c/source/FlowEngine/examples/simple-pipeline.yaml");
-        var pipeline = PipelineConfiguration.LoadFromYaml(yamlContent);
+        var pipeline = PipelineConfiguration.LoadFromYaml(yamlContent, Substitute.For<IPluginTypeResolver>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<FlowEngine.Core.Configuration.Yaml.YamlConfigurationParser>.Instance);
         
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
@@ -108,7 +109,7 @@ public class PipelineValidatorSimpleTests
     {
         // Arrange
         var yamlContent = await File.ReadAllTextAsync("/mnt/c/source/FlowEngine/examples/simple-pipeline.yaml");
-        var pipeline = PipelineConfiguration.LoadFromYaml(yamlContent);
+        var pipeline = PipelineConfiguration.LoadFromYaml(yamlContent, Substitute.For<IPluginTypeResolver>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<FlowEngine.Core.Configuration.Yaml.YamlConfigurationParser>.Instance);
 
         // Act
         var result = await _validator.ValidatePipelineAsync(pipeline);

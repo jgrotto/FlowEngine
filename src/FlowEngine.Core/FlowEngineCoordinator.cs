@@ -88,7 +88,7 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
 
         try
         {
-            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath, _pluginTypeResolver);
+            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath, _pluginTypeResolver, Microsoft.Extensions.Logging.Abstractions.NullLogger<Configuration.Yaml.YamlConfigurationParser>.Instance);
             return await _pipelineExecutor.ExecuteAsync(configuration, cancellationToken);
         }
         catch (Exception ex) when (!(ex is PipelineExecutionException))
@@ -122,7 +122,7 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
 
         try
         {
-            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent, _pluginTypeResolver);
+            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent, _pluginTypeResolver, Microsoft.Extensions.Logging.Abstractions.NullLogger<Configuration.Yaml.YamlConfigurationParser>.Instance);
             return await _pipelineExecutor.ExecuteAsync(configuration, cancellationToken);
         }
         catch (Exception ex) when (!(ex is PipelineExecutionException))
@@ -154,7 +154,7 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
 
         try
         {
-            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath, _pluginTypeResolver);
+            var configuration = await PipelineConfiguration.LoadFromFileAsync(configurationFilePath, _pluginTypeResolver, Microsoft.Extensions.Logging.Abstractions.NullLogger<Configuration.Yaml.YamlConfigurationParser>.Instance);
             return await _pipelineExecutor.ValidatePipelineAsync(configuration);
         }
         catch (Exception ex)
@@ -180,7 +180,7 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
 
         try
         {
-            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent, _pluginTypeResolver);
+            var configuration = PipelineConfiguration.LoadFromYaml(yamlContent, _pluginTypeResolver, Microsoft.Extensions.Logging.Abstractions.NullLogger<Configuration.Yaml.YamlConfigurationParser>.Instance);
             return await _pipelineExecutor.ValidatePipelineAsync(configuration);
         }
         catch (Exception ex)

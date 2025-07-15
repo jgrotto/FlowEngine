@@ -35,7 +35,7 @@ internal sealed class PluginConfiguration : IPluginDefinition
 
     /// <inheritdoc />
     public IReadOnlyDictionary<string, object> Configuration =>
-        _data.Config ?? (IReadOnlyDictionary<string, object>)new Dictionary<string, object>();
+        _data.Config ?? new Dictionary<string, object>();
 
     /// <inheritdoc />
     public bool SupportsHotSwapping => false; // TODO: Parse from YAML
@@ -49,4 +49,7 @@ internal sealed class PluginConfiguration : IPluginDefinition
     public IReadOnlyDictionary<string, object> Config => Configuration;
     public IResourceLimits? ResourceLimits =>
         _data.ResourceLimits != null ? new ResourceLimits(_data.ResourceLimits) : null;
+
+    // Note: Complex normalization logic removed - now handled by the YAML parser
+    // This makes PluginConfiguration a simple data holder as intended
 }

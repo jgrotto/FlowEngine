@@ -40,7 +40,7 @@ public class JavaScriptContextService : IJavaScriptContextService
             Output = new OutputContext(outputSchema, _arrayRowFactory),
             Validate = new ValidationContext(currentRow, inputSchema),
             Route = new RoutingContext(state),
-            Utils = new UtilityContext()
+            Utils = new UtilityContext(_logger)
         };
     }
 }
@@ -283,6 +283,17 @@ internal class RoutingContext : IRoutingContext
 /// </summary>
 internal class UtilityContext : IUtilityContext
 {
+    private readonly ILogger? _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the UtilityContext.
+    /// </summary>
+    /// <param name="logger">Optional logger for diagnostic information</param>
+    public UtilityContext(ILogger? logger = null)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// Gets the current UTC timestamp.
     /// </summary>
@@ -320,5 +331,49 @@ internal class UtilityContext : IUtilityContext
         }
 
         return value.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Logs a message with the specified level.
+    /// </summary>
+    /// <param name="level">Log level (e.g., 'info', 'warn', 'error')</param>
+    /// <param name="message">Message to log</param>
+    public void Log(string level, string message)
+    {
+        if (_logger == null)
+        {
+            // Fallback to console if no logger is available
+            Console.WriteLine($"[{level.ToUpper()}] {message}");
+            return;
+        }
+
+        // Map string level to Microsoft.Extensions.Logging levels
+        switch (level.ToLowerInvariant())
+        {
+            case "trace":
+                _logger.LogTrace("[JavaScript] {Message}", message);
+                break;
+            case "debug":
+                _logger.LogDebug("[JavaScript] {Message}", message);
+                break;
+            case "info":
+            case "information":
+                _logger.LogInformation("[JavaScript] {Message}", message);
+                break;
+            case "warn":
+            case "warning":
+                _logger.LogWarning("[JavaScript] {Message}", message);
+                break;
+            case "error":
+                _logger.LogError("[JavaScript] {Message}", message);
+                break;
+            case "critical":
+            case "fatal":
+                _logger.LogCritical("[JavaScript] {Message}", message);
+                break;
+            default:
+                _logger.LogInformation("[JavaScript] [{Level}] {Message}", level, message);
+                break;
+        }
     }
 }

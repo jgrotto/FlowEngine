@@ -126,17 +126,91 @@ public class JsonSchemaValidator
 
     /// <summary>
     /// Converts configuration dictionary to JSON string for validation.
+    /// Normalizes property names to PascalCase to match JSON schema expectations.
     /// </summary>
     private static string ConvertToJson(IDictionary<string, object> configurationData)
     {
         try
         {
-            return JsonConvert.SerializeObject(configurationData, Formatting.None);
+            // Normalize keys to PascalCase for JSON schema validation
+            var normalizedData = NormalizeConfigurationKeys(configurationData);
+            return JsonConvert.SerializeObject(normalizedData, Formatting.None);
         }
         catch (Exception ex)
         {
             throw new ArgumentException($"Failed to serialize configuration data to JSON: {ex.Message}", ex);
         }
+    }
+
+    /// <summary>
+    /// Normalizes configuration dictionary keys to PascalCase for schema validation.
+    /// Handles the case mismatch between YAML camelCase and JSON schema PascalCase expectations.
+    /// </summary>
+    private static IDictionary<string, object> NormalizeConfigurationKeys(IDictionary<string, object> configurationData)
+    {
+        var normalized = new Dictionary<string, object>();
+
+        foreach (var kvp in configurationData)
+        {
+            // Convert key to PascalCase
+            var normalizedKey = ToPascalCase(kvp.Key);
+            
+            // Recursively normalize nested objects and convert string values to proper types
+            var normalizedValue = kvp.Value switch
+            {
+                IDictionary<string, object> nestedDict => NormalizeConfigurationKeys(nestedDict),
+                string strValue => ConvertStringValue(strValue),
+                _ => kvp.Value
+            };
+
+            normalized[normalizedKey] = normalizedValue;
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Converts a string to PascalCase.
+    /// </summary>
+    private static string ToPascalCase(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return input;
+
+        // Handle already PascalCase strings
+        if (char.IsUpper(input[0]))
+            return input;
+
+        // Convert camelCase to PascalCase
+        return char.ToUpperInvariant(input[0]) + input.Substring(1);
+    }
+
+    /// <summary>
+    /// Converts string values to appropriate types for JSON schema validation.
+    /// Handles the YAML parsing issue where scalar values are parsed as strings.
+    /// </summary>
+    private static object ConvertStringValue(string value)
+    {
+        // Try boolean conversion first
+        if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.Equals(value, "false", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Try integer conversion
+        if (int.TryParse(value, out var intValue))
+            return intValue;
+
+        // Try decimal conversion
+        if (decimal.TryParse(value, out var decimalValue))
+            return decimalValue;
+
+        // Try double conversion
+        if (double.TryParse(value, out var doubleValue))
+            return doubleValue;
+
+        // Return as string if no conversion is possible
+        return value;
     }
 
     /// <summary>

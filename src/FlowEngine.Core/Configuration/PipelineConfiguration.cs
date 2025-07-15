@@ -1,8 +1,8 @@
 using FlowEngine.Abstractions;
 using FlowEngine.Abstractions.Configuration;
 using FlowEngine.Abstractions.Plugins;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using FlowEngine.Core.Configuration.Yaml;
+using Microsoft.Extensions.Logging;
 
 namespace FlowEngine.Core.Configuration;
 
@@ -139,11 +139,12 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     /// Loads a pipeline configuration from a YAML file.
     /// </summary>
     /// <param name="filePath">Path to the YAML configuration file</param>
+    /// <param name="logger">Logger for diagnostic information</param>
     /// <returns>Loaded pipeline configuration</returns>
     /// <exception cref="ConfigurationException">Thrown when loading or parsing fails</exception>
-    public static async Task<IPipelineConfiguration> LoadFromFileAsync(string filePath)
+    public static async Task<IPipelineConfiguration> LoadFromFileAsync(string filePath, ILogger<YamlConfigurationParser> logger)
     {
-        return await LoadFromFileAsync(filePath, null);
+        return await LoadFromFileAsync(filePath, null, logger);
     }
 
     /// <summary>
@@ -151,14 +152,36 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     /// </summary>
     /// <param name="filePath">Path to the YAML configuration file</param>
     /// <param name="typeResolver">Optional plugin type resolver for short name resolution</param>
+    /// <param name="logger">Logger for diagnostic information</param>
     /// <returns>Loaded pipeline configuration</returns>
     /// <exception cref="ConfigurationException">Thrown when loading or parsing fails</exception>
-    public static async Task<IPipelineConfiguration> LoadFromFileAsync(string filePath, IPluginTypeResolver? typeResolver)
+    public static async Task<IPipelineConfiguration> LoadFromFileAsync(string filePath, IPluginTypeResolver? typeResolver, ILogger<YamlConfigurationParser> logger)
     {
         try
         {
-            var yamlContent = await File.ReadAllTextAsync(filePath);
-            return LoadFromYaml(yamlContent, typeResolver);
+            var parser = new YamlConfigurationParser(logger);
+            var data = await parser.ParseFileAsync(filePath);
+            var config = new PipelineConfiguration(data);
+
+            // Resolve plugin types if resolver is provided
+            if (typeResolver != null)
+            {
+                await config.InitializePluginTypesAsync(typeResolver);
+            }
+
+            // Validate the configuration
+            var validation = config.Validate();
+            if (!validation.IsValid)
+            {
+                throw new ConfigurationException(
+                    $"Configuration validation failed: {string.Join(", ", validation.Errors)}");
+            }
+
+            return config;
+        }
+        catch (YamlConfigurationException ex)
+        {
+            throw new ConfigurationException($"Failed to parse YAML configuration: {ex.Message}", ex);
         }
         catch (Exception ex) when (!(ex is ConfigurationException))
         {
@@ -170,11 +193,12 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     /// Loads a pipeline configuration from YAML content.
     /// </summary>
     /// <param name="yamlContent">YAML configuration content</param>
+    /// <param name="logger">Logger for diagnostic information</param>
     /// <returns>Loaded pipeline configuration</returns>
     /// <exception cref="ConfigurationException">Thrown when parsing fails</exception>
-    public static IPipelineConfiguration LoadFromYaml(string yamlContent)
+    public static IPipelineConfiguration LoadFromYaml(string yamlContent, ILogger<YamlConfigurationParser> logger)
     {
-        return LoadFromYaml(yamlContent, null);
+        return LoadFromYaml(yamlContent, null, logger);
     }
 
     /// <summary>
@@ -182,17 +206,15 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
     /// </summary>
     /// <param name="yamlContent">YAML configuration content</param>
     /// <param name="typeResolver">Optional plugin type resolver for short name resolution</param>
+    /// <param name="logger">Logger for diagnostic information</param>
     /// <returns>Loaded pipeline configuration</returns>
     /// <exception cref="ConfigurationException">Thrown when parsing fails</exception>
-    public static IPipelineConfiguration LoadFromYaml(string yamlContent, IPluginTypeResolver? typeResolver)
+    public static IPipelineConfiguration LoadFromYaml(string yamlContent, IPluginTypeResolver? typeResolver, ILogger<YamlConfigurationParser> logger)
     {
         try
         {
-            var deserializer = new DeserializerBuilder()
-                .WithNamingConvention(CamelCaseNamingConvention.Instance)
-                .Build();
-
-            var data = deserializer.Deserialize<PipelineConfigurationData>(yamlContent);
+            var parser = new YamlConfigurationParser(logger);
+            var data = parser.ParseYamlContent(yamlContent);
             var config = new PipelineConfiguration(data);
 
             // Resolve plugin types if resolver is provided
@@ -211,6 +233,10 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
             }
 
             return config;
+        }
+        catch (YamlConfigurationException ex)
+        {
+            throw new ConfigurationException($"Failed to parse YAML configuration: {ex.Message}", ex);
         }
         catch (Exception ex) when (!(ex is ConfigurationException))
         {

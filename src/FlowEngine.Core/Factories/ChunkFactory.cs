@@ -14,7 +14,6 @@ public sealed class ChunkFactory : IChunkFactory
 {
     private readonly ILogger<ChunkFactory> _logger;
     private readonly IArrayRowFactory _arrayRowFactory;
-    private readonly IMemoryManager? _memoryManager;
 
     // Default optimal chunk size configuration
     private const int DefaultChunkSize = 10000;
@@ -25,15 +24,12 @@ public sealed class ChunkFactory : IChunkFactory
     /// </summary>
     /// <param name="logger">Logger for factory operations</param>
     /// <param name="arrayRowFactory">Factory for creating ArrayRow instances</param>
-    /// <param name="memoryManager">Optional memory manager for optimization</param>
     public ChunkFactory(
         ILogger<ChunkFactory> logger,
-        IArrayRowFactory arrayRowFactory,
-        IMemoryManager? memoryManager = null)
+        IArrayRowFactory arrayRowFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _arrayRowFactory = arrayRowFactory ?? throw new ArgumentNullException(nameof(arrayRowFactory));
-        _memoryManager = memoryManager;
     }
 
     /// <inheritdoc />

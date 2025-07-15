@@ -1,13 +1,13 @@
-pipeline:
-  name: "Customer Data Processing Pipeline - Simplified"
-  version: "1.0.0"
-  description: "Real-world example with automatic plugin type resolution"
+Pipeline:
+  Name: "Customer Data Processing Pipeline - Simplified"
+  Version: "1.0.0"
+  Description: "Real-world example with automatic plugin type resolution"
   
-  plugins:
+  Plugins:
     # Source: Read customer data from CSV file - using short name
-    - name: "CustomerSource"
-      type: "DelimitedSource"  # Short name instead of DelimitedSource.DelimitedSourcePlugin
-      config:
+    - Name: "CustomerSource"
+      Type: "DelimitedSource"  # Short name instead of DelimitedSource.DelimitedSourcePlugin
+      Config:
         FilePath: "C:\\source\\FlowEngine\\examples\\data\\customers.csv"
         HasHeaders: true
         Delimiter: ","
@@ -19,88 +19,74 @@ pipeline:
           Description: "Customer information schema"
           Columns:
             - Name: "customer_id"
-              Type: "Integer"
+              Type: "int32"
               Index: 0
               IsNullable: false
             - Name: "first_name"
-              Type: "String"
+              Type: "string"
               Index: 1
               IsNullable: false
             - Name: "last_name"
-              Type: "String"
+              Type: "string"
               Index: 2
               IsNullable: false
             - Name: "age"
-              Type: "Integer"
+              Type: "int32"
               Index: 3
               IsNullable: false
             - Name: "email"
-              Type: "String"
+              Type: "string"
               Index: 4
               IsNullable: false
             - Name: "account_value"
-              Type: "Decimal"
+              Type: "decimal"
               Index: 5
               IsNullable: false
         SkipMalformedRows: true
         MaxErrors: 10
         
     # Transform: Enrich customer data with JavaScript logic - using short name
-    - name: "CustomerTransform"
-      type: "JavaScriptTransform"  # Short name instead of JavaScriptTransform.JavaScriptTransformPlugin
-      config:
+    - Name: "CustomerTransform"
+      Type: "JavaScriptTransform"  # Short name instead of JavaScriptTransform.JavaScriptTransformPlugin
+      Config:
         OutputSchema:
-          Name: "ProcessedCustomerData"
-          Description: "Customer data with transformations and enrichments"
-          Columns:
+          Fields:
             - Name: "customer_id"
-              Type: "Integer"
-              Index: 0
-              IsNullable: false
+              Type: "integer"
+              Required: true
             - Name: "full_name"
-              Type: "String"
-              Index: 1
-              IsNullable: false
+              Type: "string"
+              Required: true
             - Name: "first_name"
-              Type: "String"
-              Index: 2
-              IsNullable: false
+              Type: "string"
+              Required: true
             - Name: "last_name"
-              Type: "String"
-              Index: 3
-              IsNullable: false
+              Type: "string"
+              Required: true
             - Name: "age"
-              Type: "Integer"
-              Index: 4
-              IsNullable: false
+              Type: "integer"
+              Required: true
             - Name: "age_category"
-              Type: "String"
-              Index: 5
-              IsNullable: false
+              Type: "string"
+              Required: true
             - Name: "email"
-              Type: "String"
-              Index: 6
-              IsNullable: false
+              Type: "string"
+              Required: true
             - Name: "email_domain"
-              Type: "String"
-              Index: 7
-              IsNullable: false
+              Type: "string"
+              Required: true
             - Name: "account_value"
-              Type: "Decimal"
-              Index: 8
-              IsNullable: false
+              Type: "decimal"
+              Required: true
             - Name: "value_category"
-              Type: "String"
-              Index: 9
-              IsNullable: false
+              Type: "string"
+              Required: true
             - Name: "priority_score"
-              Type: "Integer"
-              Index: 10
-              IsNullable: false
+              Type: "integer"
+              Required: true
             - Name: "processed_date"
-              Type: "String"
-              Index: 11
-              IsNullable: false
+              Type: "string"
+              Required: true
         Script: |
           function process(context) {
               try {
@@ -165,13 +151,11 @@ pipeline:
                   return false; // Skip row on error
               }
           }
-        ChunkSize: 5000
-        TimeoutSeconds: 30
         
     # Sink: Write processed data to CSV file - using short name
-    - name: "ProcessedOutput"
-      type: "DelimitedSink"  # Short name instead of DelimitedSink.DelimitedSinkPlugin
-      config:
+    - Name: "ProcessedOutput"
+      Type: "DelimitedSink"  # Short name instead of DelimitedSink.DelimitedSinkPlugin
+      Config:
         FilePath: "C:\\source\\FlowEngine\\examples\\output\\processed-customers-simplified.csv"
         HasHeaders: true
         Delimiter: ","
@@ -181,47 +165,47 @@ pipeline:
         CreateDirectory: true
         OverwriteExisting: true
         
-  connections:
+  Connections:
     # Customer data flows from source to transform
-    - from: "CustomerSource"
-      to: "CustomerTransform"
-      channel:
-        bufferSize: 2000
-        backpressureThreshold: 75
-        fullMode: "Wait"
-        timeoutSeconds: 45
+    - From: "CustomerSource"
+      To: "CustomerTransform"
+      Channel:
+        BufferSize: 2000
+        BackpressureThreshold: 75
+        FullMode: "Wait"
+        TimeoutSeconds: 45
         
     # Transformed data flows to output
-    - from: "CustomerTransform"
-      to: "ProcessedOutput"
-      channel:
-        bufferSize: 1500
-        backpressureThreshold: 80
-        fullMode: "Wait"
-        timeoutSeconds: 30
+    - From: "CustomerTransform"
+      To: "ProcessedOutput"
+      Channel:
+        BufferSize: 1500
+        BackpressureThreshold: 80
+        FullMode: "Wait"
+        TimeoutSeconds: 30
 
-  settings:
-    defaultChannel:
-      bufferSize: 1000
-      backpressureThreshold: 80
-      fullMode: "Wait"
-      timeoutSeconds: 30
+  Settings:
+    DefaultChannel:
+      BufferSize: 1000
+      BackpressureThreshold: 80
+      FullMode: "Wait"
+      TimeoutSeconds: 30
     
-    monitoring:
-      enableMetrics: true
-      metricsIntervalSeconds: 5
-      enableTracing: true
-      custom:
-        logLevel: "Information"
+    Monitoring:
+      EnableMetrics: true
+      MetricsIntervalSeconds: 5
+      EnableTracing: true
+      Custom:
+        LogLevel: "Information"
         
-    custom:
-      performance:
-        maxConcurrentPlugins: 3
-        memoryLimitMB: 512
-        gcPressureThreshold: 0.8
+    Custom:
+      Performance:
+        MaxConcurrentPlugins: 3
+        MemoryLimitMB: 512
+        GcPressureThreshold: 0.8
         
-      errorHandling:
-        maxRetries: 3
-        retryDelaySeconds: 2
-        stopOnError: false
-        logErrors: true
+      ErrorHandling:
+        MaxRetries: 3
+        RetryDelaySeconds: 2
+        StopOnError: false
+        LogErrors: true

@@ -22,7 +22,6 @@ public sealed class DelimitedSinkService : IPluginService
     private readonly IChunkFactory? _chunkFactory;
     private readonly IDatasetFactory? _datasetFactory;
     private readonly IDataTypeService? _dataTypeService;
-    private readonly IMemoryManager? _memoryManager;
     private readonly IChannelTelemetry? _channelTelemetry;
 
     private DelimitedSinkConfiguration? _configuration;
@@ -44,7 +43,6 @@ public sealed class DelimitedSinkService : IPluginService
         IChunkFactory? chunkFactory = null,
         IDatasetFactory? datasetFactory = null,
         IDataTypeService? dataTypeService = null,
-        IMemoryManager? memoryManager = null,
         IChannelTelemetry? channelTelemetry = null)
     {
         _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
@@ -54,7 +52,6 @@ public sealed class DelimitedSinkService : IPluginService
         _chunkFactory = chunkFactory;
         _datasetFactory = datasetFactory;
         _dataTypeService = dataTypeService;
-        _memoryManager = memoryManager;
         _channelTelemetry = channelTelemetry;
     }
 

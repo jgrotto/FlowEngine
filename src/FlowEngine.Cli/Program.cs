@@ -200,7 +200,7 @@ internal class Program
             Console.WriteLine("Loading pipeline configuration...");
             var yamlContent = await File.ReadAllTextAsync(configPath);
             var typeResolver = serviceProvider.GetRequiredService<IPluginTypeResolver>();
-            var pipelineConfig = PipelineConfiguration.LoadFromYaml(yamlContent, typeResolver);
+            var pipelineConfig = PipelineConfiguration.LoadFromYaml(yamlContent, typeResolver, Microsoft.Extensions.Logging.Abstractions.NullLogger<FlowEngine.Core.Configuration.Yaml.YamlConfigurationParser>.Instance);
 
             if (verbose)
             {

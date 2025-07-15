@@ -156,6 +156,13 @@ public interface IUtilityContext
     /// Formats a value according to the specified format.
     /// </summary>
     string Format(object value, string format);
+
+    /// <summary>
+    /// Logs a message with the specified level.
+    /// </summary>
+    /// <param name="level">Log level (e.g., 'info', 'warn', 'error')</param>
+    /// <param name="message">Message to log</param>
+    void Log(string level, string message);
 }
 
 /// <summary>
