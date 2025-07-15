@@ -7,6 +7,7 @@ using FlowEngine.Core.Services;
 using FlowEngine.Core.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 namespace FlowEngine.Cli;
 
@@ -177,6 +178,22 @@ internal class Program
                 {
                     Console.WriteLine($"  ... and {discoveredPlugins.Count - 5} more");
                 }
+            }
+
+            // Step 4.5: Discover configuration providers from plugin assemblies
+            Console.WriteLine("Discovering configuration providers...");
+            var providerRegistry = serviceProvider.GetRequiredService<PluginConfigurationProviderRegistry>();
+            var pluginAssemblies = discoveredPlugins
+                .Where(p => !string.IsNullOrEmpty(p.AssemblyPath))
+                .Select(p => Assembly.LoadFrom(p.AssemblyPath))
+                .Distinct()
+                .ToList();
+            
+            var providersDiscovered = await providerRegistry.DiscoverProvidersAsync(pluginAssemblies);
+            
+            if (verbose)
+            {
+                Console.WriteLine($"Discovered {providersDiscovered} configuration providers");
             }
 
             // Step 5: Load pipeline configuration

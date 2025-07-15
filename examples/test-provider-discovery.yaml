@@ -1,0 +1,55 @@
+pipeline:
+  name: "Provider Discovery Test"
+  description: "Simple pipeline to test provider discovery and validation"
+
+  plugins:
+    - name: "TestSource"
+      type: "DelimitedSource"
+      config:
+        FilePath: "examples/data/customers-20k.csv"
+        Delimiter: ","
+        HasHeaders: true
+        InferSchema: false
+        Encoding: "UTF-8"
+        OutputSchema:
+          Name: "CustomerData"
+          Description: "Customer information schema"
+          Columns:
+            - Name: "customer_id"
+              Type: "Integer"
+              Index: 0
+              IsNullable: false
+            - Name: "first_name"
+              Type: "String"
+              Index: 1
+              IsNullable: false
+            - Name: "last_name"
+              Type: "String"
+              Index: 2
+              IsNullable: false
+            - Name: "age"
+              Type: "Integer"
+              Index: 3
+              IsNullable: false
+            - Name: "email"
+              Type: "String"
+              Index: 4
+              IsNullable: false
+            - Name: "account_value"
+              Type: "Decimal"
+              Index: 5
+              IsNullable: false
+
+    - name: "TestSink"  
+      type: "DelimitedSink"
+      config:
+        FilePath: "examples/output/test-discovery.csv"
+        Delimiter: ","
+        HasHeaders: true
+        BufferSize: 8192
+        FlushInterval: 1000
+        OverwriteExisting: true
+
+  connections:
+    - from: "TestSource"
+      to: "TestSink"
