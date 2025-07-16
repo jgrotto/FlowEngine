@@ -5,6 +5,7 @@ using FlowEngine.Core.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Reflection;
 
 namespace FlowEngine.Core.Plugins;
 
@@ -368,7 +369,7 @@ public sealed class PluginManager : IPluginManager
         try
         {
             _logger.LogInformation("Starting enhanced plugin discovery in directory: {DirectoryPath}", directoryPath);
-            var plugins = await _discoveryService.DiscoverPluginsAsync(directoryPath, includeSubdirectories);
+            var plugins = await _discoveryService.DiscoverPluginsAsync(directoryPath, CancellationToken.None);
 
             _logger.LogInformation("Discovered {Count} plugins in directory: {DirectoryPath}", plugins.Count, directoryPath);
             return plugins;
@@ -674,12 +675,10 @@ public sealed class PluginManager : IPluginManager
 
                 var discoveredPlugin = new DiscoveredPlugin
                 {
-                    Manifest = manifest,
-                    DirectoryPath = Path.GetDirectoryName(pluginType.AssemblyPath)!,
-                    ManifestFilePath = string.Empty,
+                    Name = pluginType.FriendlyName,
                     AssemblyPath = pluginType.AssemblyPath,
-                    HasManifest = false,
-                    TypeInfo = pluginType
+                    TypeInfo = pluginType,
+                    Version = Assembly.LoadFrom(pluginType.AssemblyPath).GetName().Version
                 };
 
                 discoveredPlugins.Add(discoveredPlugin);

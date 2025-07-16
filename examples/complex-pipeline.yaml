@@ -163,6 +163,7 @@ Pipeline:
         BufferSize: 8192
         FlushInterval: 1000
         CreateDirectory: true
+        AppendMode: false
         OverwriteExisting: true
         
   Connections:

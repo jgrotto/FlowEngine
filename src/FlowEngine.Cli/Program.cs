@@ -1,13 +1,6 @@
-using FlowEngine.Abstractions.Configuration;
-using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Cli.Commands;
 using FlowEngine.Core;
-using FlowEngine.Core.Configuration;
-using FlowEngine.Core.Services;
-using FlowEngine.Core.Validation;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Reflection;
 
 namespace FlowEngine.Cli;
 
@@ -119,7 +112,7 @@ internal class Program
     /// <returns>Exit code</returns>
     private static async Task<int> ExecutePipelineAsync(string configPath, bool verbose)
     {
-        // Step 1: Validate file exists
+        // Step 1: Validate file exists (CLI responsibility)
         if (!File.Exists(configPath))
         {
             Console.Error.WriteLine($"Error: Configuration file not found: {configPath}");
@@ -127,132 +120,20 @@ internal class Program
         }
 
         Console.WriteLine($"FlowEngine CLI - Executing pipeline: {Path.GetFileName(configPath)}");
-        if (verbose)
-        {
-            Console.WriteLine($"Configuration file: {Path.GetFullPath(configPath)}");
-        }
 
         try
         {
-            // Step 2: Configure services and create service provider
-            Console.WriteLine("Initializing FlowEngine...");
-            var services = new ServiceCollection();
-            
-            // Add logging
-            services.AddLogging(builder =>
+            // Step 2: Create options (CLI responsibility)
+            var options = new FlowEngineOptions
             {
-                builder.AddConsole();
-                builder.SetMinimumLevel(verbose ? LogLevel.Debug : LogLevel.Information);
-            });
-            
-            // Add FlowEngine services
-            services.AddFlowEngine();
-            
-            var serviceProvider = services.BuildServiceProvider();
-            
-            // Step 3: Get core services
-            var coordinator = serviceProvider.GetRequiredService<FlowEngineCoordinator>();
-            var pluginDiscovery = serviceProvider.GetRequiredService<IPluginDiscoveryService>();
-            var configMapper = serviceProvider.GetRequiredService<IPluginConfigurationMapper>();
-            
-            // Step 4: Discover plugins for bootstrap
-            Console.WriteLine("Discovering plugins...");
-            var discoveryOptions = new PluginDiscoveryOptions
-            {
-                IncludeBuiltInPlugins = true,
-                ScanRecursively = true,
-                PerformValidation = true,
-                DiscoveryTimeout = TimeSpan.FromSeconds(30)
+                EnableConsoleLogging = true,
+                LogLevel = verbose ? LogLevel.Debug : LogLevel.Information
             };
-            
-            var discoveredPlugins = await pluginDiscovery.DiscoverPluginsForBootstrapAsync(discoveryOptions);
-            
-            if (verbose)
-            {
-                Console.WriteLine($"Available plugins: {discoveredPlugins.Count}");
-                foreach (var plugin in discoveredPlugins.Take(5)) // Show first 5
-                {
-                    Console.WriteLine($"  - {plugin.Manifest.Name} ({plugin.Capabilities})");
-                }
-                if (discoveredPlugins.Count > 5)
-                {
-                    Console.WriteLine($"  ... and {discoveredPlugins.Count - 5} more");
-                }
-            }
 
-            // Step 4.5: Discover configuration providers from plugin assemblies
-            Console.WriteLine("Discovering configuration providers...");
-            var providerRegistry = serviceProvider.GetRequiredService<PluginConfigurationProviderRegistry>();
-            var pluginAssemblies = discoveredPlugins
-                .Where(p => !string.IsNullOrEmpty(p.AssemblyPath))
-                .Select(p => Assembly.LoadFrom(p.AssemblyPath))
-                .Distinct()
-                .ToList();
-            
-            var providersDiscovered = await providerRegistry.DiscoverProvidersAsync(pluginAssemblies);
-            
-            if (verbose)
-            {
-                Console.WriteLine($"Discovered {providersDiscovered} configuration providers");
-            }
+            // Step 3: Execute pipeline using facade (Core responsibility)
+            var result = await FlowEngineCoordinator.ExecuteFromFileAsync(configPath, options);
 
-            // Step 5: Load pipeline configuration
-            Console.WriteLine("Loading pipeline configuration...");
-            var yamlContent = await File.ReadAllTextAsync(configPath);
-            var typeResolver = serviceProvider.GetRequiredService<IPluginTypeResolver>();
-            var pipelineConfig = PipelineConfiguration.LoadFromYaml(yamlContent, typeResolver, Microsoft.Extensions.Logging.Abstractions.NullLogger<FlowEngine.Core.Configuration.Yaml.YamlConfigurationParser>.Instance);
-
-            if (verbose)
-            {
-                Console.WriteLine($"Pipeline: {pipelineConfig.Name}");
-                Console.WriteLine($"Plugins: {pipelineConfig.Plugins.Count()}");
-                Console.WriteLine($"Connections: {pipelineConfig.Connections.Count()}");
-            }
-
-            // Step 6: Comprehensive pipeline validation using PipelineValidator
-            Console.WriteLine("Validating pipeline configuration...");
-            var pipelineValidator = serviceProvider.GetRequiredService<PipelineValidator>();
-            var validationResult = await pipelineValidator.ValidatePipelineAsync(pipelineConfig);
-            
-            if (!validationResult.IsValid)
-            {
-                Console.Error.WriteLine("Pipeline validation failed:");
-                foreach (var error in validationResult.Errors)
-                {
-                    Console.Error.WriteLine($"  ❌ {error}");
-                }
-                
-                if (validationResult.Warnings.Count > 0)
-                {
-                    Console.WriteLine("Warnings:");
-                    foreach (var warning in validationResult.Warnings)
-                    {
-                        Console.WriteLine($"  ⚠️  {warning}");
-                    }
-                }
-                return 1;
-            }
-            
-            // Show warnings even on successful validation
-            if (validationResult.Warnings.Count > 0 && verbose)
-            {
-                Console.WriteLine("Validation warnings:");
-                foreach (var warning in validationResult.Warnings)
-                {
-                    Console.WriteLine($"  ⚠️  {warning}");
-                }
-            }
-            
-            if (verbose)
-            {
-                Console.WriteLine($"✅ Pipeline validation passed ({validationResult.ValidatedPluginCount} plugins, {validationResult.ValidatedConnectionCount} connections)");
-            }
-
-            // Step 7: Execute pipeline
-            Console.WriteLine("Executing pipeline...");
-            var result = await coordinator.PipelineExecutor.ExecuteAsync(pipelineConfig);
-
-            // Step 8: Report results
+            // Step 4: Report results (CLI responsibility)
             Console.WriteLine();
             Console.WriteLine("=== Execution Results ===");
             Console.WriteLine($"Status: {(result.IsSuccess ? "SUCCESS" : "FAILED")}");

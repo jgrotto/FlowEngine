@@ -9,6 +9,8 @@
     <OutputType>Library</OutputType>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- Deploy to CLI plugins directory for simplified discovery -->
+    <OutputPath>..\..\src\FlowEngine.Cli\bin\$(Configuration)\net8.0\plugins\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>

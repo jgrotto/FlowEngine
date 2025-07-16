@@ -24,6 +24,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     private DelimitedSinkConfiguration? _configuration;
     private PluginState _state = PluginState.Created;
     private bool _disposed;
+    private DelimitedSinkService? _sinkService;
 
     public DelimitedSinkPlugin(
         ILogger<DelimitedSinkPlugin> logger,
@@ -141,7 +142,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
 
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
 
-        _logger.LogInformation("DelimitedSink plugin initialized successfully for file: {FilePath}",
+        _logger.LogWarning("DEBUG: DelimitedSink plugin initialized successfully for file: {FilePath}",
             sinkConfig.FilePath);
 
         return new PluginInitializationResult
@@ -152,35 +153,53 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         };
     }
 
-    public Task StartAsync(CancellationToken cancellationToken = default)
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting DelimitedSink plugin");
+        _logger.LogWarning("DEBUG: Starting DelimitedSink plugin");
 
         if (_state != PluginState.Initialized)
         {
             throw new InvalidOperationException($"Plugin must be initialized before starting. Current state: {_state}");
         }
 
+        if (_configuration == null)
+        {
+            throw new InvalidOperationException("Plugin must be configured before starting");
+        }
+
+        // Create and initialize the service once at plugin startup
+        _sinkService = GetSinkService();
+        await _sinkService.InitializeAsync(_configuration, cancellationToken);
+
         var oldState = _state;
         _state = PluginState.Running;
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
 
         _logger.LogInformation("DelimitedSink plugin started successfully");
-
-        return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken = default)
+    public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Stopping DelimitedSink plugin");
+
+        // Flush and stop the service if it exists
+        if (_sinkService != null)
+        {
+            try
+            {
+                await _sinkService.StopAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error stopping sink service");
+            }
+        }
 
         var oldState = _state;
         _state = PluginState.Stopped;
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
 
         _logger.LogInformation("DelimitedSink plugin stopped successfully");
-
-        return Task.CompletedTask;
     }
 
     public Task<HotSwapResult> HotSwapAsync(
@@ -371,22 +390,26 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         }
 
         _logger.LogInformation("Starting data consumption to file: {FilePath}", _configuration.FilePath);
+        _logger.LogError("DEBUG: ConsumeAsync called for DelimitedSink - this should only happen once per pipeline execution");
 
         try
         {
-            using var sinkService = GetSinkService();
-
-            // Initialize the service with the configuration
-            await sinkService.InitializeAsync(_configuration, cancellationToken);
-
-            await foreach (var chunk in input.WithCancellation(cancellationToken))
+            if (_sinkService == null)
             {
-                _logger.LogDebug("Consuming chunk with {RowCount} rows", chunk.RowCount);
-                await sinkService.ProcessChunkAsync(chunk, cancellationToken);
+                throw new InvalidOperationException("Service not initialized. Plugin must be started before consuming data.");
             }
 
+            var chunkCount = 0;
+            await foreach (var chunk in input.WithCancellation(cancellationToken))
+            {
+                chunkCount++;
+                _logger.LogError("DEBUG: Processing chunk {ChunkNumber} with {RowCount} rows", chunkCount, chunk.RowCount);
+                await _sinkService.ProcessChunkAsync(chunk, cancellationToken);
+            }
+            _logger.LogError("DEBUG: Finished processing {TotalChunks} chunks", chunkCount);
+
             // Ensure all data is flushed
-            await sinkService.FlushAsync(cancellationToken);
+            await _sinkService.FlushAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -440,6 +463,10 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
             StopAsync().GetAwaiter().GetResult();
         }
 
+        // Dispose of the service if it exists
+        _sinkService?.Dispose();
+        _sinkService = null;
+
         var oldState = _state;
         _disposed = true;
         _state = PluginState.Disposed;
@@ -451,6 +478,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     // Helper method to get the service for writing files
     public DelimitedSinkService GetSinkService()
     {
+        _logger.LogWarning("DEBUG: GetSinkService called - creating new DelimitedSinkService");
         return new DelimitedSinkService(
             this,
             _logger,

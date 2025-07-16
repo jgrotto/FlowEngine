@@ -4,6 +4,9 @@ using FlowEngine.Abstractions.Plugins;
 using FlowEngine.Core.Configuration;
 using FlowEngine.Core.Execution;
 using FlowEngine.Core.Plugins;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 namespace FlowEngine.Core;
 
@@ -335,6 +338,60 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Creates a FlowEngine with default configuration and automatic setup.
+    /// Handles all internal complexity: service registration, plugin discovery, provider setup.
+    /// </summary>
+    public static async Task<FlowEngineCoordinator> CreateDefaultAsync(FlowEngineOptions? options = null)
+    {
+        options ??= new FlowEngineOptions();
+        
+        // Setup services internally (move complexity from CLI)
+        var services = new ServiceCollection();
+        
+        if (options.EnableConsoleLogging)
+        {
+            services.AddLogging(builder => {
+                builder.AddConsole();
+                builder.SetMinimumLevel(options.LogLevel);
+            });
+        }
+        
+        services.AddFlowEngine();
+        var serviceProvider = services.BuildServiceProvider();
+        
+        // Get services
+        var coordinator = serviceProvider.GetRequiredService<FlowEngineCoordinator>();
+        var pluginDiscovery = serviceProvider.GetRequiredService<IPluginDiscoveryService>();
+        var providerRegistry = serviceProvider.GetRequiredService<PluginConfigurationProviderRegistry>();
+        
+        // Perform automatic plugin discovery (simplified)
+        var pluginDirectory = options.PluginDirectory ?? Path.Combine(AppContext.BaseDirectory, "plugins");
+        var discoveredPlugins = await pluginDiscovery.DiscoverPluginsAsync(pluginDirectory);
+        
+        // Setup configuration providers automatically
+        var pluginAssemblies = discoveredPlugins
+            .Where(p => !string.IsNullOrEmpty(p.AssemblyPath))
+            .Select(p => Assembly.LoadFrom(p.AssemblyPath))
+            .Distinct()
+            .ToList();
+            
+        await providerRegistry.DiscoverProvidersAsync(pluginAssemblies);
+        
+        return coordinator;
+    }
+    
+    /// <summary>
+    /// Convenience method to execute a pipeline with minimal setup.
+    /// </summary>
+    public static async Task<PipelineExecutionResult> ExecuteFromFileAsync(
+        string configFilePath, 
+        FlowEngineOptions? options = null)
+    {
+        await using var engine = await CreateDefaultAsync(options);
+        return await engine.ExecutePipelineFromFileAsync(configFilePath);
+    }
+
     private void ThrowIfDisposed()
     {
         if (_disposed)
@@ -343,4 +400,25 @@ public sealed class FlowEngineCoordinator : IAsyncDisposable
         }
     }
 
+}
+
+/// <summary>
+/// Configuration options for FlowEngine initialization.
+/// </summary>
+public class FlowEngineOptions
+{
+    /// <summary>
+    /// Enable console logging output.
+    /// </summary>
+    public bool EnableConsoleLogging { get; set; } = true;
+    
+    /// <summary>
+    /// Minimum log level for console output.
+    /// </summary>
+    public LogLevel LogLevel { get; set; } = LogLevel.Information;
+    
+    /// <summary>
+    /// Directory to discover plugins from. If null, uses default "./plugins/" directory.
+    /// </summary>
+    public string? PluginDirectory { get; set; } = null;
 }

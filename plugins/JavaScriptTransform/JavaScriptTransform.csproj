@@ -5,6 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Deploy to CLI plugins directory for simplified discovery -->
+    <OutputPath>..\..\src\FlowEngine.Cli\bin\$(Configuration)\net8.0\plugins\</OutputPath>
   </PropertyGroup>
 
   <ItemGroup>
