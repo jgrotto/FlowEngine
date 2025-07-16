@@ -142,7 +142,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
 
         StateChanged?.Invoke(this, new PluginStateChangedEventArgs { PreviousState = oldState, CurrentState = _state });
 
-        _logger.LogWarning("DEBUG: DelimitedSink plugin initialized successfully for file: {FilePath}",
+        _logger.LogInformation("DelimitedSink plugin initialized successfully for file: {FilePath}",
             sinkConfig.FilePath);
 
         return new PluginInitializationResult
@@ -155,7 +155,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogWarning("DEBUG: Starting DelimitedSink plugin");
+        _logger.LogInformation("Starting DelimitedSink plugin");
 
         if (_state != PluginState.Initialized)
         {
@@ -390,7 +390,6 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
         }
 
         _logger.LogInformation("Starting data consumption to file: {FilePath}", _configuration.FilePath);
-        _logger.LogError("DEBUG: ConsumeAsync called for DelimitedSink - this should only happen once per pipeline execution");
 
         try
         {
@@ -403,10 +402,8 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
             await foreach (var chunk in input.WithCancellation(cancellationToken))
             {
                 chunkCount++;
-                _logger.LogError("DEBUG: Processing chunk {ChunkNumber} with {RowCount} rows", chunkCount, chunk.RowCount);
                 await _sinkService.ProcessChunkAsync(chunk, cancellationToken);
             }
-            _logger.LogError("DEBUG: Finished processing {TotalChunks} chunks", chunkCount);
 
             // Ensure all data is flushed
             await _sinkService.FlushAsync(cancellationToken);
@@ -478,7 +475,7 @@ public sealed class DelimitedSinkPlugin : ISinkPlugin
     // Helper method to get the service for writing files
     public DelimitedSinkService GetSinkService()
     {
-        _logger.LogWarning("DEBUG: GetSinkService called - creating new DelimitedSinkService");
+        _logger.LogDebug("Creating new DelimitedSinkService");
         return new DelimitedSinkService(
             this,
             _logger,

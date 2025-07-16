@@ -41,7 +41,10 @@
       "Bash(git.exe rm plugins/JavaScriptTransform/TestProgram.cs plugins/JavaScriptTransform/WorkingJavaScriptPlugin.cs)",
       "Bash(git.exe status)",
       "Bash(git.exe add .)",
-      "Bash(time dotnet.exe run:*)"
+      "Bash(time dotnet.exe run:*)",
+      "Bash(awk:*)",
+      "Bash(true)",
+      "Bash(git.exe diff --name-only)"
     ],
     "deny": []
   }
