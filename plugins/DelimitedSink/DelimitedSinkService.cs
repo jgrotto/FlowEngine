@@ -112,7 +112,7 @@ public sealed class DelimitedSinkService : IPluginService
         _csvWriter = new CsvWriter(_streamWriter, csvConfig);
         _headersWritten = sinkConfig.AppendMode; // Skip headers if appending
 
-        _logger.LogInformation("DelimitedSinkService initialized for file: {FilePath}", sinkConfig.FilePath);
+        _logger.LogWarning("DEBUG: DelimitedSinkService initialized for file: {FilePath} with FileMode: {FileMode}", sinkConfig.FilePath, sinkConfig.AppendMode ? "Append" : "Create");
         return Task.CompletedTask;
     }
 
