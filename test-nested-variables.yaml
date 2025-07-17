@@ -1,0 +1,21 @@
+Variables:
+  Environment: "prod"
+  BasePath: "/data/{Environment}"
+  FullPath: "{BasePath}/output"
+
+Pipeline:
+  Name: "Nested Variables Test - {Environment}"
+  Version: "1.0.0"
+  
+  Plugins:
+    - Name: "test-source"
+      Type: "DelimitedSource"
+      Config:
+        FilePath: "{FullPath}/customers.csv"
+        HasHeaders: true
+        OutputSchema:
+          Name: "Test"
+          Columns:
+            - Name: "ID"
+              Type: "String"
+              Index: 0

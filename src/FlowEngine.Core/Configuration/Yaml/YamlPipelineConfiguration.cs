@@ -11,6 +11,11 @@ namespace FlowEngine.Core.Configuration.Yaml;
 public class YamlPipelineConfiguration
 {
     /// <summary>
+    /// Gets or sets the global variables for the pipeline.
+    /// </summary>
+    public Dictionary<string, object>? Variables { get; set; }
+
+    /// <summary>
     /// Gets or sets the pipeline definition.
     /// </summary>
     [Required]

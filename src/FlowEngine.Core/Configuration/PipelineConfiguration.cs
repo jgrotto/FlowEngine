@@ -160,7 +160,7 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
         try
         {
             var parser = new YamlConfigurationParser(logger);
-            var data = await parser.ParseFileAsync(filePath);
+            var data = await parser.ParseFileAsync(filePath, null); // Use the overload that supports global variables
             var config = new PipelineConfiguration(data);
 
             // Resolve plugin types if resolver is provided
@@ -214,7 +214,7 @@ public sealed class PipelineConfiguration : IPipelineConfiguration
         try
         {
             var parser = new YamlConfigurationParser(logger);
-            var data = parser.ParseYamlContent(yamlContent);
+            var data = parser.ParseYamlContent(yamlContent, "", null); // Use the overload that supports global variables
             var config = new PipelineConfiguration(data);
 
             // Resolve plugin types if resolver is provided

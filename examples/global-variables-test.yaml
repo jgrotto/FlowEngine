@@ -1,0 +1,29 @@
+variables:
+  OutputPath: "examples/output"
+  FileBase: "global-vars-test"
+  ProcessingDate: "2025-01-15"
+  InputFile: "examples/data/customers.csv"
+
+pipeline:
+  name: "Global Variables Test Pipeline"
+  version: "1.0.0"
+  description: "Testing global variables functionality with real data"
+  
+  plugins:
+    - name: "source"
+      type: "DelimitedSource"
+      config:
+        FilePath: "{InputFile}"
+        Delimiter: ","
+        HasHeaders: true
+        
+    - name: "sink"
+      type: "DelimitedSink"
+      config:
+        FilePath: "{OutputPath}/{FileBase}_{ProcessingDate}_output.csv"
+        Delimiter: ","
+        AppendMode: false
+        
+  connections:
+    - from: "source"
+      to: "sink"

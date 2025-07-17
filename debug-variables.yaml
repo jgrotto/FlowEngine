@@ -1,0 +1,13 @@
+Variables:
+  TestVar: "Hello World"
+
+Pipeline:
+  Name: "Test {TestVar}"
+  Version: "1.0.0"
+  
+  Plugins:
+    - Name: "test-plugin"
+      Type: "DelimitedSource"
+      Config:
+        FilePath: "{TestVar}.csv"
+        HasHeaders: true
