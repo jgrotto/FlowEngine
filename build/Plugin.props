@@ -1,0 +1,48 @@
+<Project>
+  
+  <!-- Plugin-specific build properties -->
+  <PropertyGroup>
+    <!-- Plugin output configuration -->
+    <OutputPath>..\..\src\FlowEngine.Cli\bin\$(Configuration)\net8.0\plugins\</OutputPath>
+    <UseCommonOutputDirectory>true</UseCommonOutputDirectory>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    
+    <!-- Plugin assembly configuration -->
+    <OutputType>Library</OutputType>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    
+    <!-- Dependency management -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <GenerateRuntimeConfigurationFiles>false</GenerateRuntimeConfigurationFiles>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    
+    <!-- Plugin metadata -->
+    <IsFlowEnginePlugin>true</IsFlowEnginePlugin>
+  </PropertyGroup>
+
+  <!-- Framework packages that should be excluded from output (provided by host) -->
+  <ItemGroup>
+    <PackageReference Update="Microsoft.Extensions.Logging.Abstractions" PrivateAssets="all" />
+    <PackageReference Update="Microsoft.Extensions.DependencyInjection.Abstractions" PrivateAssets="all" />
+    <PackageReference Update="Microsoft.Extensions.Configuration.Abstractions" PrivateAssets="all" />
+    <PackageReference Update="Microsoft.Extensions.Primitives" PrivateAssets="all" />
+    <PackageReference Update="NJsonSchema" PrivateAssets="all" />
+    <PackageReference Update="System.Collections.Immutable" PrivateAssets="all" />
+    <PackageReference Update="System.Diagnostics.DiagnosticSource" PrivateAssets="all" />
+    <PackageReference Update="System.Text.Json" PrivateAssets="all" />
+    <PackageReference Update="System.Text.Encodings.Web" PrivateAssets="all" />
+    <PackageReference Update="Newtonsoft.Json" PrivateAssets="all" />
+    <PackageReference Update="Namotion.Reflection" PrivateAssets="all" />
+    <PackageReference Update="NJsonSchema.Annotations" PrivateAssets="all" />
+    <!-- NOTE: CsvHelper is plugin-specific and should be included -->
+  </ItemGroup>
+
+  <!-- Project references that should not be copied to output -->
+  <ItemGroup>
+    <ProjectReference Update="..\..\src\FlowEngine.Abstractions\FlowEngine.Abstractions.csproj" PrivateAssets="all" />
+    <ProjectReference Update="..\..\src\FlowEngine.Core\FlowEngine.Core.csproj" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

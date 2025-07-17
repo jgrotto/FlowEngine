@@ -1,0 +1,87 @@
+<Project>
+  
+  <!-- Plugin build targets -->
+  <Target Name="ValidatePluginConfiguration" BeforeTargets="Build" Condition="'$(IsFlowEnginePlugin)' == 'true'">
+    <Message Text="Building FlowEngine plugin: $(MSBuildProjectName)" Importance="high" />
+    <Message Text="Plugin output path: $(OutputPath)" Importance="normal" />
+  </Target>
+
+  <!-- Clean up unwanted dependencies in plugin output -->
+  <Target Name="CleanPluginDependencies" AfterTargets="Build" Condition="'$(IsFlowEnginePlugin)' == 'true'">
+    <ItemGroup>
+      <!-- Core assemblies that should be provided by the host -->
+      <UnwantedAssemblies Include="$(OutputPath)FlowEngine.Abstractions.*" />
+      <UnwantedAssemblies Include="$(OutputPath)FlowEngine.Core.*" />
+      
+      <!-- Microsoft Extensions assemblies provided by host -->
+      <UnwantedAssemblies Include="$(OutputPath)Microsoft.Extensions.*" />
+      
+      <!-- System assemblies provided by runtime -->
+      <UnwantedAssemblies Include="$(OutputPath)System.*" />
+      
+      <!-- JSON and configuration assemblies provided by host -->
+      <UnwantedAssemblies Include="$(OutputPath)Newtonsoft.Json.*" />
+      <UnwantedAssemblies Include="$(OutputPath)NJsonSchema*" />
+      <UnwantedAssemblies Include="$(OutputPath)Namotion.Reflection.*" />
+      <UnwantedAssemblies Include="$(OutputPath)YamlDotNet.*" />
+      <UnwantedAssemblies Include="$(OutputPath)Acornima.*" />
+      <UnwantedAssemblies Include="$(OutputPath)Jint.*" />
+      
+      <!-- Dependency JSON files -->
+      <UnwantedAssemblies Include="$(OutputPath)*.deps.json" />
+      <UnwantedAssemblies Include="$(OutputPath)*.runtimeconfig.json" />
+      
+      <!-- Runtime folders -->
+      <UnwantedFolders Include="$(OutputPath)runtimes" />
+      <UnwantedFolders Include="$(OutputPath)net8.0" />
+    </ItemGroup>
+    
+    <!-- Preserve plugin-specific dependencies before removing unwanted ones -->
+    <ItemGroup>
+      <WantedAssemblies Include="$(OutputPath)CsvHelper.*" />
+      <!-- Add other plugin-specific dependencies here -->
+    </ItemGroup>
+    
+    <!-- Remove wanted assemblies from unwanted list -->
+    <ItemGroup>
+      <UnwantedAssemblies Remove="@(WantedAssemblies)" />
+    </ItemGroup>
+    
+    <!-- Remove unwanted assemblies -->
+    <Delete Files="@(UnwantedAssemblies)" ContinueOnError="true" />
+    <RemoveDir Directories="@(UnwantedFolders)" ContinueOnError="true" />
+    
+    <Message Text="Cleaned plugin dependencies for $(MSBuildProjectName)" Importance="normal" />
+  </Target>
+
+  <!-- Copy plugin-specific dependencies that were preserved -->
+  <Target Name="CopyPluginSpecificDependencies" AfterTargets="CleanPluginDependencies" Condition="'$(IsFlowEnginePlugin)' == 'true'">
+    <ItemGroup>
+      <!-- Find CsvHelper in the NuGet packages if this plugin uses it -->
+      <CsvHelperReference Include="@(PackageReference)" Condition="'%(Identity)' == 'CsvHelper'" />
+      <CsvHelperPath Include="$(NuGetPackageRoot)csvhelper\%(CsvHelperReference.Version)\lib\net8.0\CsvHelper.dll" Condition="@(CsvHelperReference) != '' and Exists('$(NuGetPackageRoot)csvhelper\%(CsvHelperReference.Version)\lib\net8.0\CsvHelper.dll')" />
+      
+      <!-- Fallback: search common NuGet locations -->
+      <CsvHelperPath Include="$(USERPROFILE)\.nuget\packages\csvhelper\*\lib\net8.0\CsvHelper.dll" Condition="@(CsvHelperPath) == '' and @(CsvHelperReference) != ''" />
+    </ItemGroup>
+    
+    <!-- Copy CsvHelper if found and needed -->
+    <Copy SourceFiles="@(CsvHelperPath)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" ContinueOnError="true" Condition="@(CsvHelperPath) != ''" />
+    <Message Text="Copied CsvHelper.dll for $(MSBuildProjectName)" Importance="normal" Condition="@(CsvHelperPath) != ''" />
+    
+    <Message Text="Copied plugin-specific dependencies for $(MSBuildProjectName)" Importance="normal" />
+  </Target>
+
+  <!-- Copy plugin-specific assets -->
+  <Target Name="CopyPluginAssets" AfterTargets="CopyPluginSpecificDependencies" Condition="'$(IsFlowEnginePlugin)' == 'true'">
+    <ItemGroup>
+      <!-- Copy plugin.json manifest if it exists -->
+      <PluginManifest Include="$(MSBuildProjectDirectory)\plugin.json" Condition="Exists('$(MSBuildProjectDirectory)\plugin.json')" />
+    </ItemGroup>
+    
+    <Copy SourceFiles="@(PluginManifest)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" ContinueOnError="true" />
+    
+    <Message Text="Copied plugin assets for $(MSBuildProjectName)" Importance="normal" />
+  </Target>
+
+</Project>

@@ -1,16 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Import plugin build configuration -->
+  <Import Project="..\..\build\Plugin.props" />
+
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningsAsErrors />
-    <OutputType>Library</OutputType>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <!-- Deploy to CLI plugins directory for simplified discovery -->
-    <OutputPath>..\..\src\FlowEngine.Cli\bin\$(Configuration)\net8.0\plugins\</OutputPath>
+    <!-- Plugin-specific properties -->
+    <AssemblyName>DelimitedSource</AssemblyName>
+    <RootNamespace>DelimitedSource</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,5 +23,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Schemas\DelimitedSourceConfiguration.json" />
   </ItemGroup>
+
+  <!-- Import plugin build targets -->
+  <Import Project="..\..\build\Plugin.targets" />
 
 </Project>
